@@ -92,8 +92,8 @@ object TestGroups {
       "tests.classFinder.ClassBreakpointSuite",
       "tests.classFinder.ClassNameResolverSuite", "tests.JavaDefinitionSuite",
       "tests.IdentifierComparatorSuite", "tests.parsing.JavaEditDistanceSuite",
-      "tests.PathTrieSuite")
-      ,Set("tests.SemanticHighlightLspSuite") //debugging
+      "tests.PathTrieSuite"),
+    Set("tests.SemanticHighlightLspSuite") // debugging
   )
 
 }

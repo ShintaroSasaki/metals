@@ -325,71 +325,77 @@ class Compilers(
   ): Future[SemanticTokens] = {
     scribe.info("Debug: Compiliers.semanticTokens:Start")
 
-    //Probably extra prcess is needed to construct vFile for Scala 3. See didchange.
+    // Probably extra prcess is needed to construct vFile for Scala 3. See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
     val uri = path.toNIO.toUri()
-    val input= path.toInputFromBuffers(buffers)
-    val vFile=CompilerVirtualFileParams(uri, input.value)
+    val input = path.toInputFromBuffers(buffers)
+    val vFile = CompilerVirtualFileParams(uri, input.value)
 
-     val strList = loadCompiler(path).map{
-        pc => 
-          pc.semanticTokens(vFile)
-          .asScala
-          .map{
-            plist => plist
-          }
+    val strList = loadCompiler(path).map { pc =>
+      pc.semanticTokens(vFile)
+        .asScala
+        .map { plist =>
+          plist
+        }
 
-      }
-      //   .asScala.onComplete{
-      //   case Success(value) => value
-      //   case Failuer(e) => 
-      //     scribe.info("Result from token : " + e.printStactrace())            
-      //     List[String]()
-      // }
+    }
+    //   .asScala.onComplete{
+    //   case Success(value) => value
+    //   case Failuer(e) =>
+    //     scribe.info("Result from token : " + e.printStactrace())
+    //     List[String]()
+    // }
 
-      // }.getOrElse(Future.successful(List[String]()))
+    // }.getOrElse(Future.successful(List[String]()))
 
-     Thread.sleep(5000) //for debug
+    Thread.sleep(5000) // for debug
     scribe.info("Result from token : " + strList.toString())
 
-    //Sample Return value for Demo
-    val expectedToken:List[Integer] =List(
-      //1:deltaLine, 2:deltaStartChar, 3:length, 
-      //4:tokenType, 5:tokenModifiers
-      1, 7,  4, 1,  0, //Main, No-Modifier
-      0, 9,  3, 11, 0, //add,  No-Modifier
-      0, 4,  1, 6,  0, //a of "a:int",  No-Modifier
-      0, 11, 1, 6, 0 //a of "a + 1",  No-Modifier
+    // Sample Return value for Demo
+    val expectedToken: List[Integer] = List(
+      // 1:deltaLine, 2:deltaStartChar, 3:length,
+      // 4:tokenType, 5:tokenModifiers
+      0, 0, 6, 14, 0, // object, keyword
+      0, 1, 4, 1, 0, // Main, class
+      1, 2, 3, 14, 0, // def, keyword
+      0, 1, 3, 12, 0, // add,  method
+      1, 5, 1, 6, 0, // a,  parameter
+      0, 3, 3, 0, 0, // Int, type
+      0, 4, 1, 7, 0 // i, variable
     )
+    """|<<object>>/*14*/ <<Main>>/*1*/{
+       |  <<def>>/*14*/ <<add>>/*12*/
+       |    (<<a>>/*6*/ : <<Int>>/*0*/) = <<i>>/*7*/
+       |}""".stripMargin
 
-    //return value
+    // return value
     Future.successful(new SemanticTokens(expectedToken.asJava))
 
   }
 
-
   def ref_completions(
       params: CompletionParams,
       token: CancelToken
-  ): Future[CompletionList] ={
+  ): Future[CompletionList] = {
 
     val path = params.getTextDocument.getUri.toAbsolutePath
-    loadCompiler(path).map { 
-      pc =>
-        //Get offsetParams
-        val (input, adjustRequest, _) = 
+    loadCompiler(path)
+      .map { pc =>
+        // Get offsetParams
+        val (input, adjustRequest, _) =
           sourceMapper.pcMapping(path, pc.scalaVersion())
         val metaPos = adjustRequest(params.getPosition()).toMeta(input)
         val offsetParams = CompilerOffsetParams.fromPos(metaPos, token)
 
-        //Getting token
+        // Getting token
         pc.complete(offsetParams)
-        .asScala
-        .map { list =>
-          // adjust.adjustCompletionListInPlace(list)
-          list
-        }
-    }.getOrElse(Future.successful(new CompletionList(Nil.asJava)))
+          .asScala
+          .map { list =>
+            // adjust.adjustCompletionListInPlace(list)
+            list
+          }
+      }
+      .getOrElse(Future.successful(new CompletionList(Nil.asJava)))
   }
 
   // sasaki dev area is over↑
@@ -674,8 +680,9 @@ class Compilers(
     val path = params.getTextDocument.getUri.toAbsolutePath
     loadCompiler(path).map { compiler =>
       val (input, pos, adjust) = sourceAdjustments(
-          params,compiler.scalaVersion()
-        )
+        params,
+        compiler.scalaVersion()
+      )
       val metaPos = pos.toMeta(input)
       fn(compiler, metaPos, adjust)
     }

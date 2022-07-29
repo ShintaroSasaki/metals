@@ -110,6 +110,7 @@ import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.WorkspaceFolder
 import org.eclipse.{lsp4j => l}
 import tests.MetalsTestEnrichments._
+import scala.collection.immutable
 
 /**
  * Wrapper around `MetalsLanguageServer` with helpers methods for testing purposes.
@@ -1190,10 +1191,9 @@ final class TestingServer(
       codeActions.map(_.getTitle()).mkString("\n")
     )
 
-
   def assertSemanticHighlight(
       filePath: String,
-      expectedTokensData: List[Int]
+      expected: String
   ): Future[Unit] = {
     scribe.info("Debug:assertSemanticHighlight: Start")
 
@@ -1203,13 +1203,65 @@ final class TestingServer(
     for {
       obtainedTokens <- server.semanticTokensFull(params).asScala
     } yield {
+      val all = obtainedTokens
+        .getData()
+        .asScala
+        .grouped(5)
+        .map(_.toList)
+        .map {
+          case List(
+                deltaLine,
+                deltaStartChar,
+                length,
+                tokenType,
+                _
+              ) => // modifiers ignored for now
+            (
+              new l.Position(deltaLine, deltaStartChar),
+              length,
+              server.SeverSemanticTokenTypes.get(tokenType)
+            )
+          case _ => throw new RuntimeException("Expected output dvidable by 5")
+        }
+        .toList
+
+      def updatePositions(
+          positions: List[(l.Position, Integer, String)],
+          last: l.Position,
+          lastLength: Integer
+      ): Unit = {
+        positions match {
+          case (head, len, _) :: next =>
+            if (head.getLine() != 0)
+              head.setLine(last.getLine() + head.getLine())
+            else {
+              head.setLine(last.getLine())
+              head.setCharacter(
+                lastLength + last.getCharacter() + head.getCharacter()
+              )
+            }
+            updatePositions(next, head, len)
+          case Nil =>
+        }
+      }
+      updatePositions(all, new l.Position(0, 0), 0)
+
+      val edits = all.map { case (pos, len, typ) =>
+        val startEdit = new l.TextEdit(new l.Range(pos, pos), "<<")
+        val end = new l.Position(pos.getLine(), pos.getCharacter() + len)
+        val endEdit = new l.TextEdit(new l.Range(end, end), s">>/*${typ}*/")
+        List(startEdit, endEdit)
+      }.flatten
+
+      val fileContent =
+        expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
+      val obtained = TextEdits.applyEdits(fileContent, edits)
       Assertions.assertNoDiff(
-        expectedTokensData.sorted.mkString("\n"), 
-        obtainedTokens.getData().asScala.sorted.mkString("\n")
+        obtained,
+        expected
       )
     }
   }
-
 
   def assertHighlight(
       filename: String,

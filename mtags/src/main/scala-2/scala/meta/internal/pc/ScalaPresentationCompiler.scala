@@ -121,10 +121,10 @@ case class ScalaPresentationCompiler(
   // { line: 2, startChar: 10, length: 4, tokenType: "type", tokenModifiers: [] },
   def semanticTokens(
       params: VirtualFileParams
-   ): CompletableFuture[ju.List[String]] = {
-  //  ): CompletableFuture[ju.List[String]] = {
-  //  ): CompletableFuture[ju.List[TextEdit]] = {
-    import scala.collection.mutable.ListBuffer 
+  ): CompletableFuture[ju.List[String]] = {
+    //  ): CompletableFuture[ju.List[String]] = {
+    //  ): CompletableFuture[ju.List[TextEdit]] = {
+    import scala.collection.mutable.ListBuffer
     import scala.tools.nsc.ast.parser.Tokens
 
     logger.info("Debug : Scala-PC :")
@@ -136,8 +136,10 @@ case class ScalaPresentationCompiler(
 // try {
     compilerAccess.withInterruptableCompiler(empty, params.token) { pc =>
       logger.info(" --getting from pc---")
-      val scanner = pc.compiler()
-        .newUnitParser(params.text()).newScanner()
+      val scanner = pc
+        .compiler()
+        .newUnitParser(params.text())
+        .newScanner()
       scanner.init()
       val tokenBuffer = ListBuffer.empty[String]
       // val buffer = ListBuffer.empty[Integer]
@@ -146,8 +148,8 @@ case class ScalaPresentationCompiler(
 
       var logString = params.text()
       // logString ++="\n" + "tokenName : " + token.getName.toString()
-      val strSep= ",  "//"\n"
-      val linSep= "\n"
+      val strSep = ",  " // "\n"
+      val linSep = "\n"
 
       while (scanner.token != Tokens.EOF) {
         val token = scanner.token
@@ -157,28 +159,31 @@ case class ScalaPresentationCompiler(
             lastOffset = scanner.offset
           // SemanticTokenTypes.Keyword -> 1
           case _ =>
-            
-            tokenBuffer.addAll(List(
-              token.toString()
-            ,  line.toString()
-            ,  (scanner.offset - lastOffset).toString // start offset
-            ,  scanner.name.toString //Tername
-            ,  scanner.strVal
-            ,  scanner.base.toString()
-            ))
+            tokenBuffer.addAll(
+              List(
+                token.toString(),
+                line.toString(),
+                (scanner.offset - lastOffset).toString // start offset
+                ,
+                scanner.name.toString // Tername
+                ,
+                scanner.strVal,
+                scanner.base.toString()
+              )
+            )
             logString ++= linSep
             logString ++= strSep + "token : " + token.toString()
-            logString ++= strSep + "line : " +  line.toString()
-            logString ++= strSep + "start offset : " +  (scanner.offset - lastOffset).toString
-            logString ++= strSep + "termname : "  + scanner.name.toString
-            logString ++= strSep + "strVal : " +  scanner.strVal
-            logString ++= strSep + "base : " +  scanner.base.toString()
-            //Tokens.DEF
-            // convert offset to line and character
-            // scanner.offset -> (line, character)
-            // length is 3, type is 1, no modifiers currently
-            // val character = scanner.offset - lastOffset
-            // buffer.addAll(List(line, character, 3, 1, 0))
+            logString ++= strSep + "line : " + line.toString()
+            logString ++= strSep + "start offset : " + (scanner.offset - lastOffset).toString
+            logString ++= strSep + "termname : " + scanner.name.toString
+            logString ++= strSep + "strVal : " + scanner.strVal
+            logString ++= strSep + "base : " + scanner.base.toString()
+          // Tokens.DEF
+          // convert offset to line and character
+          // scanner.offset -> (line, character)
+          // length is 3, type is 1, no modifiers currently
+          // val character = scanner.offset - lastOffset
+          // buffer.addAll(List(line, character, 3, 1, 0))
         }
         // val o = scanner.offset
         scanner.nextToken()
