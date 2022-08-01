@@ -848,7 +848,7 @@ class MetalsLanguageServer(
         capabilities.setFoldingRangeProvider(true)
         capabilities.setSelectionRangeProvider(true)
         capabilities.setSemanticTokensProvider(
-          defaultSemanticTokensServerCapability
+          SemanticTokenCapability.defaultServerCapability
         )
         capabilities.setCodeLensProvider(new CodeLensOptions(false))
         capabilities.setDefinitionProvider(true)
@@ -1633,60 +1633,17 @@ class MetalsLanguageServer(
       params: SemanticTokensParams
   ): CompletableFuture[SemanticTokens] = {
     scribe.info("Debug: MetalsLanguageServer.semanticHighlighting: Start")
-    CancelTokens.future { token => compilers.semanticTokens(params, token) }
+
+    CancelTokens.future { token => 
+      compilers.semanticTokens(
+        params
+        ,SemanticTokenCapability.TokenTypes
+        ,SemanticTokenCapability.TokenModifiers
+        ,token
+
+      )
+    }
   }
-
-  val SeverSemanticTokenTypes = List(
-    SemanticTokenTypes.Type,
-    SemanticTokenTypes.Class,
-    SemanticTokenTypes.Enum, // 3
-    SemanticTokenTypes.Interface, // 4
-    SemanticTokenTypes.Struct, // 5
-    SemanticTokenTypes.TypeParameter, // 6
-    SemanticTokenTypes.Parameter, // 7
-    SemanticTokenTypes.Variable, // 8
-    SemanticTokenTypes.Property, // 9
-    SemanticTokenTypes.EnumMember, // 10
-    SemanticTokenTypes.Event, // 11
-    SemanticTokenTypes.Function, // 12
-    SemanticTokenTypes.Method, // 13
-    SemanticTokenTypes.Macro, // 14
-    SemanticTokenTypes.Keyword, // 15
-    SemanticTokenTypes.Modifier,
-    SemanticTokenTypes.Comment,
-    SemanticTokenTypes.String,
-    SemanticTokenTypes.Number,
-    SemanticTokenTypes.Regexp,
-    SemanticTokenTypes.Operator,
-    SemanticTokenTypes.Decorator
-  ).asJava
-
-  val SeverSemanticTokenModifiers = List(
-    SemanticTokenModifiers.Declaration,
-    SemanticTokenModifiers.Definition,
-    SemanticTokenModifiers.Readonly,
-    SemanticTokenModifiers.Static,
-    SemanticTokenModifiers.Deprecated,
-    SemanticTokenModifiers.Abstract,
-    SemanticTokenModifiers.Async,
-    SemanticTokenModifiers.Modification,
-    SemanticTokenModifiers.Documentation,
-    SemanticTokenModifiers.DefaultLibrary
-  ).asJava
-
-  val defaultSemanticTokensServerCapability
-      : SemanticTokensWithRegistrationOptions =
-    new org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions(
-      new SemanticTokensLegend(
-        SeverSemanticTokenTypes,
-        SeverSemanticTokenModifiers
-      ), // legend used in this server.
-      new SemanticTokensServerFull(
-        false
-      ), // Method 'full' is supported, but 'full/delta' is not.
-      false, // Method 'range' is not supported.
-      null // Dynamic registration is not supported.
-    )
 
   @JsonRequest("textDocument/completion")
   def completion(params: CompletionParams): CompletableFuture[CompletionList] =

@@ -117,89 +117,84 @@ case class ScalaPresentationCompiler(
 
   def didClose(uri: URI): Unit = {}
 
-  /// under development s.sasaki ↓
-  // { line: 2, startChar: 10, length: 4, tokenType: "type", tokenModifiers: [] },
-  def semanticTokens(
-      params: VirtualFileParams
-  ): CompletableFuture[ju.List[String]] = {
-    //  ): CompletableFuture[ju.List[String]] = {
-    //  ): CompletableFuture[ju.List[TextEdit]] = {
-    import scala.collection.mutable.ListBuffer
+  override def semanticTokens(
+      params: VirtualFileParams,
+      capableTypes: util.List[String],
+      capableModifiers: util.List[String]
+   ): CompletableFuture[ju.List[Integer]] = {
+    import scala.collection.mutable.ListBuffer 
     import scala.tools.nsc.ast.parser.Tokens
 
     logger.info("Debug : Scala-PC :")
 
-    // val empty: ju.List[TextEdit] = new ju.ArrayList[TextEdit]()
-    val empty: ju.List[String] = new ju.ArrayList[String]()
+    val empty: ju.List[Integer] = new ju.ArrayList[Integer]()
 
     logger.info(" --Before compilerAccess---")
-// try {
+
     compilerAccess.withInterruptableCompiler(empty, params.token) { pc =>
       logger.info(" --getting from pc---")
-      val scanner = pc
-        .compiler()
-        .newUnitParser(params.text())
-        .newScanner()
+      val scanner = pc.compiler()
+        .newUnitParser(params.text()).newScanner()
       scanner.init()
-      val tokenBuffer = ListBuffer.empty[String]
-      // val buffer = ListBuffer.empty[Integer]
-      var line = 1
-      var lastOffset = 0
+
+      val buffer = ListBuffer.empty[Integer]
+      var absLine = 1
+      var lastAbsLineOffset = 0
+      var lastAbsLine=0
+      var lastStartChar=0
 
       var logString = params.text()
-      // logString ++="\n" + "tokenName : " + token.getName.toString()
-      val strSep = ",  " // "\n"
-      val linSep = "\n"
-
+      val strSep= ",  "
+      val linSep= "\n"
+      
       while (scanner.token != Tokens.EOF) {
         val token = scanner.token
         token match {
           case Tokens.NEWLINE | Tokens.NEWLINES =>
-            line += 1
-            lastOffset = scanner.offset
-          // SemanticTokenTypes.Keyword -> 1
+            absLine += 1
+            lastAbsLineOffset = scanner.offset
           case _ =>
-            tokenBuffer.addAll(
-              List(
-                token.toString(),
-                line.toString(),
-                (scanner.offset - lastOffset).toString // start offset
-                ,
-                scanner.name.toString // Tername
-                ,
-                scanner.strVal,
-                scanner.base.toString()
-              )
-            )
+            val tokenType = TokenClassifier.getTokenType(token,capableTypes.asScala.toList)
+            val tokeModifier =  TokenClassifier.getTokenModifier(token,capableModifiers.asScala.toList)
+            if (tokenType == 0 && tokeModifier ==0)
+            {/* I want to break fro match-statement */ }else  {
+
+              //convert lines and StartChar into "relative"
+              val deltaLine= absLine - lastAbsLine
+              val absStartChar = scanner.offset - lastAbsLineOffset
+              val deltaStartChar= if (deltaLine==0) scanner.offset - lastStartChar
+                                  else absStartChar
+              lastAbsLine = absLine
+              lastStartChar = absStartChar
+
+              //Build List to return
+              buffer.addAll(List(
+                      deltaLine,//1
+                      deltaStartChar, //2
+                      scanner.name.toString.length, //3
+                      tokenType, // 4
+                      tokeModifier //5
+                    ))
+            }
+
+
             logString ++= linSep
             logString ++= strSep + "token : " + token.toString()
-            logString ++= strSep + "line : " + line.toString()
-            logString ++= strSep + "start offset : " + (scanner.offset - lastOffset).toString
-            logString ++= strSep + "termname : " + scanner.name.toString
-            logString ++= strSep + "strVal : " + scanner.strVal
-            logString ++= strSep + "base : " + scanner.base.toString()
-          // Tokens.DEF
-          // convert offset to line and character
-          // scanner.offset -> (line, character)
-          // length is 3, type is 1, no modifiers currently
-          // val character = scanner.offset - lastOffset
-          // buffer.addAll(List(line, character, 3, 1, 0))
+            logString ++= strSep + "absLine : " +  absLine.toString()
+            logString ++= strSep + "abs start offset : " +  (scanner.offset - lastAbsLineOffset).toString
+            logString ++= strSep + "termname : "  + scanner.name.toString
+            logString ++= strSep + "strVal : " +  scanner.strVal
+            logString ++= strSep + "base : " +  scanner.base.toString()
         }
-        // val o = scanner.offset
         scanner.nextToken()
 
       }
-
       logger.info(logString)
       logger.info(" --compiler process end---")
-      // new SemanticTokens(buffer.toList.asJava)
-      tokenBuffer.toList.asJava
+
+      buffer.toList.asJava
       Nil.asJava
     }
-// }catch{
-//     case e:Exception => logger.info(e.toString())
-//     new CompletableFuture[ju.List[String]]()
-// }
   }
   /// under development ↑
   override def complete(

@@ -321,55 +321,36 @@ class Compilers(
 
   def semanticTokens(
       params: SemanticTokensParams,
+      capableTypes:List[String],
+      capableModifiers:List[String],
       token: CancelToken
   ): Future[SemanticTokens] = {
     scribe.info("Debug: Compiliers.semanticTokens:Start")
 
-    // Probably extra prcess is needed to construct vFile for Scala 3. See didchange.
+    // Probably extra prcess is needed to construct vFile for Scala 3.
+    // See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
     val uri = path.toNIO.toUri()
     val input = path.toInputFromBuffers(buffers)
     val vFile = CompilerVirtualFileParams(uri, input.value)
 
-    val strList = loadCompiler(path).map { pc =>
-      pc.semanticTokens(vFile)
+    loadCompiler(path).map { pc =>
+      pc.semanticTokens(vFile,capableTypes.asJava,capableModifiers.asJava)
         .asScala
         .map { plist =>
-          plist
-        }
+                // Thread.sleep(5000) // for debug
+                scribe.info("Result from token : " + plist.toString())
+                new SemanticTokens(plist)}
+    }.getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
 
-    }
-    //   .asScala.onComplete{
-    //   case Success(value) => value
-    //   case Failuer(e) =>
-    //     scribe.info("Result from token : " + e.printStactrace())
-    //     List[String]()
-    // }
 
-    // }.getOrElse(Future.successful(List[String]()))
-
-    Thread.sleep(5000) // for debug
-    scribe.info("Result from token : " + strList.toString())
-
-    // Sample Return value for Demo
-    val expectedToken: List[Integer] = List(
-      // 1:deltaLine, 2:deltaStartChar, 3:length,
-      // 4:tokenType, 5:tokenModifiers
-      0, 0, 6, 14, 0, // object, keyword
-      0, 1, 4, 1, 0, // Main, class
-      1, 2, 3, 14, 0, // def, keyword
-      0, 1, 3, 12, 0, // add,  method
-      1, 5, 1, 6, 0, // a,  parameter
-      0, 3, 3, 0, 0, // Int, type
-      0, 4, 1, 7, 0 // i, variable
-    )
-    """|<<object>>/*14*/ <<Main>>/*1*/{
-       |  <<def>>/*14*/ <<add>>/*12*/
-       |    (<<a>>/*6*/ : <<Int>>/*0*/) = <<i>>/*7*/
-       |}""".stripMargin
+    // """|<<object>>/*14*/ <<Main>>/*1*/{
+    //    |  <<def>>/*14*/ <<add>>/*12*/
+    //    |    (<<a>>/*6*/ : <<Int>>/*0*/) = <<i>>/*7*/
+    //    |}""".stripMargin
 
     // return value
-    Future.successful(new SemanticTokens(expectedToken.asJava))
+    // Future.successful(new SemanticTokens(strList))
 
   }
 
