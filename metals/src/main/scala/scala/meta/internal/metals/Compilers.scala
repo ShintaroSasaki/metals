@@ -339,7 +339,7 @@ class Compilers(
         .asScala
         .map { plist =>
                 // Thread.sleep(5000) // for debug
-                scribe.info("Result from token : " + plist.toString())
+                scribe.info("Result from token : " + plist.size().toString())
                 new SemanticTokens(plist)}
     }.getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
 

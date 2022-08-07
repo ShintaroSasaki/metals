@@ -20,8 +20,9 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
   def check(
       name: TestOptions,
-      content: String
+      expected: String
   ) = {
+    val fileContent = expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
     test(name) {
       for {
         // potentially we could derive input from
@@ -29,14 +30,15 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
           s"""/metals.json
              |{"a":{}}
              |/a/src/main/scala/a/Main.scala
-             |${content.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")}
+             |${fileContent}
              |""".stripMargin,
           expectError = true
         )
         _ <- server.didOpen("a/src/main/scala/a/Main.scala")
         _ <- server.assertSemanticHighlight(
           "a/src/main/scala/a/Main.scala",
-          content
+          expected,
+          fileContent
         )
       } yield ()
     }

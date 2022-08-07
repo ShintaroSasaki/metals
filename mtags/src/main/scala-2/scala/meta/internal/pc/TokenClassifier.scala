@@ -4,6 +4,8 @@ package scala.meta.internal.pc
 import scala.tools.nsc.ast.parser.Tokens
 import org.eclipse.lsp4j.SemanticTokenTypes
 import org.eclipse.lsp4j.SemanticTokenModifiers
+import java.util.logging.Logger
+
 
 /** Associate scala.tools.nsc.ast.parser.Tokens
  *  with LSP semanticToken types, and modifiers.
@@ -16,6 +18,9 @@ class TokenClassifier {
 
 object  TokenClassifier {
 
+  val logger: Logger =Logger.getLogger(classOf[ScalaPresentationCompiler].getName)
+
+  /** This function returns 0 when capable Type is nothing. */
   def getTokenType(token: Int, capableTypes:List[String]):Integer={
     token match {
         // case Tokens.STRINGPART  => capableTypes.indexOf(SemanticTokenTypes.?)
@@ -35,13 +40,13 @@ object  TokenClassifier {
 
         /** templates */
         case Tokens.CASECLASS  => capableTypes.indexOf(SemanticTokenTypes.Class)
-        case Tokens.OBJECT  => capableTypes.indexOf(SemanticTokenTypes.Class)
+        case Tokens.OBJECT  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
         case Tokens.CASEOBJECT  => capableTypes.indexOf(SemanticTokenTypes.Class)
         case Tokens.TRAIT  => capableTypes.indexOf(SemanticTokenTypes.Interface)
         case Tokens.WITH  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
         case Tokens.TYPE  => capableTypes.indexOf(SemanticTokenTypes.Class)
         case Tokens.FORSOME  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
-        case Tokens.DEF  => capableTypes.indexOf(SemanticTokenTypes.Function)
+        case Tokens.DEF  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
         case Tokens.VAL  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
         case Tokens.VAR  => capableTypes.indexOf(SemanticTokenTypes.Keyword)
 
@@ -131,11 +136,11 @@ object  TokenClassifier {
         // case Tokens.COLON  => capableTypes.indexOf(SemanticTokenTypes.?)
         case Tokens.EQUALS  => capableTypes.indexOf(SemanticTokenTypes.Operator)
         // case Tokens.AT  => capableTypes.indexOf(SemanticTokenTypes.?)
-
-        case _ => null
-    }
+        case _ => -1
+    } 
 }
 
+  /** This function returns 0 when capableModifier is nothing. */
   def getTokenModifier(token: Int, capableMods:List[String]):Integer={
     val place:Double = token match {
         // case Tokens.PROTECTED  => capableMods.indexOf(SemanticTokenModifiers.?)
@@ -144,13 +149,21 @@ object  TokenClassifier {
         // case Tokens.FINAL  => capableMods.indexOf(SemanticTokenModifiers.?)
         case _ => -1
     }
+    var strlog = ""
     var mods = 0
-    if (place >= 0 ){
-        mods = mods + scala.math.pow(2, place).toInt //
+    if (place == -1 ){
+      mods = 0
+    } else {
+      mods = mods + scala.math.pow(2, place).toInt //
     }
+    // strlog ++=  "\n place :" + place.toString()
+    // strlog ++=  "** mods :" + mods.toString()
+    // strlog ++=  "** mods B :" + mods.toBinaryString
+    // strlog ++=  "** mods I :" + mods.toBinaryString.toInt.toString()
+    // logger.info(strlog)
+
     mods.toBinaryString.toInt
   }
-
 
 
 }

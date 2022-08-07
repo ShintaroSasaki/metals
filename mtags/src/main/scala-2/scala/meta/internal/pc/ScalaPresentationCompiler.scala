@@ -122,7 +122,7 @@ case class ScalaPresentationCompiler(
       capableTypes: util.List[String],
       capableModifiers: util.List[String]
    ): CompletableFuture[ju.List[Integer]] = {
-    import scala.collection.mutable.ListBuffer 
+    import scala.collection.mutable.ListBuffer
     import scala.tools.nsc.ast.parser.Tokens
 
     logger.info("Debug : Scala-PC :")
@@ -138,7 +138,7 @@ case class ScalaPresentationCompiler(
       scanner.init()
 
       val buffer = ListBuffer.empty[Integer]
-      var absLine = 1
+      var absLine = 0
       var lastAbsLineOffset = 0
       var lastAbsLine=0
       var lastStartChar=0
@@ -146,18 +146,58 @@ case class ScalaPresentationCompiler(
       var logString = params.text()
       val strSep= ",  "
       val linSep= "\n"
-      
+
+val b
+=
+1
+val a=b
+logger.info(a.toString())
+
+      logger.info(" --getting from pc---")
+
       while (scanner.token != Tokens.EOF) {
+        
+        // Detecting Line Break
+        if (lastAbsLineOffset != scanner.lineStartOffset
+          ){
+            if (
+              // exclude the case When charOffset is end of line which has 2 word or more.
+              scanner.lineStartOffset != scanner.charOffset && scanner.offset != scanner.lastLineStartOffset
+              // add the case  when a line has only 1 word.
+              || scanner.lineStartOffset == scanner.charOffset && scanner.offset == scanner.lastLineStartOffset)
+               {
+                logString ++= "\n Ex-NewLne"
+                logString ++= strSep + "sc.offset : " +  (scanner.offset).toString
+                absLine += 1
+                lastAbsLineOffset =scanner.lineStartOffset
+
+              }
+          }
+
         val token = scanner.token
+
+        //logging
+        logString ++= linSep
+        logString ++= "token : " + token.toString()
+        logString ++= strSep + "termname : "  + scanner.name.toString
+        logString ++= strSep + "buff : " +  (scanner.buf(scanner.offset)).toString
+        logString ++= strSep + "absLine : " +  absLine.toString
+        logString ++= strSep + "offset : " +  (scanner.offset).toString
+        logString ++= strSep + "charOffset : " +  (scanner.charOffset).toString
+        logString ++= strSep + "LnStt : " +  (scanner.lineStartOffset).toString
+        logString ++= strSep + "lstLnStt : " +  (scanner.lastLineStartOffset).toString
+
+        //building Semantic Token
         token match {
           case Tokens.NEWLINE | Tokens.NEWLINES =>
-            absLine += 1
-            lastAbsLineOffset = scanner.offset
+            logString ++= linSep + "Tokens.NewLne"
+            logString ++= strSep + "sc.offset : " +  (scanner.offset).toString
           case _ =>
             val tokenType = TokenClassifier.getTokenType(token,capableTypes.asScala.toList)
             val tokeModifier =  TokenClassifier.getTokenModifier(token,capableModifiers.asScala.toList)
-            if (tokenType == 0 && tokeModifier ==0)
-            {/* I want to break fro match-statement */ }else  {
+
+            if (tokenType == -1 && tokeModifier == 0)
+            {/* I want to break from match-statement */ }else  {
 
               //convert lines and StartChar into "relative"
               val deltaLine= absLine - lastAbsLine
@@ -175,25 +215,20 @@ case class ScalaPresentationCompiler(
                       tokenType, // 4
                       tokeModifier //5
                     ))
+              logString ++= strSep +"tokenType : " + tokenType.toString()
+              logString ++= strSep +"tokMeodifier : " + tokeModifier.toString()
             }
 
 
-            logString ++= linSep
-            logString ++= strSep + "token : " + token.toString()
-            logString ++= strSep + "absLine : " +  absLine.toString()
-            logString ++= strSep + "abs start offset : " +  (scanner.offset - lastAbsLineOffset).toString
-            logString ++= strSep + "termname : "  + scanner.name.toString
-            logString ++= strSep + "strVal : " +  scanner.strVal
-            logString ++= strSep + "base : " +  scanner.base.toString()
         }
+
         scanner.nextToken()
 
       }
       logger.info(logString)
-      logger.info(" --compiler process end---")
+      logger.info(" --compiler process end--- return size:" + buffer.toList.size.toString())
 
       buffer.toList.asJava
-      Nil.asJava
     }
   }
   /// under development ↑

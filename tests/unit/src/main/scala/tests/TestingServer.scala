@@ -1193,16 +1193,20 @@ final class TestingServer(
 
   def assertSemanticHighlight(
       filePath: String,
-      expected: String
+      expected: String,
+      fileContent: String
   ): Future[Unit] = {
-    scribe.info("Debug:assertSemanticHighlight: Start")
+    import scala.meta.internal.metals.SemanticTokenCapability
+    scribe.info("\n Debug:  assertSemanticHighlight: Start")
 
     val uri = toPath(filePath).toTextDocumentIdentifier
     val params = new org.eclipse.lsp4j.SemanticTokensParams(uri)
 
+    //Getting semantic tokens from testee function
     for {
       obtainedTokens <- server.semanticTokensFull(params).asScala
     } yield {
+      scribe.info("\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",") )
       val all = obtainedTokens
         .getData()
         .asScala
@@ -1219,12 +1223,23 @@ final class TestingServer(
             (
               new l.Position(deltaLine, deltaStartChar),
               length,
-              server.SeverSemanticTokenTypes.get(tokenType)
+              SemanticTokenCapability.TokenTypes(tokenType)
             )
           case _ => throw new RuntimeException("Expected output dvidable by 5")
         }
         .toList
 
+      var strlog1=""
+      var i=0 
+      while (i<=2){
+        strlog1 ++="\n Line:" + all(i)._1.getLine().toString()
+        strlog1 ++=", offset:" + all(i)._1.getCharacter().toString()
+        strlog1 ++=", Integer:" + all(i)._2.toString()
+        strlog1 ++=", String:" + all(i)._3.toString()
+        i += 1
+      }
+      scribe.info(strlog1)
+      
       def updatePositions(
           positions: List[(l.Position, Integer, String)],
           last: l.Position,
@@ -1246,6 +1261,7 @@ final class TestingServer(
       }
       updatePositions(all, new l.Position(0, 0), 0)
 
+      // Build textEdits which convert e.g. 'def'  to  '<<def>>/*keyword*/'
       val edits = all.map { case (pos, len, typ) =>
         val startEdit = new l.TextEdit(new l.Range(pos, pos), "<<")
         val end = new l.Position(pos.getLine(), pos.getCharacter() + len)
@@ -1253,9 +1269,26 @@ final class TestingServer(
         List(startEdit, endEdit)
       }.flatten
 
-      val fileContent =
-        expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
+      
+      // Decorate fileContent with textEdits built from testee return
       val obtained = TextEdits.applyEdits(fileContent, edits)
+
+      val editsLog:List[String] = edits.map{
+          et =>
+            var str = "\n NewText : " + et.getNewText
+            str += "      , ##Start : Line " + et.getRange.getStart().getLine()
+            str += "  , Char " + et.getRange.getStart().getCharacter()
+            str += "  , ##End : Line " + et.getRange.getEnd().getLine()
+            str += "  , Char " + et.getRange.getEnd().getCharacter()
+            str
+        }
+      var strlog =""
+      strlog  +=  "\n edits: \n" + editsLog.mkString(" ")
+      strlog  +=  "\n fileContent: \n" + fileContent
+      strlog  +=  "\n obtained: \n" + obtained
+      strlog  +="\n expected: \n" + expected
+      // scribe.info(strlog)
+
       Assertions.assertNoDiff(
         obtained,
         expected
