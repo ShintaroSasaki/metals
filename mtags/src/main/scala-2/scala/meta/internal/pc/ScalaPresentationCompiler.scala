@@ -147,12 +147,6 @@ case class ScalaPresentationCompiler(
       val strSep= ",  "
       val linSep= "\n"
 
-val b
-=
-1
-val a=b
-logger.info(a.toString())
-
       logger.info(" --getting from pc---")
 
       while (scanner.token != Tokens.EOF) {
