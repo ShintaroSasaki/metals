@@ -1231,16 +1231,18 @@ final class TestingServer(
 
       var strlog1=""
       var i=0 
-      while (i<=2){
+
+      //before update
+      strlog1 ++= "\n content of all : Before Update "
+      while (i<=all.size-1){
         strlog1 ++="\n Line:" + all(i)._1.getLine().toString()
         strlog1 ++=", offset:" + all(i)._1.getCharacter().toString()
         strlog1 ++=", Integer:" + all(i)._2.toString()
         strlog1 ++=", String:" + all(i)._3.toString()
         i += 1
       }
-      scribe.info(strlog1)
       
-      def updatePositions(
+      def updatePositions_FromRelativeToAbolute(
           positions: List[(l.Position, Integer, String)],
           last: l.Position,
           lastLength: Integer
@@ -1252,16 +1254,30 @@ final class TestingServer(
             else {
               head.setLine(last.getLine())
               head.setCharacter(
-                lastLength + last.getCharacter() + head.getCharacter()
+                last.getCharacter() + head.getCharacter()
               )
             }
-            updatePositions(next, head, len)
+            updatePositions_FromRelativeToAbolute(next, head, len)
           case Nil =>
         }
       }
-      updatePositions(all, new l.Position(0, 0), 0)
+      updatePositions_FromRelativeToAbolute(all, new l.Position(0, 0), 0)
 
-      // Build textEdits which convert e.g. 'def'  to  '<<def>>/*keyword*/'
+
+      //After update 
+      strlog1 ++= "\n\n content of all :After Update   \n"
+      i=0
+      while (i<=all.size-1){
+        strlog1 ++="\n Line:" + all(i)._1.getLine().toString()
+        strlog1 ++=", offset:" + all(i)._1.getCharacter().toString()
+        strlog1 ++=", Integer:" + all(i)._2.toString()
+        strlog1 ++=", String:" + all(i)._3.toString()
+        i += 1
+      }
+      scribe.info(strlog1 +"\n ")
+
+
+      // Build textEdits  e.g. which converts 'def'  to  '<<def>>/*keyword*/'
       val edits = all.map { case (pos, len, typ) =>
         val startEdit = new l.TextEdit(new l.Range(pos, pos), "<<")
         val end = new l.Position(pos.getLine(), pos.getCharacter() + len)
@@ -1283,11 +1299,11 @@ final class TestingServer(
             str
         }
       var strlog =""
-      strlog  +=  "\n edits: \n" + editsLog.mkString(" ")
+      // strlog  +=  "\n edits: \n" + editsLog.mkString(" ")
       strlog  +=  "\n fileContent: \n" + fileContent
       strlog  +=  "\n obtained: \n" + obtained
       strlog  +="\n expected: \n" + expected
-      // scribe.info(strlog)
+      scribe.info(strlog)
 
       Assertions.assertNoDiff(
         obtained,

@@ -137,12 +137,12 @@ case class ScalaPresentationCompiler(
     var absLine = 0
     var lastAbsLineOffset = 0
     var lastAbsLine=0
-    var lastStartChar=0
+    var lastCharStartOffset=0
 
-    var logString = params.text()
     val strSep= ",  "
     val linSep= "\n"
     val exTokens = params.text().tokenize.get
+    var logString = linSep + params.text()
 
     logger.info("\n meta.TOKENS : " + exTokens.size.toString)
     // val testValue= exTokens.map { x => f"${x.structure}%10s -> ${x.getClass}" }.mkString("\n")
@@ -151,20 +151,22 @@ case class ScalaPresentationCompiler(
     for (tk <- compilerTokens ) yield{
     // while (i= 0 to compilerTokens.size - 1){
       val testValue= f"${tk.structure}%10s -> ${tk.getClass}" 
-      logger.info("\n tokenContent : " + testValue + "\n")
       logString += linSep
-      logString = logString + "token : " + tk.getClass.toString
+      logString = logString + "token : " + tk.getClass.toString.substring(29)
       logString += strSep + "start : "  + tk.pos.start.toString
       logString += strSep + "end : "  + tk.pos.end.toString
-      logString += strSep + "startLine : "  + tk.pos.startLine.toString
-      logString += strSep + "endLine : "  + tk.pos.endLine.toString
+      logString += strSep + "sttLn : "  + tk.pos.startLine.toString
+      logString += strSep + "endLn : "  + tk.pos.endLine.toString
       logString += strSep + "text : "  + tk.text
 
       tk match {
-        case Token.LF => 
+        case _: Token.LF => 
               logString ++= "\n NewLne"
               absLine += 1
-              lastAbsLineOffset =tk.pos.startLine
+              lastAbsLineOffset =tk.pos.end
+              logString ++= ", Offset:" + lastAbsLineOffset.toString()
+              
+        
         case _ =>
           val tokenType = TokenClassifier.getTokenType(tk,capableTypes.asScala.toList)
           val tokeModifier =  TokenClassifier.getTokenModifier(tk,capableModifiers.asScala.toList)
@@ -178,12 +180,18 @@ case class ScalaPresentationCompiler(
             //convert lines and StartChar into "relative"
             val deltaLine= absLine - lastAbsLine
             val absStartChar = tk.pos.start - lastAbsLineOffset
-            val deltaStartChar= if (deltaLine==0) tk.pos.start - lastStartChar
+
+          logString ++= strSep +"deltaLine : " +  deltaLine.toString
+          logString ++= strSep +"lastAbsLineOffset : " +  lastAbsLineOffset.toString
+          logString ++= strSep +"lastCharStartOffset : " +  lastCharStartOffset.toString
+          
+
+            val deltaStartChar= if (deltaLine==0) tk.pos.start - lastCharStartOffset
                                 else absStartChar
             val characterSize = tk.text.size
-            //update controller
+            //update counter
             lastAbsLine = absLine
-            lastStartChar = absStartChar
+            lastCharStartOffset = tk.pos.start
 
             //Build List to return
             buffer.addAll(
