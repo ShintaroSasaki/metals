@@ -124,107 +124,95 @@ case class ScalaPresentationCompiler(
    ): CompletableFuture[ju.List[Integer]] = {
     import scala.collection.mutable.ListBuffer
     import scala.tools.nsc.ast.parser.Tokens
-
+    import scala.meta._
     logger.info("Debug : Scala-PC :")
 
     val empty: ju.List[Integer] = new ju.ArrayList[Integer]()
 
     logger.info(" --Before compilerAccess---")
 
-    compilerAccess.withInterruptableCompiler(empty, params.token) { pc =>
-      logger.info(" --getting from pc---")
-      val scanner = pc.compiler()
-        .newUnitParser(params.text()).newScanner()
-      scanner.init()
+    // val tree = params.text().parse[Source].get
 
-      val buffer = ListBuffer.empty[Integer]
-      var absLine = 0
-      var lastAbsLineOffset = 0
-      var lastAbsLine=0
-      var lastStartChar=0
+    val buffer = ListBuffer.empty[Integer]
+    var absLine = 0
+    var lastAbsLineOffset = 0
+    var lastAbsLine=0
+    var lastStartChar=0
 
-      var logString = params.text()
-      val strSep= ",  "
-      val linSep= "\n"
+    var logString = params.text()
+    val strSep= ",  "
+    val linSep= "\n"
+    val exTokens = params.text().tokenize.get
 
-      logger.info(" --getting from pc---")
+    logger.info("\n meta.TOKENS : " + exTokens.size.toString)
+    // val testValue= exTokens.map { x => f"${x.structure}%10s -> ${x.getClass}" }.mkString("\n")
+    // logger.info("\n tokenContent : " + testValue + "\n")
+    val compilerTokens = params.text().tokenize.get
+    for (tk <- compilerTokens ) yield{
+    // while (i= 0 to compilerTokens.size - 1){
+      val testValue= f"${tk.structure}%10s -> ${tk.getClass}" 
+      logger.info("\n tokenContent : " + testValue + "\n")
+      logString += linSep
+      logString = logString + "token : " + tk.getClass.toString
+      logString += strSep + "start : "  + tk.pos.start.toString
+      logString += strSep + "end : "  + tk.pos.end.toString
+      logString += strSep + "startLine : "  + tk.pos.startLine.toString
+      logString += strSep + "endLine : "  + tk.pos.endLine.toString
+      logString += strSep + "text : "  + tk.text
 
-      while (scanner.token != Tokens.EOF) {
-        
-        // Detecting Line Break
-        if (lastAbsLineOffset != scanner.lineStartOffset
-          ){
-            if (
-              // exclude the case When charOffset is end of line which has 2 word or more.
-              scanner.lineStartOffset != scanner.charOffset && scanner.offset != scanner.lastLineStartOffset
-              // add the case  when a line has only 1 word.
-              || scanner.lineStartOffset == scanner.charOffset && scanner.offset == scanner.lastLineStartOffset)
-               {
-                logString ++= "\n Ex-NewLne"
-                logString ++= strSep + "sc.offset : " +  (scanner.offset).toString
-                absLine += 1
-                lastAbsLineOffset =scanner.lineStartOffset
+      tk match {
+        case Token.LF => 
+              logString ++= "\n NewLne"
+              absLine += 1
+              lastAbsLineOffset =tk.pos.startLine
+        case _ =>
+          val tokenType = TokenClassifier.getTokenType(tk,capableTypes.asScala.toList)
+          val tokeModifier =  TokenClassifier.getTokenModifier(tk,capableModifiers.asScala.toList)
 
-              }
-          }
+          logString ++= strSep +"tokenType : " + tokenType.toString()
+          logString ++= strSep +"tokMeodifier : " + tokeModifier.toString()
 
-        val token = scanner.token
+          if (tokenType == -1 && tokeModifier == 0)
+          {/* I want to break from match-statement */ }else  {
 
-        //logging
-        logString ++= linSep
-        logString ++= "token : " + token.toString()
-        logString ++= strSep + "termname : "  + scanner.name.toString
-        logString ++= strSep + "buff : " +  (scanner.buf(scanner.offset)).toString
-        logString ++= strSep + "absLine : " +  absLine.toString
-        logString ++= strSep + "offset : " +  (scanner.offset).toString
-        logString ++= strSep + "charOffset : " +  (scanner.charOffset).toString
-        logString ++= strSep + "LnStt : " +  (scanner.lineStartOffset).toString
-        logString ++= strSep + "lstLnStt : " +  (scanner.lastLineStartOffset).toString
+            //convert lines and StartChar into "relative"
+            val deltaLine= absLine - lastAbsLine
+            val absStartChar = tk.pos.start - lastAbsLineOffset
+            val deltaStartChar= if (deltaLine==0) tk.pos.start - lastStartChar
+                                else absStartChar
+            val characterSize = tk.text.size
+            //update controller
+            lastAbsLine = absLine
+            lastStartChar = absStartChar
 
-        //building Semantic Token
-        token match {
-          case Tokens.NEWLINE | Tokens.NEWLINES =>
-            logString ++= linSep + "Tokens.NewLne"
-            logString ++= strSep + "sc.offset : " +  (scanner.offset).toString
-          case _ =>
-            val tokenType = TokenClassifier.getTokenType(token,capableTypes.asScala.toList)
-            val tokeModifier =  TokenClassifier.getTokenModifier(token,capableModifiers.asScala.toList)
-
-            if (tokenType == -1 && tokeModifier == 0)
-            {/* I want to break from match-statement */ }else  {
-
-              //convert lines and StartChar into "relative"
-              val deltaLine= absLine - lastAbsLine
-              val absStartChar = scanner.offset - lastAbsLineOffset
-              val deltaStartChar= if (deltaLine==0) scanner.offset - lastStartChar
-                                  else absStartChar
-              lastAbsLine = absLine
-              lastStartChar = absStartChar
-
-              //Build List to return
-              buffer.addAll(List(
+            //Build List to return
+            buffer.addAll(
+              List(
                       deltaLine,//1
                       deltaStartChar, //2
-                      scanner.name.toString.length, //3
+                      characterSize, //3
                       tokenType, // 4
                       tokeModifier //5
-                    ))
-              logString ++= strSep +"tokenType : " + tokenType.toString()
-              logString ++= strSep +"tokMeodifier : " + tokeModifier.toString()
-            }
+                    )
+            )
+          }
+
+      } // end match
+
+    }// end for
 
 
-        }
+    logger.info(logString)
+    logger.info(" --compiler process end--- return size:" + buffer.toList.size.toString())
 
-        scanner.nextToken()
-
-      }
-      logger.info(logString)
-      logger.info(" --compiler process end--- return size:" + buffer.toList.size.toString())
-
+    //Just adjust return type
+    compilerAccess.withInterruptableCompiler(empty, params.token) { pc =>
       buffer.toList.asJava
     }
+
   }
+
+
   /// under development ↑
   override def complete(
       params: OffsetParams
