@@ -99,9 +99,6 @@ import org.eclipse.lsp4j.jsonrpc.messages.{Either => JEither}
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import org.eclipse.lsp4j.jsonrpc.services.JsonRequest
 import org.eclipse.{lsp4j => l}
-import ujson.False
-import ujson.True
-import scala.tools.nsc.doc.model.Public
 
 class MetalsLanguageServer(
     ec: ExecutionContextExecutorService,
