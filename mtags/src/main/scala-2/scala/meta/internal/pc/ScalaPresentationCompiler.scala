@@ -134,7 +134,7 @@ case class ScalaPresentationCompiler(
     // val tree = params.text().parse[Source].get
 
     val buffer = ListBuffer.empty[Integer]
-    var absLine = 0
+    var currentLine = 0
     var lastNewlineOffset = 0
     var lastAbsLine=0
     var lastCharStartOffset=0
