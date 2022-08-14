@@ -155,9 +155,9 @@ case class ScalaPresentationCompiler(
       tk match {
         case _: Token.LF => 
               logString ++= "\n NewLne"
-              absLine += 1
-              lastAbsLineOffset =tk.pos.end
-              logString ++= ", Offset:" + lastAbsLineOffset.toString()
+              currentLine += 1
+              lastNewlineOffset =tk.pos.end
+              logString ++= ", Offset:" + lastNewlineOffset.toString()
               
         
         case _ =>
@@ -171,11 +171,11 @@ case class ScalaPresentationCompiler(
           {/* I want to break from match-statement */ }else  {
 
             //convert lines and StartChar into "relative"
-            val deltaLine= absLine - lastAbsLine
-            val absStartChar = tk.pos.start - lastAbsLineOffset
+            val deltaLine= currentLine - lastAbsLine
+            val absStartChar = tk.pos.start - lastNewlineOffset
 
           logString ++= strSep +"deltaLine : " +  deltaLine.toString
-          logString ++= strSep +"lastAbsLineOffset : " +  lastAbsLineOffset.toString
+          logString ++= strSep +"lastNewlineOffset : " +  lastNewlineOffset.toString
           logString ++= strSep +"lastCharStartOffset : " +  lastCharStartOffset.toString
           
 
@@ -183,7 +183,7 @@ case class ScalaPresentationCompiler(
                                 else absStartChar
             val characterSize = tk.text.size
             //update counter
-            lastAbsLine = absLine
+            lastAbsLine = currentLine
             lastCharStartOffset = tk.pos.start
 
             //Build List to return
