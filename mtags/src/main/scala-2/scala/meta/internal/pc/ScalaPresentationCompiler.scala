@@ -131,7 +131,6 @@ case class ScalaPresentationCompiler(
 
     logger.info(" --Before compilerAccess---")
 
-    // val tree = params.text().parse[Source].get
 
     val buffer = ListBuffer.empty[Integer]
     var absLine = 0
@@ -141,16 +140,10 @@ case class ScalaPresentationCompiler(
 
     val strSep= ",  "
     val linSep= "\n"
-    val exTokens = params.text().tokenize.get
     var logString = linSep + params.text()
 
-    logger.info("\n meta.TOKENS : " + exTokens.size.toString)
-    // val testValue= exTokens.map { x => f"${x.structure}%10s -> ${x.getClass}" }.mkString("\n")
-    // logger.info("\n tokenContent : " + testValue + "\n")
     val compilerTokens = params.text().tokenize.get
     for (tk <- compilerTokens ) yield{
-    // while (i= 0 to compilerTokens.size - 1){
-      val testValue= f"${tk.structure}%10s -> ${tk.getClass}" 
       logString += linSep
       logString = logString + "token : " + tk.getClass.toString.substring(29)
       logString += strSep + "start : "  + tk.pos.start.toString

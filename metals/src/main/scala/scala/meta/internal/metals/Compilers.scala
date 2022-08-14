@@ -354,30 +354,6 @@ class Compilers(
 
   }
 
-  def ref_completions(
-      params: CompletionParams,
-      token: CancelToken
-  ): Future[CompletionList] = {
-
-    val path = params.getTextDocument.getUri.toAbsolutePath
-    loadCompiler(path)
-      .map { pc =>
-        // Get offsetParams
-        val (input, adjustRequest, _) =
-          sourceMapper.pcMapping(path, pc.scalaVersion())
-        val metaPos = adjustRequest(params.getPosition()).toMeta(input)
-        val offsetParams = CompilerOffsetParams.fromPos(metaPos, token)
-
-        // Getting token
-        pc.complete(offsetParams)
-          .asScala
-          .map { list =>
-            // adjust.adjustCompletionListInPlace(list)
-            list
-          }
-      }
-      .getOrElse(Future.successful(new CompletionList(Nil.asJava)))
-  }
 
   // sasaki dev area is over↑
 

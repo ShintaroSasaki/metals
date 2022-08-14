@@ -60,10 +60,10 @@ object  TokenClassifier {
       case _ :Token.KwNew => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _ :Token.KwNull => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _ :Token.KwObject => capableTypes.indexOf(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwOverride => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
+      case _ :Token.KwOverride => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _ :Token.KwPackage => capableTypes.indexOf(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwPrivate => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
-      // case _ :Token.KwProtected => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
+      case _ :Token.KwPrivate => capableTypes.indexOf(SemanticTokenTypes.Keyword)
+      case _ :Token.KwProtected => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _ :Token.KwReturn => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       // case _ :Token.KwSealed => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
       case _ :Token.KwSuper => capableTypes.indexOf(SemanticTokenTypes.Keyword)
@@ -93,19 +93,19 @@ object  TokenClassifier {
       case _ :Token.Underscore => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _ :Token.TypeLambdaArrow => capableTypes.indexOf(SemanticTokenTypes.Operator)
       case _ :Token.ContextArrow => capableTypes.indexOf(SemanticTokenTypes.Operator)
-      case _ :Token.MacroQuote => capableTypes.indexOf(SemanticTokenTypes.Keyword)
-      case _ :Token.MacroSplice => capableTypes.indexOf(SemanticTokenTypes.Keyword)
+      // case _ :Token.MacroQuote => 
+      // case _ :Token.MacroSplice => 
       
       // // Delimiters
-      // case _ :Token.LeftParen => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.RightParen => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.Comma => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.Dot => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.Semicolon => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.LeftBracket => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.RightBracket => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.LeftBrace => capableTypes.indexOf(SemanticTokenTypes.???)
-      // case _ :Token.RightBrace => capableTypes.indexOf(SemanticTokenTypes.???)
+      // case _ :Token.LeftParen =>
+      // case _ :Token.RightParen =>
+      // case _ :Token.Comma => 
+      // case _ :Token.Dot => 
+      // case _ :Token.Semicolon => 
+      // case _ :Token.LeftBracket => 
+      // case _ :Token.RightBracket => 
+      // case _ :Token.LeftBrace => 
+      // case _ :Token.RightBrace => 
 
       //Default
       case _ => -1
@@ -117,14 +117,15 @@ object  TokenClassifier {
   /** This function returns 0 when capableModifier is nothing. */
   def getTokenModifier(tk: scala.meta.tokens.Token, capableMods:List[String]):Integer={
 
+    /* 
+      We will need the typed tree for this to check symbol flags.
+    */
+
     val place:Double = tk match {
       case _ :Token.KwAbstract => capableMods.indexOf(SemanticTokenModifiers.Abstract)      
       case _ :Token.KwFinal => capableMods.indexOf(SemanticTokenModifiers.Modification)
       case _ :Token.KwImplicit => capableMods.indexOf(SemanticTokenModifiers.Modification)
       case _ :Token.KwLazy => capableMods.indexOf(SemanticTokenModifiers.Static)
-      case _ :Token.KwOverride => capableMods.indexOf(SemanticTokenModifiers.Modification)
-      case _ :Token.KwPrivate => capableMods.indexOf(SemanticTokenModifiers.Modification)
-      case _ :Token.KwProtected => capableMods.indexOf(SemanticTokenModifiers.Modification)
       case _ :Token.KwSealed => capableMods.indexOf(SemanticTokenModifiers.Modification)
       case _ => -1
     }
