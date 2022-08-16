@@ -38,6 +38,8 @@ import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.SignatureHelpTriggerKind
 import com.google.protobuf.struct.NullValue
+import scala.annotation.tailrec
+import scala.meta.pc.SymbolDocumentation
 
 case class ScalaPresentationCompiler(
     buildTargetIdentifier: String = "",
@@ -118,6 +120,13 @@ case class ScalaPresentationCompiler(
 
   def didClose(uri: URI): Unit = {}
 
+
+object Main{
+  def add(a : Int) = {
+    a + 1
+   }
+}
+
   override def semanticTokens(
       params: VirtualFileParams,
       capableTypes: util.List[String],
@@ -133,7 +142,6 @@ case class ScalaPresentationCompiler(
 
       logger.info(linSep + "Debug : Scala-PC :" + linSep)
 
-
     // Get Typed tree
     compilerAccess.withNonInterruptableCompiler(
       null, params.token
@@ -146,13 +154,43 @@ case class ScalaPresentationCompiler(
         None
       )
       cp.typeCheck(unit) // a process such as initializing
+
+      var counter = 0
+      def treeDescriber(t : cp.Tree) : String = {
+        var ret = ""
+        if (counter == 0) {
+          ret +=  "\n NodesNum: " + t.id.toString
+        }
+        counter += 1
+        ret +=  linSep
+
+        ret +=  ("000" + counter.toString()).takeRight(3) + "  "
+        try {
+          ret +=   "pos:" + t.pos.start.toString() + strSep + t.pos.end.toString()
+        } catch {case _ => }
+        ret +=  strSep +"Childs:" + t.children.size.toString()
+        try {ret += strSep + "sym:" + t.symbol.toString()  } catch {case _=>}
+        
+        ret +=  strSep + "Typ:" + t.tpe.toString()
+        ret +=  strSep + "smry:" + t.summaryString.toString()
+        ret +=  strSep + "NumOfFree:(" 
+        ret +=  t.freeTerms.size.toString() 
+        ret +=  strSep +t.freeTypes.size.toString() 
+        ret +=  strSep + t.freeSyms.size.toString() +")"
+
+        // recursive
+        ret +=  t.children.map( treeDescriber(_) ).mkString("\n")
+
+        // end
+        ret
+      
+      } 
       val wkTree:cp.Tree = unit.lastBody
-      var treeLogStr = "\n \n NumberOfNodes : " + wkTree.id.toString
-      treeLogStr +=  "\n Element_0 :" + wkTree.productElementName(0)
-      treeLogStr +=  "\n Element_10 :" + wkTree.productElementName(10)
-      treeLogStr +=  "\n "
+      var treeLogStr = treeDescriber(wkTree)
+      // treeLogStr +=  "\n freeTerms :" + wkTree.freeTerms(0).toString()
+      // treeLogStr +=  "\n Nodes :" + wkTree.children(0).id.toString()
       // wkTree.foreach(t => linSep + t.Type.toString())
-      logger.info(treeLogStr)
+      logger.info(treeLogStr + linSep)
 
       null
       // val pos = unit.position(params.offset())
@@ -168,6 +206,8 @@ case class ScalaPresentationCompiler(
 
       
     }
+
+    Thread.sleep(2000) 
 
     // Get Tokens
     val empty: ju.List[Integer] = new ju.ArrayList[Integer]()
@@ -239,7 +279,6 @@ case class ScalaPresentationCompiler(
     }// end for
 
     logger.info(logString)
-    logger.info(" --compiler process end--- return size:" + buffer.toList.size.toString())
 
     //Just adjust return type
     compilerAccess.withInterruptableCompiler(empty, params.token) { pc =>
