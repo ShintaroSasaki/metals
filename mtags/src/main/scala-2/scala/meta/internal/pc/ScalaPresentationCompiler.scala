@@ -37,6 +37,7 @@ import org.eclipse.lsp4j.SelectionRange
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextEdit
 import org.eclipse.lsp4j.SignatureHelpTriggerKind
+import com.google.protobuf.struct.NullValue
 
 case class ScalaPresentationCompiler(
     buildTargetIdentifier: String = "",
@@ -123,24 +124,59 @@ case class ScalaPresentationCompiler(
       capableModifiers: util.List[String]
    ): CompletableFuture[ju.List[Integer]] = {
     import scala.collection.mutable.ListBuffer
-    import scala.tools.nsc.ast.parser.Tokens
     import scala.meta._
-    logger.info("Debug : Scala-PC :")
+    
+  
+    val strSep= ",  "
+    val linSep= "\n"
+    var logString = linSep + params.text()
 
+      logger.info(linSep + "Debug : Scala-PC :" + linSep)
+
+
+    // Get Typed tree
+    compilerAccess.withNonInterruptableCompiler(
+      null, params.token
+    ) { pc =>
+      logger.info("\n Tree-trace start:\n ")
+      val cp = pc.compiler()
+      val unit =cp.addCompilationUnit(
+        params.text(),
+        params.uri().toString(),
+        None
+      )
+      cp.typeCheck(unit) // a process such as initializing
+      val wkTree:cp.Tree = unit.lastBody
+      var treeLogStr = "\n \n NumberOfNodes : " + wkTree.id.toString
+      treeLogStr +=  "\n Element_0 :" + wkTree.productElementName(0)
+      treeLogStr +=  "\n Element_10 :" + wkTree.productElementName(10)
+      treeLogStr +=  "\n "
+      // wkTree.foreach(t => linSep + t.Type.toString())
+      logger.info(treeLogStr)
+
+      null
+      // val pos = unit.position(params.offset())
+      // val tree = definitionTypedTreeAt(pos)
+     
+      // val map = unit.lastBody.collect{
+      //   case df @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => name -> df.symbol
+      // }
+      // get symbol from offset.
+      // val pos = unit.position(params.offset)
+      // val context = cp.doLocateImportContext(pos)
+      // context.lookupSymbol(name,_)
+
+      
+    }
+
+    // Get Tokens
     val empty: ju.List[Integer] = new ju.ArrayList[Integer]()
-
-    logger.info(" --Before compilerAccess---")
-
-
     val buffer = ListBuffer.empty[Integer]
     var currentLine = 0
     var lastNewlineOffset = 0
     var lastAbsLine=0
     var lastCharStartOffset=0
 
-    val strSep= ",  "
-    val linSep= "\n"
-    var logString = linSep + params.text()
 
     val compilerTokens = params.text().tokenize.get
     for (tk <- compilerTokens ) yield{
@@ -174,9 +210,9 @@ case class ScalaPresentationCompiler(
             val deltaLine= currentLine - lastAbsLine
             val absStartChar = tk.pos.start - lastNewlineOffset
 
-          logString ++= strSep +"deltaLine : " +  deltaLine.toString
-          logString ++= strSep +"lastNewlineOffset : " +  lastNewlineOffset.toString
-          logString ++= strSep +"lastCharStartOffset : " +  lastCharStartOffset.toString
+          // logString ++= strSep +"deltaLine : " +  deltaLine.toString
+          // logString ++= strSep +"lastNewlineOffset : " +  lastNewlineOffset.toString
+          // logString ++= strSep +"lastCharStartOffset : " +  lastCharStartOffset.toString
           
 
             val deltaStartChar= if (deltaLine==0) tk.pos.start - lastCharStartOffset
@@ -201,7 +237,6 @@ case class ScalaPresentationCompiler(
       } // end match
 
     }// end for
-
 
     logger.info(logString)
     logger.info(" --compiler process end--- return size:" + buffer.toList.size.toString())

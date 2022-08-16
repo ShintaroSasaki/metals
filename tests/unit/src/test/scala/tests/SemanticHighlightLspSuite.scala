@@ -19,6 +19,17 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |}""".stripMargin
   )
 
+  // check(
+  //   ".sbt file",
+  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/
+  //       |
+  //       |    (<<a>>/*parameter*/ : <<Int>>/*type*/) = <<i>>/*variable*/
+  //       |}""".stripMargin
+  // )
+
+
   def check(
       name: TestOptions,
       expected: String

@@ -330,6 +330,10 @@ class Compilers(
     // Probably extra prcess is needed to construct vFile for Scala 3.
     // See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
+
+    //return empty list for inappropriate file
+    if (path.isScalaScript || path.isSbt) {return Future{new SemanticTokens() }}
+
     val uri = path.toNIO.toUri()
     val input = path.toInputFromBuffers(buffers)
     val vFile = CompilerVirtualFileParams(uri, input.value)
