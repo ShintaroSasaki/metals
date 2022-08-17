@@ -1631,13 +1631,12 @@ class MetalsLanguageServer(
   ): CompletableFuture[SemanticTokens] = {
     scribe.info("Debug: MetalsLanguageServer.semanticHighlighting: Start")
 
-    CancelTokens.future { token => 
+    CancelTokens.future { token =>
       compilers.semanticTokens(
-        params
-        ,SemanticTokenCapability.TokenTypes
-        ,SemanticTokenCapability.TokenModifiers
-        ,token
-
+        params,
+        SemanticTokenCapability.TokenTypes,
+        SemanticTokenCapability.TokenModifiers,
+        token
       )
     }
   }

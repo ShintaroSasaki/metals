@@ -3,9 +3,8 @@ package scala.meta.internal.metals
 import org.eclipse.lsp4j._
 import scala.collection.JavaConverters._
 
-
-object  SemanticTokenCapability{
-   var TokenTypes:List[String] = List(
+object SemanticTokenCapability {
+  var TokenTypes: List[String] = List(
     SemanticTokenTypes.Type,
     SemanticTokenTypes.Class,
     SemanticTokenTypes.Enum, // 3
@@ -28,9 +27,9 @@ object  SemanticTokenCapability{
     SemanticTokenTypes.Regexp,
     SemanticTokenTypes.Operator,
     SemanticTokenTypes.Decorator
-   )
+  )
 
-  var TokenModifiers:List[String] = List(
+  var TokenModifiers: List[String] = List(
     SemanticTokenModifiers.Declaration,
     SemanticTokenModifiers.Definition,
     SemanticTokenModifiers.Readonly,
@@ -43,8 +42,7 @@ object  SemanticTokenCapability{
     SemanticTokenModifiers.DefaultLibrary
   )
 
-  val defaultServerCapability
-      : SemanticTokensWithRegistrationOptions =
+  val defaultServerCapability: SemanticTokensWithRegistrationOptions =
     new org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions(
       new SemanticTokensLegend(
         this.TokenTypes.asJava,

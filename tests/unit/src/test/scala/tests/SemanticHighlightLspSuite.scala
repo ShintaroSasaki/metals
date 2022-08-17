@@ -29,12 +29,12 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |}""".stripMargin
   // )
 
-
   def check(
       name: TestOptions,
       expected: String
   ) = {
-    val fileContent = expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
+    val fileContent =
+      expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
     test(name) {
       for {
         // potentially we could derive input from

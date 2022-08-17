@@ -1202,11 +1202,13 @@ final class TestingServer(
     val uri = toPath(filePath).toTextDocumentIdentifier
     val params = new org.eclipse.lsp4j.SemanticTokensParams(uri)
 
-    //Getting semantic tokens from testee function
+    // Getting semantic tokens from testee function
     for {
       obtainedTokens <- server.semanticTokensFull(params).asScala
     } yield {
-      scribe.info("\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",") )
+      scribe.info(
+        "\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",")
+      )
       val all = obtainedTokens
         .getData()
         .asScala
@@ -1229,19 +1231,19 @@ final class TestingServer(
         }
         .toList
 
-      var strlog1=""
-      var i=0 
+      var strlog1 = ""
+      var i = 0
 
-      //before update
+      // before update
       strlog1 ++= "\n content of all : Before Update "
-      while (i<=all.size-1){
-        strlog1 ++="\n Line:" + all(i)._1.getLine().toString()
-        strlog1 ++=", offset:" + all(i)._1.getCharacter().toString()
-        strlog1 ++=", Integer:" + all(i)._2.toString()
-        strlog1 ++=", String:" + all(i)._3.toString()
+      while (i <= all.size - 1) {
+        strlog1 ++= "\n Line:" + all(i)._1.getLine().toString()
+        strlog1 ++= ", offset:" + all(i)._1.getCharacter().toString()
+        strlog1 ++= ", Integer:" + all(i)._2.toString()
+        strlog1 ++= ", String:" + all(i)._3.toString()
         i += 1
       }
-      
+
       def updatePositions_FromRelativeToAbolute(
           positions: List[(l.Position, Integer, String)],
           last: l.Position,
@@ -1263,19 +1265,17 @@ final class TestingServer(
       }
       updatePositions_FromRelativeToAbolute(all, new l.Position(0, 0), 0)
 
-
-      //After update 
+      // After update
       strlog1 ++= "\n\n content of all :After Update   \n"
-      i=0
-      while (i<=all.size-1){
-        strlog1 ++="\n Line:" + all(i)._1.getLine().toString()
-        strlog1 ++=", offset:" + all(i)._1.getCharacter().toString()
-        strlog1 ++=", Integer:" + all(i)._2.toString()
-        strlog1 ++=", String:" + all(i)._3.toString()
+      i = 0
+      while (i <= all.size - 1) {
+        strlog1 ++= "\n Line:" + all(i)._1.getLine().toString()
+        strlog1 ++= ", offset:" + all(i)._1.getCharacter().toString()
+        strlog1 ++= ", Integer:" + all(i)._2.toString()
+        strlog1 ++= ", String:" + all(i)._3.toString()
         i += 1
       }
-      scribe.info(strlog1 +"\n ")
-
+      scribe.info(strlog1 + "\n ")
 
       // Build textEdits  e.g. which converts 'def'  to  '<<def>>/*keyword*/'
       val edits = all.map { case (pos, len, typ) =>
@@ -1285,24 +1285,22 @@ final class TestingServer(
         List(startEdit, endEdit)
       }.flatten
 
-      
       // Decorate fileContent with textEdits built from testee return
       val obtained = TextEdits.applyEdits(fileContent, edits)
 
-      val editsLog:List[String] = edits.map{
-          et =>
-            var str = "\n NewText : " + et.getNewText
-            str += "      , ##Start : Line " + et.getRange.getStart().getLine()
-            str += "  , Char " + et.getRange.getStart().getCharacter()
-            str += "  , ##End : Line " + et.getRange.getEnd().getLine()
-            str += "  , Char " + et.getRange.getEnd().getCharacter()
-            str
-        }
-      var strlog =""
+      val editsLog: List[String] = edits.map { et =>
+        var str = "\n NewText : " + et.getNewText
+        str += "      , ##Start : Line " + et.getRange.getStart().getLine()
+        str += "  , Char " + et.getRange.getStart().getCharacter()
+        str += "  , ##End : Line " + et.getRange.getEnd().getLine()
+        str += "  , Char " + et.getRange.getEnd().getCharacter()
+        str
+      }
+      var strlog = ""
       // strlog  +=  "\n edits: \n" + editsLog.mkString(" ")
-      strlog  +=  "\n fileContent: \n" + fileContent
-      strlog  +=  "\n obtained: \n" + obtained
-      strlog  +="\n expected: \n" + expected
+      strlog += "\n fileContent: \n" + fileContent
+      strlog += "\n obtained: \n" + obtained
+      strlog += "\n expected: \n" + expected
       scribe.info(strlog)
 
       Assertions.assertNoDiff(

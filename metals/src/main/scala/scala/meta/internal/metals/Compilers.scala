@@ -321,8 +321,8 @@ class Compilers(
 
   def semanticTokens(
       params: SemanticTokensParams,
-      capableTypes:List[String],
-      capableModifiers:List[String],
+      capableTypes: List[String],
+      capableModifiers: List[String],
       token: CancelToken
   ): Future[SemanticTokens] = {
     scribe.info("Debug: Compiliers.semanticTokens:Start")
@@ -331,22 +331,26 @@ class Compilers(
     // See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
 
-    //return empty list for inappropriate file
-    if (path.isScalaScript || path.isSbt) {return Future{new SemanticTokens() }}
+    // return empty list for inappropriate file
+    if (path.isScalaScript || path.isSbt) {
+      return Future { new SemanticTokens() }
+    }
 
     val uri = path.toNIO.toUri()
     val input = path.toInputFromBuffers(buffers)
     val vFile = CompilerVirtualFileParams(uri, input.value)
 
-    loadCompiler(path).map { pc =>
-      pc.semanticTokens(vFile,capableTypes.asJava,capableModifiers.asJava)
-        .asScala
-        .map { plist =>
-                // Thread.sleep(5000) // for debug
-                scribe.info("Result from token : " + plist.size().toString())
-                new SemanticTokens(plist)}
-    }.getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
-
+    loadCompiler(path)
+      .map { pc =>
+        pc.semanticTokens(vFile, capableTypes.asJava, capableModifiers.asJava)
+          .asScala
+          .map { plist =>
+            // Thread.sleep(5000) // for debug
+            scribe.info("Result from token : " + plist.size().toString())
+            new SemanticTokens(plist)
+          }
+      }
+      .getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
 
     // """|<<object>>/*14*/ <<Main>>/*1*/{
     //    |  <<def>>/*14*/ <<add>>/*12*/
@@ -357,7 +361,6 @@ class Compilers(
     // Future.successful(new SemanticTokens(strList))
 
   }
-
 
   // sasaki dev area is over↑
 
