@@ -10,55 +10,47 @@ import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
 
-// import scala.meta._
 
-class SemanticTokenProvider (
-      cp:MetalsGlobal,
-        params: VirtualFileParams,
-      capableTypes: util.List[String],
-      capableModifiers: util.List[String]
+/**
+ * Corresponds to tests.SemanticHighlightLspSuite
+ */
+class SemanticTokenProvider(
+    protected val cp:MetalsGlobal //  protected to avoid compile error
+  , val params: VirtualFileParams
+  , val capableTypes: util.List[String]
+  , val capableModifiers: util.List[String]
 ){
+
+  var tr:cp.Tree ={
+      val unit = cp.addCompilationUnit(
+        params.text(),
+        params.uri().toString(),
+        None
+      )
+      cp.typeCheck(unit) // initializing unit
+      unit.lastBody
+  }
+
   // logging parameter
   val logger = Logger.getLogger(classOf[This].getName)
   val strSep = ",  "
   val linSep = "\n"
 
-  // main function
-  // def provide(  ): Option[ju.List[Integer]] =  {
-  def provide(  ): ju.List[Integer] =  {
+  // main method
+  def provide(): ju.List[Integer] =  {
 
     var logString = linSep + params.text()
-    
-    // get symbols from Presentation compiler via tree
-    val unit = cp.addCompilationUnit(
-      params.text(),
-      params.uri().toString(),
-      None
-    )
-    cp.typeCheck(unit) // a process such as initializing
-    this.logger.info(treeDescriber(unit.lastBody) + linSep)
-    import cp._
-
-    implicit val allSymbols =unit.lastBody.collect {
-      case df @ cp.DefDef(_, _, _, _, _, _) =>
-        df.namePos.start -> df.symbol
-      case id: cp.Ident =>
-        id.pos.start -> id.symbol
-      case sel: cp.Select =>
-        sel.pos.start -> sel.symbol
-    }.toMap
-
+    this.logger.info(treeDescriber(tr) + linSep)
 
     // Loop by token
     import scala.meta._
-    val compilerTokens = params.text().tokenize.toOption.get
     val buffer = ListBuffer.empty[Integer]
     var currentLine = 0
+    var lasLine = 0
     var lastNewlineOffset = 0
-    var lastAbsLine = 0
     var lastCharStartOffset = 0
 
-    for (tk <- compilerTokens) yield {
+    for (tk <- params.text().tokenize.toOption.get) yield {
 
       logString += tokenDescrier(tk)
 
@@ -75,19 +67,21 @@ class SemanticTokenProvider (
           logString ++= strSep + "tokMeodifier : " + tokeModifier.toString()
 
           //Building Semantic Token
-          if (tokenType == -1 && tokeModifier == 0) { /* I want to break from match-statement */
+          if (tokenType == -1 && tokeModifier == 0) {
+            /* I want to break from match-statement */
           } else {
 
-            // convert lines and StartChar into "relative"
-            val deltaLine = currentLine - lastAbsLine
+            val characterSize = tk.text.size
             val absStartChar = tk.pos.start - lastNewlineOffset
+
+            // convert currentline and StartChar into "relative"
+            val deltaLine = currentLine - lasLine
             val deltaStartChar =
               if (deltaLine == 0) tk.pos.start - lastCharStartOffset
               else absStartChar
-            val characterSize = tk.text.size
 
-            // update counter for next loop
-            lastAbsLine = currentLine
+            // update controller for next loop
+            lasLine = currentLine
             lastCharStartOffset = tk.pos.start
 
             // List to return
@@ -108,49 +102,23 @@ class SemanticTokenProvider (
 
       this.logger.info(logString)
 
-      // Just adjust return type
       buffer.toList.asJava
       // Some(buffer.toList.asJava)
 
   }
-//    override def hover(
-//       params: OffsetParams
-//   ): CompletableFuture[Optional[Hover]] =
-//     compilerAccess.withNonInterruptableCompiler(
-//       Optional.empty[Hover](),
-//       params.token
-//     ) { pc =>
-//       Optional.ofNullable(
-//         new HoverProvider(pc.compiler(), params).hover().orNull
-//       )
-//     }
-
-//   def hover(): Option[Hover] = params match {
-//     case range: RangeParams =>
-//       range.trimWhitespaceInRange.flatMap(hoverOffset)
-//     case _ if params.isWhitespace => None
-//     case _ => hoverOffset(params)
-//   }
-
 
   /** This function returns 0 when capable Type is nothing. */
   def getTokenType(
       tk: scala.meta.tokens.Token
       // ,capableTypes: List[String]
-  )(implicit allSymbols:Map[Int, cp.Symbol]): Integer = {
+  ): Integer = {
     tk match {
-      case _: Token.Ident => -1 // get information from tree
-            tk match {
-              case id: Token.Ident =>
-                val sym = allSymbols(id.pos.start)
-                if (sym.isClass)
-                  capableTypes.indexOf(SemanticTokenTypes.Class)
-                else
-                  capableTypes.indexOf(SemanticTokenTypes.Type)
+      case _: Token.Ident => getIdentAttr(tr, tk.pos.start)
 
-              case _ =>
-                capableTypes.indexOf(SemanticTokenTypes.Type)
-            }
+            // if (sym.isClass)
+            //   capableTypes.indexOf(SemanticTokenTypes.Class)
+            // else
+            //   capableTypes.indexOf(SemanticTokenTypes.Type)
 
       // Alphanumeric keywords)
       // case _ :KwAbstract => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
@@ -280,7 +248,49 @@ class SemanticTokenProvider (
     mods.toBinaryString.toInt
   } // end
 
+  /**
+    * looks up Ident symbol with @startPos in @t.
+    * And returns the TokenType.
+    */
+  def getIdentAttr(t:cp.Tree, startPos: Int) :Int ={
+
+    def getInd(p:String):Int =capableTypes.indexOf(p) //Alias
+    def doRecursion():Int =
+          if (t.children.size == 0) -1
+          else t.children.map(getIdentAttr(_,startPos))
+                .max(Ordering[Int])
+
+    try {
+      if (t.pos.start == startPos ) {
+        t match {
+          case _:cp.Ident =>
+            if (t.symbol.isValueParameter ) getInd(SemanticTokenTypes.Parameter)
+            else if (t.symbol.isClass) getInd(SemanticTokenTypes.Class)
+            else getInd(SemanticTokenTypes.Type)
+          case _ => doRecursion()
+        }
+      }
+      else doRecursion()
+    }catch{
+      // when !hasSymbol , NoPosition, and so on
+      case _:Exception => doRecursion()
+
+    }
+
+    // import cp._
+    // implicit val allSymbols =unit.lastBody.collect {
+    //   case df @ cp.DefDef(_, _, _, _, _, _) =>
+    //     df.namePos.start -> df.symbol
+    //   case id: cp.Ident =>
+    //     id.pos.start -> id.symbol
+    //   case sel: cp.Select =>
+    //     sel.pos.start -> sel.symbol
+    // }.toMap
+
+  }
+
   var counter = 0
+  /** makes string to logging tree construction. */
   def treeDescriber(t: cp.Tree): String = {
       var ret = ""
       if (counter == 0) {
@@ -299,10 +309,10 @@ class SemanticTokenProvider (
 
       ret += strSep + "Typ:" + t.tpe.toString()
       ret += strSep + "smry:" + t.summaryString.toString()
-      ret += strSep + "NumOfFree:("
-      ret += t.freeTerms.size.toString()
-      ret += strSep + t.freeTypes.size.toString()
-      ret += strSep + t.freeSyms.size.toString() + ")"
+      // ret += strSep + "NumOfFree:("
+      // ret += t.freeTerms.size.toString()
+      // ret += strSep + t.freeTypes.size.toString()
+      // ret += strSep + t.freeSyms.size.toString() + ")"
 
       // recursive
       ret += t.children.map(treeDescriber(_)).mkString("\n")
@@ -315,7 +325,7 @@ class SemanticTokenProvider (
   def tokenDescrier(tk:scala.meta.tokens.Token): String={
     var logString = ""
     logString += linSep
-    
+
     logString = logString + "token : " + tk.getClass.toString.substring(29)
     logString += strSep + "start : " + tk.pos.start.toString
     logString ++= strSep + "end : " + tk.pos.end.toString
@@ -325,6 +335,6 @@ class SemanticTokenProvider (
 
     logString
   }
-  
+
 
 }

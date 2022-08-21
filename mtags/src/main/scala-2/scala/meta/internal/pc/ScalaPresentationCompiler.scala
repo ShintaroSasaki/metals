@@ -133,7 +133,6 @@ case class ScalaPresentationCompiler(
   ): CompletableFuture[ju.List[Integer]] = {
 
     val empty: ju.List[Integer] = new ju.ArrayList[Integer]()
-
     compilerAccess.withInterruptableCompiler(
       empty,
       params.token
