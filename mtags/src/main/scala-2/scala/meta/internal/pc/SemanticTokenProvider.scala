@@ -14,12 +14,12 @@ import scala.meta.tokens._
 /**
  * Corresponds to tests.SemanticHighlightLspSuite
  */
-class SemanticTokenProvider(
+class SemanticTokenProvider  (
     protected val cp:MetalsGlobal //  protected to avoid compile error
   , val params: VirtualFileParams
   , val capableTypes: util.List[String]
   , val capableModifiers: util.List[String]
-){
+)  {
 
   var tr:cp.Tree ={
       val unit = cp.addCompilationUnit(
@@ -36,7 +36,8 @@ class SemanticTokenProvider(
   val strSep = ",  "
   val linSep = "\n"
 
-  // main method
+
+  /** main method  */ 
   def provide(): ju.List[Integer] =  {
 
     var logString = linSep + params.text()
@@ -121,7 +122,7 @@ class SemanticTokenProvider(
             //   capableTypes.indexOf(SemanticTokenTypes.Type)
 
       // Alphanumeric keywords)
-      // case _ :KwAbstract => capableTypes.indexOf(SemanticTokenTypes.ModifierKeyword)
+      case _: Token.KwAbstract => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _: Token.KwCase => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _: Token.KwCatch => capableTypes.indexOf(SemanticTokenTypes.Keyword)
       case _: Token.KwClass => capableTypes.indexOf(SemanticTokenTypes.Keyword)
@@ -245,7 +246,7 @@ class SemanticTokenProvider(
     // strlog ++=  "** mods I :" + mods.toBinaryString.toInt.toString()
     // logger.info(strlog)
 
-    mods.toBinaryString.toInt
+    mods.toInt
   } // end
 
   /**
@@ -255,26 +256,22 @@ class SemanticTokenProvider(
   def getIdentAttr(t:cp.Tree, startPos: Int) :Int ={
 
     def getInd(p:String):Int =capableTypes.indexOf(p) //Alias
-    def doRecursion():Int =
+    def doRecursion():Int ={
           if (t.children.size == 0) -1
           else t.children.map(getIdentAttr(_,startPos))
                 .max(Ordering[Int])
+    }
 
     try {
       if (t.pos.start == startPos ) {
-        t match {
-          case _:cp.Ident =>
-            if (t.symbol.isValueParameter ) getInd(SemanticTokenTypes.Parameter)
-            else if (t.symbol.isClass) getInd(SemanticTokenTypes.Class)
-            else getInd(SemanticTokenTypes.Type)
-          case _ => doRecursion()
-        }
+        if (t.symbol.isValueParameter ) getInd(SemanticTokenTypes.Parameter)
+        else if (t.symbol.isClass) getInd(SemanticTokenTypes.Class)
+        else doRecursion()
       }
       else doRecursion()
     }catch{
-      // when !hasSymbol , NoPosition, and so on
+      // when hasSymbol==false , NoPosition==ture, and so on
       case _:Exception => doRecursion()
-
     }
 
     // import cp._
@@ -289,6 +286,24 @@ class SemanticTokenProvider(
 
   }
 
+  // def alterChildren(a:cp.Tree): List[cp.Tree] = {
+  //     var builder: ListBuffer[cp.Tree] = null
+  //     def subtrees(x: Any): Unit = x match {
+  //       case b @ cp.EmptyTree =>
+  //         logger.info("\n Empty:" + b.toString() + "\n")
+  //         if (builder eq null) builder = new ListBuffer[cp.Tree]
+  //         builder += cp.EmptyTree
+  //       case t: cp.Tree =>
+  //         if (builder eq null) builder = new ListBuffer[cp.Tree]
+  //         builder += t
+  //       case xs: List[_] => xs foreach subtrees
+  //       case _ =>
+  //     }
+  //     a foreach subtrees
+  //     if (builder eq null) Nil else builder.result()
+  //   }
+
+
   var counter = 0
   /** makes string to logging tree construction. */
   def treeDescriber(t: cp.Tree): String = {
@@ -298,17 +313,21 @@ class SemanticTokenProvider(
       }
       counter += 1
       ret += linSep
-
       ret += ("000" + counter.toString()).takeRight(3) + "  "
+
       try {
           ret += "pos:" + t.pos.start.toString() + strSep + t.pos.end.toString()
       } catch { case _ => }
       ret += strSep + "Childs:" + t.children.size.toString()
-      try { ret += strSep + "sym:" + t.symbol.toString() }
-      catch { case _ => }
+      
+      try {
+        ret += strSep + "sym:" + t.symbol.toString() 
+        ret += strSep + "isClass:" + t.symbol.isClass.toString()
+      } catch { case _ => }
 
-      ret += strSep + "Typ:" + t.tpe.toString()
+      // ret += strSep + "Typ:" + t.tpe.toString()
       ret += strSep + "smry:" + t.summaryString.toString()
+
       // ret += strSep + "NumOfFree:("
       // ret += t.freeTerms.size.toString()
       // ret += strSep + t.freeTypes.size.toString()

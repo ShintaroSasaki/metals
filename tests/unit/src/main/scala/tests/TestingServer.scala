@@ -1196,118 +1196,118 @@ final class TestingServer(
       expected: String,
       fileContent: String
   ): Future[Unit] = {
-    import scala.meta.internal.metals.SemanticTokenCapability
-    scribe.info("\n Debug:  assertSemanticHighlight: Start")
+    try { 
 
-    val uri = toPath(filePath).toTextDocumentIdentifier
-    val params = new org.eclipse.lsp4j.SemanticTokensParams(uri)
+      import scala.meta.internal.metals.SemanticTokenCapability
+      scribe.info("\n Debug:  assertSemanticHighlight: Start")
 
-    // Getting semantic tokens from testee function
-    for {
-      obtainedTokens <- server.semanticTokensFull(params).asScala
-    } yield {
-      scribe.info(
-        "\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",")
-      )
-      val all = obtainedTokens
-        .getData()
-        .asScala
-        .grouped(5)
-        .map(_.toList)
-        .map {
-          case List(
-                deltaLine,
-                deltaStartChar,
+      val uri = toPath(filePath).toTextDocumentIdentifier
+      val params = new org.eclipse.lsp4j.SemanticTokensParams(uri)
+
+      /**
+        * construct string from token type and mods to decorate codes.
+        */ 
+      def decorationString(typeInd:Int, modInd:Int):String ={
+        val buffer = ListBuffer.empty[String]
+
+        //TokenType
+        if (typeInd != -1) {
+          buffer.addAll(List(SemanticTokenCapability.TokenTypes(typeInd)))
+        } 
+
+        // TokenModifier 
+        // wkList = (e.g.) modInd=32 -> 100000 -> "000001" 
+        val wkList = modInd.toBinaryString.toCharArray().toList.reverse
+        for ( i:Int <- 0 to wkList.size -1) {
+          if (wkList(i).toString == "1") {
+            buffer.addAll(List(
+              SemanticTokenCapability.TokenModifiers(i)
+            ))
+          }
+        }
+        
+        // return
+        buffer.toList.mkString(",")
+      }
+
+
+      // Getting semantic tokens from testee function
+      for {
+        obtainedTokens <- server.semanticTokensFull(params).asScala
+      } yield {
+        scribe.info(
+          "\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",")
+        )
+        val all = obtainedTokens
+          .getData()
+          .asScala
+          .grouped(5)
+          .map(_.toList)
+          .map {
+            case List(
+                  deltaLine,
+                  deltaStartChar,
+                  length,
+                  tokenType,
+                  tokenModifier
+                ) => // modifiers ignored for now
+
+              (
+                new l.Position(deltaLine, deltaStartChar),
                 length,
-                tokenType,
-                _
-              ) => // modifiers ignored for now
-            (
-              new l.Position(deltaLine, deltaStartChar),
-              length,
-              SemanticTokenCapability.TokenTypes(tokenType)
-            )
-          case _ => throw new RuntimeException("Expected output dvidable by 5")
-        }
-        .toList
-
-      var strlog1 = ""
-      var i = 0
-
-      // before update
-      strlog1 ++= "\n content of all : Before Update "
-      while (i <= all.size - 1) {
-        strlog1 ++= "\n Line:" + all(i)._1.getLine().toString()
-        strlog1 ++= ", offset:" + all(i)._1.getCharacter().toString()
-        strlog1 ++= ", Integer:" + all(i)._2.toString()
-        strlog1 ++= ", String:" + all(i)._3.toString()
-        i += 1
-      }
-
-      def updatePositions_FromRelativeToAbolute(
-          positions: List[(l.Position, Integer, String)],
-          last: l.Position,
-          lastLength: Integer
-      ): Unit = {
-        positions match {
-          case (head, len, _) :: next =>
-            if (head.getLine() != 0)
-              head.setLine(last.getLine() + head.getLine())
-            else {
-              head.setLine(last.getLine())
-              head.setCharacter(
-                last.getCharacter() + head.getCharacter()
+                decorationString(tokenType,tokenModifier)
               )
-            }
-            updatePositions_FromRelativeToAbolute(next, head, len)
-          case Nil =>
+            case _ => throw new RuntimeException("Expected output dvidable by 5")
+          }
+          .toList
+
+        def updatePositions_FromRelativeToAbolute(
+            positions: List[(l.Position, Integer, String)],
+            last: l.Position
+        ): Unit = {
+          positions match {
+            case (head, _, _) :: next =>
+              if (head.getLine() != 0)
+                head.setLine(last.getLine() + head.getLine())
+              else {
+                head.setLine(last.getLine())
+                head.setCharacter(
+                  last.getCharacter() + head.getCharacter()
+                )
+              }
+              updatePositions_FromRelativeToAbolute(next, head)
+            case Nil =>
+          }
         }
+        updatePositions_FromRelativeToAbolute(all, new l.Position(0, 0))
+
+        // Build textEdits  e.g. which converts 'def'  to  '<<def>>/*keyword*/'
+        val edits = all.map { case (pos, len, typ) =>
+          val startEdit = new l.TextEdit(new l.Range(pos, pos), "<<")
+          val end = new l.Position(pos.getLine(), pos.getCharacter() + len)
+          val endEdit = new l.TextEdit(new l.Range(end, end), s">>/*${typ}*/")
+          List(startEdit, endEdit)
+        }.flatten
+
+        // Decorate fileContent with textEdits
+        val obtained = TextEdits.applyEdits(fileContent, edits)
+
+        var strlog = ""
+        strlog += "\n fileContent: \n" + fileContent
+        strlog += "\n obtained: \n" + obtained
+        strlog += "\n expected: \n" + expected
+        scribe.info(strlog)
+
+        Assertions.assertNoDiff(
+          obtained,
+          expected
+        )
       }
-      updatePositions_FromRelativeToAbolute(all, new l.Position(0, 0), 0)
-
-      // After update
-      strlog1 ++= "\n\n content of all :After Update   \n"
-      i = 0
-      while (i <= all.size - 1) {
-        strlog1 ++= "\n Line:" + all(i)._1.getLine().toString()
-        strlog1 ++= ", offset:" + all(i)._1.getCharacter().toString()
-        strlog1 ++= ", Integer:" + all(i)._2.toString()
-        strlog1 ++= ", String:" + all(i)._3.toString()
-        i += 1
-      }
-      scribe.info(strlog1 + "\n ")
-
-      // Build textEdits  e.g. which converts 'def'  to  '<<def>>/*keyword*/'
-      val edits = all.map { case (pos, len, typ) =>
-        val startEdit = new l.TextEdit(new l.Range(pos, pos), "<<")
-        val end = new l.Position(pos.getLine(), pos.getCharacter() + len)
-        val endEdit = new l.TextEdit(new l.Range(end, end), s">>/*${typ}*/")
-        List(startEdit, endEdit)
-      }.flatten
-
-      // Decorate fileContent with textEdits built from testee return
-      val obtained = TextEdits.applyEdits(fileContent, edits)
-
-      val editsLog: List[String] = edits.map { et =>
-        var str = "\n NewText : " + et.getNewText
-        str += "      , ##Start : Line " + et.getRange.getStart().getLine()
-        str += "  , Char " + et.getRange.getStart().getCharacter()
-        str += "  , ##End : Line " + et.getRange.getEnd().getLine()
-        str += "  , Char " + et.getRange.getEnd().getCharacter()
-        str
-      }
-      var strlog = ""
-      // strlog  +=  "\n edits: \n" + editsLog.mkString(" ")
-      strlog += "\n fileContent: \n" + fileContent
-      strlog += "\n obtained: \n" + obtained
-      strlog += "\n expected: \n" + expected
-      scribe.info(strlog)
-
-      Assertions.assertNoDiff(
-        obtained,
-        expected
-      )
+    } catch {
+      case e:Exception => e.printStackTrace()
+      null
     }
+
   }
 
   def assertHighlight(
