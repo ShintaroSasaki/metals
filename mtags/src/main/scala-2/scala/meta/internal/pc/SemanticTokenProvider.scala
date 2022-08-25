@@ -9,6 +9,7 @@ import scala.meta.internal.jdk.CollectionConverters._
 import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
+import javax.swing.text.Position
 
 
 /**
@@ -33,11 +34,11 @@ class SemanticTokenProvider  (
 
   // logging parameter
   val logger = Logger.getLogger(classOf[This].getName)
-  val strSep = ",  "
+  val strSep = ", "
   val linSep = "\n"
 
 
-  /** main method  */ 
+  /** main method  */
   def provide(): ju.List[Integer] =  {
 
     var logString = linSep + params.text()
@@ -53,12 +54,17 @@ class SemanticTokenProvider  (
 
     for (tk <- params.text().tokenize.toOption.get) yield {
 
-      logString += tokenDescrier(tk)
+      if (tk.getClass.toString.substring(29)!="$Space"){
+        logString += tokenDescrier(tk)
+      }
 
       tk match {
         case _: Token.LF =>
           currentLine += 1
           lastNewlineOffset = tk.pos.end
+
+        case _: Token.Space =>
+          //pass
 
         case _ =>
           val tokenType = getTokenType(tk)
@@ -111,10 +117,9 @@ class SemanticTokenProvider  (
   /** This function returns 0 when capable Type is nothing. */
   def getTokenType(
       tk: scala.meta.tokens.Token
-      // ,capableTypes: List[String]
   ): Integer = {
     tk match {
-      case _: Token.Ident => getIdentAttr(tr, tk.pos.start)
+      case _: Token.Ident => getIdentAttr(tr, tk)
 
             // if (sym.isClass)
             //   capableTypes.indexOf(SemanticTokenTypes.Class)
@@ -253,21 +258,41 @@ class SemanticTokenProvider  (
     * looks up Ident symbol with @startPos in @t.
     * And returns the TokenType.
     */
-  def getIdentAttr(t:cp.Tree, startPos: Int) :Int ={
+  def getIdentAttr(t:cp.Tree, tk: scala.meta.tokens.Token) :Int ={
 
     def getInd(p:String):Int =capableTypes.indexOf(p) //Alias
     def doRecursion():Int ={
           if (t.children.size == 0) -1
-          else t.children.map(getIdentAttr(_,startPos))
+          else t.children.map(getIdentAttr(_,tk))
                 .max(Ordering[Int])
     }
 
+    // sample
+    // import scala.reflect.internal.util.Position
+    // def namePos(defn:cp.Tree): Position = {
+    //   val start = defn.pos.point
+    //   val end = start + defn.name.length() - 1
+    //   Position.range(defn.pos.source, start, start, end)
+    // }
+
     try {
-      if (t.pos.start == startPos ) {
+      // Regular Symbol
+      if ( t.pos.start == tk.pos.start ) {
         if (t.symbol.isValueParameter ) getInd(SemanticTokenTypes.Parameter)
-        else if (t.symbol.isClass) getInd(SemanticTokenTypes.Class)
-        else doRecursion()
+          else if (t.symbol.isClass) getInd(SemanticTokenTypes.Class)
+          else doRecursion()
       }
+      // Declaration of Class
+      else if (
+        //token is inside of tree node.
+        t.pos.start <= tk.pos.start
+        && tk.pos.end <= t.pos.end
+        && t.symbol.fullName == tk.text
+        && t.shortClass == "This"
+      ) {
+        getInd(SemanticTokenTypes.Class)
+      }
+      // Others
       else doRecursion()
     }catch{
       // when hasSymbol==false , NoPosition==ture, and so on
@@ -308,30 +333,52 @@ class SemanticTokenProvider  (
   /** makes string to logging tree construction. */
   def treeDescriber(t: cp.Tree): String = {
       var ret = ""
-      if (counter == 0) {
-          ret += "\n NodesNum: " + t.id.toString
-      }
-      counter += 1
-      ret += linSep
-      ret += ("000" + counter.toString()).takeRight(3) + "  "
+      if (counter == 0) ret += "\nNodesNum: " + t.id.toString
 
+      counter += 1
+      ret += linSep + ("000" + counter.toString()).takeRight(3) + "  "
+
+      //Position
       try {
-          ret += "pos:" + t.pos.start.toString() + strSep + t.pos.end.toString()
+          ret += "pos(stt,end,point):(" + t.pos.start.toString() + strSep + t.pos.end.toString()
+          ret += strSep + t.pos.point.toString()
+          // ret += strSep + t.pos.source
+          ret += ")"
       } catch { case _ => }
       ret += strSep + "Childs:" + t.children.size.toString()
-      
-      try {
-        ret += strSep + "sym:" + t.symbol.toString() 
-        ret += strSep + "isClass:" + t.symbol.isClass.toString()
-      } catch { case _ => }
 
-      // ret += strSep + "Typ:" + t.tpe.toString()
       ret += strSep + "smry:" + t.summaryString.toString()
 
-      // ret += strSep + "NumOfFree:("
-      // ret += t.freeTerms.size.toString()
-      // ret += strSep + t.freeTypes.size.toString()
-      // ret += strSep + t.freeSyms.size.toString() + ")"
+      //symbol
+      try {
+        val sym = t.symbol
+        ret += strSep + "sym:" + sym.toString()
+        ret += strSep + "isClass:" + sym.isClass.toString()
+        if (sym.isClass){
+          ret += strSep + "\n   -> fullnm:" + sym.fullName
+          ret += strSep + "keyStr:" + sym.keyString
+          ret += strSep + "isTerm:" + t.isTerm.toString()
+
+          val wkStr = t match {
+            case cp.Literal(const)     => "Liter"
+            case cp.Ident(name)        => "Ident"
+            case cp.Select(qual, name) => "Select(%s, %s)".format(qual.summaryString, name.decode)
+            case t: cp.NameTree        => "NameTree"
+            case t                  => "ShrtClass " +
+              t.shortClass + (
+                if (t.symbol != null && t.symbol != cp.NoSymbol)
+                  "(" + t.symbol + ")"
+                else ""
+              )
+
+            }
+          ret += strSep + "note:" + wkStr
+          ret += strSep + "\n   -> TreeCls : " + t.getClass.getName
+          ret += strSep + "\n   -> SymCls : " + sym.getClass.getName
+          }
+
+
+      } catch { case _ => }
 
       // recursive
       ret += t.children.map(treeDescriber(_)).mkString("\n")
@@ -345,12 +392,12 @@ class SemanticTokenProvider  (
     var logString = ""
     logString += linSep
 
-    logString = logString + "token : " + tk.getClass.toString.substring(29)
-    logString += strSep + "start : " + tk.pos.start.toString
-    logString ++= strSep + "end : " + tk.pos.end.toString
-    logString += strSep + "sttLn : " + tk.pos.startLine.toString
-    logString += strSep + "endLn : " + tk.pos.endLine.toString
-    logString = logString + strSep + "text : " + tk.text.toString()
+    logString += "token: " + tk.getClass.toString.substring(29)
+    logString += strSep + "text: " + tk.text.toString()
+    logString += strSep + "start,end:(" + tk.pos.start.toString
+    logString += strSep  + tk.pos.end.toString + ")"
+    logString += strSep + "sttLn: " + tk.pos.startLine.toString
+    logString += strSep + "endLn: " + tk.pos.endLine.toString
 
     logString
   }

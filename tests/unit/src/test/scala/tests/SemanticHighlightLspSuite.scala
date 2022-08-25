@@ -9,21 +9,20 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-  // check(
-  //   "sample",
-  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
-  //       |    <<a>>/*parameter*/ + 1
-  //       |   }
-  //       |}""".stripMargin
-  // )
+  check(
+    "sample",
+    // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+    s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
+        |    <<a>>/*parameter*/ + 1
+        |   }
+        |}""".stripMargin
+  )
 
 
   check(
     "Modifiers",
-    s"""|   
-        |abstract class Pet (name: String) {
+    s"""|abstract class Pet (name: String) {
         |    def speak: Unit = println(s"My name is $$name")
         |}
         |  
