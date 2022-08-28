@@ -9,28 +9,32 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-  check(
-    "sample",
-    // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-    s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
-        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
-        |    <<a>>/*parameter*/ + 1
-        |   }
-        |}""".stripMargin
-  )
+  // check(
+  //   "sample",
+  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
+  //       |    <<a>>/*parameter*/ + 1
+  //       |   }
+  //       |}""".stripMargin
+  // )
 
 
   check(
     "Modifiers",
-    s"""|abstract class Pet (name: String) {
+    s"""|package scala.meta.internal.pc
+        |
+        |abstract class Pet (name: String) {
         |    def speak: Unit = println(s"My name is $$name")
         |}
-        |  
-        |class Dog(name: String) extends Pet(name)
-        |  
+        |
+        |final class Dog(name: String) extends Pet(name)
+        |final abstract class Cat(name: String) extends Pet(name)
+        |
         |object Main{
         |  val d = new Dog("Fido") // Declaration
         |  d.speak
+        |  val c = new Dog("Mike") // Declaration
         |}
         |
         |}""".stripMargin
