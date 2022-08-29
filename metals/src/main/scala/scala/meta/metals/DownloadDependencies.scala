@@ -5,8 +5,8 @@ import java.nio.file.Files
 import scala.meta.internal.metals.BuildInfo
 import scala.meta.internal.metals.Embedded
 import scala.meta.internal.metals.FormattingProvider
-import scala.meta.internal.metals.MetalsLogger
 import scala.meta.internal.metals.ScalaVersions
+import scala.meta.internal.metals.logging.MetalsLogger
 
 import bloop.launcher.Launcher
 
@@ -63,7 +63,7 @@ object DownloadDependencies {
     Files.write(
       config,
       s"""|version = ${BuildInfo.scalafmtVersion}
-          |runner.dialect = scala3""".stripMargin.getBytes
+          |runner.dialect = scala3""".stripMargin.getBytes,
     )
     scalafmt.format(config, tmp, "object Foo { }")
     Files.deleteIfExists(tmp)

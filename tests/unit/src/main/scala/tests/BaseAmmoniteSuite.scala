@@ -1,5 +1,6 @@
 package tests
 
+import scala.concurrent.Future
 import scala.concurrent.Promise
 
 import scala.meta.internal.metals.Messages
@@ -19,14 +20,14 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
   override def newServer(workspaceName: String): Unit = {
     super.newServer(workspaceName)
     server.client.showMessageRequestHandler = { params =>
-      if (params == Messages.ImportAmmoniteScript.params())
-        Some(new MessageActionItem(Messages.ImportAmmoniteScript.dismiss))
+      if (params == Messages.ImportScalaScript.params())
+        Some(new MessageActionItem(Messages.ImportScalaScript.dismiss))
       else
         None
     }
   }
 
-  test("simple script") {
+  test("simple-script") {
     // single script with import $ivy-s
     for {
       _ <- initialize(
@@ -39,9 +40,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |}
            |/main.sc
            | // scala $scalaVersion
-           |import $$ivy.`io.circe::circe-core:0.12.3`
-           |import $$ivy.`io.circe::circe-generic:0.12.3`
-           |import $$ivy.`io.circe::circe-parser:0.12.3`
+           |import $$ivy.`io.circe::circe-core:0.14.2`
+           |import $$ivy.`io.circe::circe-generic:0.14.2`
+           |import $$ivy.`io.circe::circe-parser:0.14.2`
            |import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
            |
            |sealed trait Foo
@@ -63,21 +64,21 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
       _ <- assertDefinitionAtLocation(
         "main.sc",
         "foo.as@@Json.noSpaces",
-        "io/circe/syntax/package.scala"
+        "io/circe/syntax/package.scala",
       )
 
       // via Ammonite-generated Semantic DB
       _ <- assertDefinitionAtLocation(
         "main.sc",
         "foo.asJson.no@@Spaces",
-        "io/circe/Json.scala"
+        "io/circe/Json.scala",
       )
 
       // via presentation compiler, using the Ammonite build target classpath
       _ <- assertDefinitionAtLocation(
         "io/circe/Json.scala",
         "final def noSpaces: String = Printer.no@@Spaces.print(this)",
-        "io/circe/Printer.scala"
+        "io/circe/Printer.scala",
       )
 
       // via Ammonite-generated Semantic DB and indexing of Ammonite-generated source of $file dependencies
@@ -85,7 +86,7 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
         "main.sc",
         "decode[F@@oo](json)",
         "main.sc",
-        6
+        6,
       )
 
     } yield ()
@@ -144,7 +145,7 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
     } yield {
       assertNoDiff(
         client.workspaceErrorShowMessages,
-        s"Error fetching Ammonite ${V.ammoniteVersion} for scala ${fakeScalaVersion}"
+        s"Error fetching Ammonite ${V.ammoniteVersion} for scala ${fakeScalaVersion}",
       )
     }
   }
@@ -162,9 +163,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |}
            |/main.sc
            | // scala $scalaVersion
-           |import $$ivy.`io.circe::circe-core:0.12.3`
-           |import $$ivy.`io.circe::circe-generic:0.12.3`
-           |import $$ivy.`io.circe::circe-parser:0.12.3`
+           |import $$ivy.`io.circe::circe-core:0.14.2`
+           |import $$ivy.`io.circe::circe-generic:0.14.2`
+           |import $$ivy.`io.circe::circe-parser:0.14.2`
            |import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
            |
            |sealed trait Foo
@@ -268,7 +269,7 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
                                   |others""".stripMargin
       completionList <- server.completion(
         "b/otherMain.sc",
-        "import $file.other@@"
+        "import $file.other@@",
       )
       _ = assertNoDiff(completionList, expectedCompletionList)
 
@@ -303,7 +304,7 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
       expectedCompletionList = "Script.sc"
       completionList <- server.completion(
         "foo.sc",
-        "import $file.foos.Script@@"
+        "import $file.foos.Script@@",
       )
       _ = assertNoDiff(completionList, expectedCompletionList)
 
@@ -322,9 +323,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |}
            |/main.sc
            | // scala $scalaVersion
-           |import $$ivy.`io.circe::circe-core:0.12.3`
-           |import $$ivy.`io.circe::circe-generic:0.12.3`
-           |import $$ivy.`io.circe::circe-parser:0.12.3`
+           |import $$ivy.`io.circe::circe-core:0.14.2`
+           |import $$ivy.`io.circe::circe-generic:0.14.2`
+           |import $$ivy.`io.circe::circe-parser:0.14.2`
            |import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
            |
            |sealed trait Foo
@@ -385,10 +386,23 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
 
   test("simple errored script") {
     val expectedDiagnostics =
-      """errored.sc:15:25: error: not found: type Fooz
-        |val decodedFoo = decode[Fooz](json)
-        |                        ^^^^
-        |""".stripMargin
+      if (scalaVersion.startsWith("2"))
+        """errored.sc:15:25: error: not found: type Fooz
+          |val decodedFoo = decode[Fooz](json)
+          |                        ^^^^
+          |errored.sc:18:8: error: not found: type Foozz
+          |decode[Foozz](json)
+          |       ^^^^^
+          |""".stripMargin
+      else
+        """errored.sc:15:25: error: Not found: type Fooz
+          |val decodedFoo = decode[Fooz](json)
+          |                        ^^^^
+          |errored.sc:18:8: error: Not found: type Foozz
+          |decode[Foozz](json)
+          |       ^^^^^
+          |""".stripMargin
+
     for {
       _ <- initialize(
         s"""
@@ -400,9 +414,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |}
            |/errored.sc
            | // scala $scalaVersion
-           |import $$ivy.`io.circe::circe-core:0.12.3`
-           |import $$ivy.`io.circe::circe-generic:0.12.3`
-           |import $$ivy.`io.circe::circe-parser:0.12.3`
+           |import $$ivy.`io.circe::circe-core:0.14.2`
+           |import $$ivy.`io.circe::circe-generic:0.14.2`
+           |import $$ivy.`io.circe::circe-parser:0.14.2`
            |import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
            |
            |sealed trait Foo
@@ -446,9 +460,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |}
            |
            |/lib2.sc
-           |import $$ivy.`io.circe::circe-core:0.12.3`
-           |import $$ivy.`io.circe::circe-generic:0.12.3`
-           |import $$ivy.`io.circe::circe-parser:0.12.3`
+           |import $$ivy.`io.circe::circe-core:0.14.2`
+           |import $$ivy.`io.circe::circe-generic:0.14.2`
+           |import $$ivy.`io.circe::circe-parser:0.14.2`
            |import $$file.lib1, lib1.HasFoo
            |
            |trait HasReallyFoo extends HasFoo
@@ -477,21 +491,21 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
       _ <- assertDefinitionAtLocation(
         "main.sc",
         "foo.as@@Json.noSpaces",
-        "io/circe/syntax/package.scala"
+        "io/circe/syntax/package.scala",
       )
 
       // via Ammonite-generated Semantic DB
       _ <- assertDefinitionAtLocation(
         "main.sc",
         "foo.asJson.no@@Spaces",
-        "io/circe/Json.scala"
+        "io/circe/Json.scala",
       )
 
       // via presentation compiler, using the Ammonite build target classpath
       _ <- assertDefinitionAtLocation(
         "io/circe/Json.scala",
         "final def noSpaces: String = Printer.no@@Spaces.print(this)",
-        "io/circe/Printer.scala"
+        "io/circe/Printer.scala",
       )
 
       // via Ammonite-generated Semantic DB and indexing of Ammonite-generated source of $file dependencies
@@ -499,21 +513,21 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
         "main.sc",
         "decode[F@@oo](json)",
         "main.sc",
-        4
+        4,
       )
 
       // via Ammonite-generated Semantic DB and indexing of Ammonite-generated source of $file dependencies
       _ <- assertDefinitionAtLocation(
         "main.sc",
         "sealed trait Foo extends Has@@ReallyFoo",
-        "lib2.sc"
+        "lib2.sc",
       )
 
       // via Ammonite-generated Semantic DB and indexing of Ammonite-generated source of $file dependencies
       _ <- assertDefinitionAtLocation(
         "lib2.sc",
         "trait HasReallyFoo extends Has@@Foo",
-        "lib1.sc"
+        "lib1.sc",
       )
 
     } yield ()
@@ -545,7 +559,9 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
            |""".stripMargin
       )
       _ <- server.didOpen("main.sc")
-      _ <- server.server.ammonite.maybeImport(server.toPath("main.sc"))
+      _ <- server.server
+        .maybeImportScript(server.toPath("main.sc"))
+        .getOrElse(Future.unit)
 
       messagesForScript = {
         val msgs = server.client.messageRequests.asScala.toVector
@@ -553,15 +569,17 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
         msgs
       }
       _ = assert(
-        messagesForScript.contains(Messages.ImportAmmoniteScript.message)
+        messagesForScript.contains(Messages.ImportScalaScript.message)
       )
 
       _ <- server.didOpen("build.sc")
-      _ <- server.server.ammonite.maybeImport(server.toPath("build.sc"))
+      _ <- server.server
+        .maybeImportScript(server.toPath("build.sc"))
+        .getOrElse(Future.unit)
 
       messagesForBuildSc = server.client.messageRequests.asScala.toVector
       _ = assert(
-        !messagesForBuildSc.contains(Messages.ImportAmmoniteScript.message)
+        !messagesForBuildSc.contains(Messages.ImportScalaScript.message)
       )
 
     } yield ()

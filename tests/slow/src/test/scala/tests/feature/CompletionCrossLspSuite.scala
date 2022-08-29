@@ -46,7 +46,7 @@ class CompletionCrossLspSuite
            |Serializable a
            |Serializable - java.io
            |SerializablePermission - java.io
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -56,5 +56,53 @@ class CompletionCrossLspSuite
   // https://github.com/scalameta/metals/pull/1277#issuecomment-578406803
   test("match-213".flaky) {
     matchKeywordTest(V.scala213)
+  }
+
+  test("extension") {
+    cleanWorkspace()
+    for {
+      _ <- initialize(
+        s"""/metals.json
+           |{
+           |  "a": { "scalaVersion": "${V.scala3}" }
+           |}
+           |/a/src/main/scala/a/B.scala
+           |package b
+           |extension (num: Int)
+           |  def plus(other: Int) = num + other
+           |/a/src/main/scala/a/A.scala
+           |package a
+           |
+           |object A {
+           |  // @@
+           |}
+           |""".stripMargin
+      )
+      _ <- server.didOpen("a/src/main/scala/a/B.scala")
+      _ = assertNoDiagnostics()
+      _ <- assertCompletionEdit(
+        "1.p@@",
+        """|package a
+           |
+           |import b.plus
+           |
+           |object A {
+           |  1.plus($0)
+           |}
+           |""".stripMargin,
+        filter = _.contains("plus"),
+      )
+      _ <- assertCompletion(
+        "1.pl@@",
+        """|plus(other: Int): Int (extension)
+           |""".stripMargin,
+        filter = _.contains("plus"),
+      )
+      _ <- assertCompletion(
+        "\"plus is not available for string\".plu@@",
+        "",
+        filter = _.contains("plus"),
+      )
+    } yield ()
   }
 }

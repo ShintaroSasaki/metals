@@ -14,13 +14,13 @@ import scala.meta.internal.metals.Debug
 import scala.meta.internal.metals.ExecuteClientCommandConfig
 import scala.meta.internal.metals.Icons
 import scala.meta.internal.metals.InitializationOptions
-import scala.meta.internal.metals.MetalsLogger
 import scala.meta.internal.metals.MetalsServerConfig
 import scala.meta.internal.metals.MtagsResolver
 import scala.meta.internal.metals.RecursivelyDelete
 import scala.meta.internal.metals.SlowTaskConfig
 import scala.meta.internal.metals.Time
 import scala.meta.internal.metals.UserConfiguration
+import scala.meta.internal.metals.logging.MetalsLogger
 import scala.meta.io.AbsolutePath
 
 import munit.Ignore
@@ -33,7 +33,7 @@ import org.eclipse.lsp4j.InitializeResult
  */
 abstract class BaseLspSuite(
     suiteName: String,
-    initializer: BuildServerInitializer = QuickBuildInitializer
+    initializer: BuildServerInitializer = QuickBuildInitializer,
 ) extends BaseSuite {
   MetalsLogger.updateDefaultFormat()
   def icons: Icons = Icons.default
@@ -73,7 +73,7 @@ abstract class BaseLspSuite(
 
   def initialize(
       layout: String,
-      expectError: Boolean = false
+      expectError: Boolean = false,
   ): Future[InitializeResult] = {
     Debug.printEnclosing()
     writeLayout(layout)
@@ -107,7 +107,7 @@ abstract class BaseLspSuite(
     val buffers = Buffers()
     val config = serverConfig.copy(
       executeClientCommand = ExecuteClientCommandConfig.on,
-      icons = this.icons
+      icons = this.icons,
     )
 
     val initOptions = initializationOptions
@@ -125,7 +125,7 @@ abstract class BaseLspSuite(
       time,
       initOptions,
       mtagsResolver,
-      onStartCompilation
+      onStartCompilation,
     )(ex)
     server.server.userConfig = this.userConfig
   }

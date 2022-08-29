@@ -18,14 +18,14 @@ final class CodeActionProvider(
     scalafixProvider: ScalafixProvider,
     trees: Trees,
     diagnostics: Diagnostics,
-    languageClient: MetalsLanguageClient
+    languageClient: MetalsLanguageClient,
 )(implicit ec: ExecutionContext) {
 
   private val extractMemberAction = new ExtractRenameMember(trees)
 
   private val allActions: List[CodeAction] = List(
     new ImplementAbstractMembers(compilers),
-    new ImportMissingSymbol(compilers),
+    new ImportMissingSymbol(compilers, buildTargets),
     new CreateNewSymbol(),
     new StringActions(buffers),
     extractMemberAction,
@@ -33,12 +33,12 @@ final class CodeActionProvider(
       scalafixProvider,
       buildTargets,
       diagnostics,
-      languageClient
+      languageClient,
     ),
     new OrganizeImportsQuickFix(
       scalafixProvider,
       buildTargets,
-      diagnostics
+      diagnostics,
     ),
     new InsertInferredType(trees),
     new PatternMatchRefactor(trees),
@@ -46,19 +46,19 @@ final class CodeActionProvider(
     new ExtractValueCodeAction(trees, buffers),
     new CreateCompanionObjectCodeAction(trees, buffers),
     new ConvertToNamedArguments(trees),
-    new FlatMapToForComprehensionCodeAction(trees, buffers)
+    new FlatMapToForComprehensionCodeAction(trees, buffers),
   )
 
   def codeActions(
       params: l.CodeActionParams,
-      token: CancelToken
+      token: CancelToken,
   )(implicit ec: ExecutionContext): Future[Seq[l.CodeAction]] = {
+    val requestedKinds = Option(params.getContext.getOnly).map(_.asScala.toList)
+
     def isRequestedKind(action: CodeAction): Boolean =
-      Option(params.getContext.getOnly) match {
+      requestedKinds match {
         case Some(only) =>
-          only.asScala.toSet.exists(requestedKind =>
-            action.kind.startsWith(requestedKind)
-          )
+          only.exists(requestedKind => action.kind.startsWith(requestedKind))
         case None => true
       }
 

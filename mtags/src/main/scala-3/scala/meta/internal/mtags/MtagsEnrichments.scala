@@ -91,8 +91,17 @@ object MtagsEnrichments extends CommonMtagsEnrichments:
     def toLSP: l.Range =
       new l.Range(
         offsetToPos(pos.start),
-        offsetToPos(pos.end)
+        offsetToPos(pos.end),
       )
+
+    def withEnd(end: Int): SourcePosition =
+      pos.withSpan(pos.span.withEnd(end))
+
+    def withStart(end: Int): SourcePosition =
+      pos.withSpan(pos.span.withStart(end))
+
+    def focusAt(point: Int): SourcePosition =
+      pos.withSpan(pos.span.withPoint(point).focus)
 
     def toLocation: Option[l.Location] =
       for
@@ -135,6 +144,18 @@ object MtagsEnrichments extends CommonMtagsEnrichments:
       upd.rawParamss = paramsWithFlags
       upd
     end withUpdatedTpe
+
+    // Returns true if this symbol is locally defined from an old version of the source file.
+    def isStale: Boolean =
+      sym.sourcePos.span.exists && {
+        val source = ctx.source
+        if source ne sym.source then
+          !source.content.startsWith(
+            sym.decodedName.toString(),
+            sym.sourcePos.span.point,
+          )
+        else false
+      }
   end extension
 
   extension (name: Name)(using Context)
@@ -157,7 +178,7 @@ object MtagsEnrichments extends CommonMtagsEnrichments:
       val sym = toSemanticdbSymbol(symbol)
       val documentation = search.documentation(
         sym,
-        () => symbol.allOverriddenSymbols.map(toSemanticdbSymbol).toList.asJava
+        () => symbol.allOverriddenSymbols.map(toSemanticdbSymbol).toList.asJava,
       )
       if documentation.isPresent then Some(documentation.get())
       else None
@@ -187,7 +208,7 @@ object MtagsEnrichments extends CommonMtagsEnrichments:
         case MultiDenotation(denot1, denot2) =>
           List(
             denot1.allSymbols,
-            denot2.allSymbols
+            denot2.allSymbols,
           ).flatten
         case NoDenotation => Nil
         case _ =>

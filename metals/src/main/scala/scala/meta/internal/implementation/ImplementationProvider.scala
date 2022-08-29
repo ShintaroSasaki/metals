@@ -5,7 +5,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.mutable
-import scala.collection.parallel.CollectionConverters._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 import scala.meta.internal.metals.Buffers
@@ -43,8 +44,9 @@ final class ImplementationProvider(
     buffer: Buffers,
     definitionProvider: DefinitionProvider,
     trees: Trees,
-    scalaVersionSelector: ScalaVersionSelector
-) extends SemanticdbFeatureProvider {
+    scalaVersionSelector: ScalaVersionSelector,
+)(implicit ec: ExecutionContext)
+    extends SemanticdbFeatureProvider {
   import ImplementationProvider._
 
   private val globalTable = new GlobalClassTable(buildTargets)
@@ -63,7 +65,7 @@ final class ImplementationProvider(
     if (!path.isJarFileSystem)
       implementationsInPath.compute(
         path.toNIO,
-        { (_, _) => computeInheritance(docs) }
+        { (_, _) => computeInheritance(docs) },
       )
   }
 
@@ -80,7 +82,7 @@ final class ImplementationProvider(
         parentImplLocationPairs ++= parentsFromSignature(
           symbolInfo.symbol,
           symbolInfo.signature,
-          Some(workspace.resolve(document.uri))
+          Some(workspace.resolve(document.uri)),
         )
       }
     }
@@ -91,7 +93,7 @@ final class ImplementationProvider(
 
   def defaultSymbolSearch(
       anyWorkspacePath: AbsolutePath,
-      textDocument: TextDocument
+      textDocument: TextDocument,
   ): String => Option[SymbolInformation] = {
     lazy val global =
       globalTable.globalSymbolTableFor(anyWorkspacePath)
@@ -105,14 +107,14 @@ final class ImplementationProvider(
 
   def implementations(
       params: TextDocumentPositionParams
-  ): List[Location] = {
+  ): Future[List[Location]] = {
     val source = params.getTextDocument.getUri.toAbsolutePath
     val locations = for {
       (symbolOccurrence, currentDocument) <-
         definitionProvider
           .symbolOccurrence(
             source,
-            params.getPosition
+            params.getPosition,
           )
           .toIterable
     } yield {
@@ -136,7 +138,7 @@ final class ImplementationProvider(
         case None =>
           globalTable.globalContextFor(
             source,
-            implementationsInPath.asScala.toMap
+            implementationsInPath.asScala.toMap,
           )
         // symbol is in workspace,
         // we might need to search different places for related symbols
@@ -144,22 +146,24 @@ final class ImplementationProvider(
           Some(
             InheritanceContext.fromDefinitions(
               symbolSearch,
-              implementationsInPath.asScala.toMap
+              implementationsInPath.asScala.toMap,
             )
           )
       }
       symbolLocationsFromContext(
         dealiased,
         source,
-        inheritanceContext
+        inheritanceContext,
       )
     }
-    locations.flatten.toList
+    Future.sequence(locations).map {
+      _.flatten.toList
+    }
   }
 
   def topMethodParents(
       symbol: String,
-      textDocument: TextDocument
+      textDocument: TextDocument,
   ): Seq[Location] = {
 
     def findClassInfo(owner: String) = {
@@ -193,7 +197,7 @@ final class ImplementationProvider(
   private def methodInParentSignature(
       currentClassSig: ClassSignature,
       bottomSymbol: SymbolInformation,
-      bottomClassSig: ClassSignature
+      bottomClassSig: ClassSignature,
   ): Seq[Location] = {
     currentClassSig.parents.flatMap {
       case parentSym: TypeRef =>
@@ -205,14 +209,14 @@ final class ImplementationProvider(
             val fromParent = methodInParentSignature(
               parenClassSig,
               bottomSymbol,
-              bottomClassSig
+              bottomClassSig,
             )
             if (fromParent.isEmpty) {
               locationFromClass(
                 bottomSymbol,
                 parenClassSig,
                 search,
-                parentTextDocument
+                parentTextDocument,
               )
             } else {
               fromParent
@@ -228,12 +232,12 @@ final class ImplementationProvider(
       bottomSymbolInformation: SymbolInformation,
       parentClassSig: ClassSignature,
       search: String => Option[SymbolInformation],
-      parentTextDocument: Option[TextDocument]
+      parentTextDocument: Option[TextDocument],
   ): Option[Location] = {
     val matchingSymbol = MethodImplementation.findParentSymbol(
       bottomSymbolInformation,
       parentClassSig,
-      search
+      search,
     )
     for {
       symbol <- matchingSymbol
@@ -242,13 +246,13 @@ final class ImplementationProvider(
       implOccurrence <- findDefOccurrence(
         parentDoc,
         symbol,
-        source
+        source,
       )
       range <- implOccurrence.range
       distance = buffer.tokenEditDistance(
         source,
         parentDoc.text,
-        trees
+        trees,
       )
       revised <- distance.toRevised(range.toLSP)
     } yield new Location(source.toNIO.toUri().toString(), revised)
@@ -257,13 +261,13 @@ final class ImplementationProvider(
   private def symbolLocationsFromContext(
       symbol: String,
       source: AbsolutePath,
-      inheritanceContext: Option[InheritanceContext]
-  ): Iterable[Location] = {
+      inheritanceContext: Option[InheritanceContext],
+  ): Future[Seq[Location]] = {
 
     def findImplementationSymbol(
         parentSymbolInfo: SymbolInformation,
         implDocument: TextDocument,
-        implReal: ClassLocation
+        implReal: ClassLocation,
     ): Option[String] = {
       if (isClassLike(parentSymbolInfo))
         Some(implReal.symbol)
@@ -272,45 +276,65 @@ final class ImplementationProvider(
         MethodImplementation.findInherited(
           parentSymbolInfo,
           implReal,
-          symbolSearch
+          symbolSearch,
         )
       }
     }
 
     val allLocations = new ConcurrentLinkedQueue[Location]
 
-    for {
+    def findImplementationLocations(
+        files: Set[Path],
+        locationsByFile: Map[Path, Set[ClassLocation]],
+        parentSymbol: SymbolInformation,
+    ) =
+      Future {
+        for {
+          file <- files
+          locations = locationsByFile(file)
+          implPath = AbsolutePath(file)
+          implDocument <- findSemanticdb(implPath).toIterable
+          distance = buffer.tokenEditDistance(
+            implPath,
+            implDocument.text,
+            trees,
+          )
+          implLocation <- locations
+          implSymbol <- findImplementationSymbol(
+            parentSymbol,
+            implDocument,
+            implLocation,
+          )
+          if !findSymbol(implDocument, implSymbol).exists(
+            _.kind == SymbolInformation.Kind.TYPE
+          )
+          implOccurrence <- findDefOccurrence(
+            implDocument,
+            implSymbol,
+            source,
+          )
+          range <- implOccurrence.range
+          revised <- distance.toRevised(range.toLSP)
+        } { allLocations.add(new Location(file.toUri.toString, revised)) }
+      }
+
+    lazy val cores = Runtime.getRuntime().availableProcessors()
+    val splitJobs = for {
       classContext <- inheritanceContext.toIterable
       parentSymbol <- classContext.findSymbol(symbol).toIterable
       symbolClass <- classFromSymbol(parentSymbol, classContext.findSymbol)
       locationsByFile = findImplementation(
         symbolClass.symbol,
         classContext,
-        source.toNIO
+        source.toNIO,
       )
-      file <- locationsByFile.keySet.toArray.par
-      locations = locationsByFile(file)
-      implPath = AbsolutePath(file)
-      implDocument <- findSemanticdb(implPath).toIterable
-      distance = buffer.tokenEditDistance(implPath, implDocument.text, trees)
-      implLocation <- locations
-      implSymbol <- findImplementationSymbol(
-        parentSymbol,
-        implDocument,
-        implLocation
+      files <- locationsByFile.keySet.grouped(
+        Math.max(locationsByFile.size / cores, 1)
       )
-      if !findSymbol(implDocument, implSymbol).exists(
-        _.kind == SymbolInformation.Kind.TYPE
-      )
-      implOccurrence <- findDefOccurrence(
-        implDocument,
-        implSymbol,
-        source
-      )
-      range <- implOccurrence.range
-      revised <- distance.toRevised(range.toLSP)
-    } { allLocations.add(new Location(file.toUri.toString, revised)) }
-    allLocations.asScala
+    } yield findImplementationLocations(files, locationsByFile, parentSymbol)
+    Future.sequence(splitJobs).map { _ =>
+      allLocations.asScala.toSeq
+    }
   }
 
   private def findSemanticdb(fileSource: AbsolutePath): Option[TextDocument] = {
@@ -325,7 +349,7 @@ final class ImplementationProvider(
   private def findImplementation(
       symbol: String,
       classContext: InheritanceContext,
-      file: Path
+      file: Path,
   ): Map[Path, Set[ClassLocation]] = {
 
     def loop(symbol: String, currentPath: Option[Path]): Set[ClassLocation] = {
@@ -333,8 +357,12 @@ final class ImplementationProvider(
         classContext.getLocations(symbol).filterNot { loc =>
           // we are not interested in local symbols from outside the workspace
           (loc.symbol.isLocal && loc.file.isEmpty) ||
-          // local symbols inheritance should only be picked up in the same file
-          (loc.symbol.isLocal && loc.file != currentPath)
+          // for local symbols, inheritance should only be picked up in the same file
+          // otherwise there can be a name collision between files
+          // local1' is from file A, local2 extends local1''
+          // but both local2 and local1'' are from file B
+          // clearly, local2 shouldn't be considered for local1'
+          (symbol.isLocal && loc.symbol.isLocal && loc.file != currentPath)
         }
       directImplementations ++ directImplementations
         .flatMap { loc => loop(loc.symbol, loc.file) }
@@ -376,7 +404,7 @@ final class ImplementationProvider(
 
   private def classFromSymbol(
       info: SymbolInformation,
-      findSymbol: String => Option[SymbolInformation]
+      findSymbol: String => Option[SymbolInformation],
   ): Iterable[SymbolInformation] = {
     val classInfo = if (isClassLike(info)) {
       Some(info)
@@ -390,7 +418,7 @@ final class ImplementationProvider(
   private def findDefOccurrence(
       semanticDb: TextDocument,
       symbol: String,
-      source: AbsolutePath
+      source: AbsolutePath,
   ): Option[SymbolOccurrence] = {
     def isDefinitionOccurrence(occ: SymbolOccurrence) =
       occ.role.isDefinition && occ.symbol == symbol
@@ -419,7 +447,7 @@ object ImplementationProvider {
 
   def dealiasClass(
       symbol: String,
-      findSymbol: String => Option[SymbolInformation]
+      findSymbol: String => Option[SymbolInformation],
   ): String = {
     if (symbol.desc.isType) {
       findSymbol(symbol)
@@ -432,7 +460,7 @@ object ImplementationProvider {
 
   def dealiasClass(
       info: SymbolInformation,
-      findSymbol: String => Option[SymbolInformation]
+      findSymbol: String => Option[SymbolInformation],
   ): SymbolInformation = {
     if (info.isType) {
       info.signature match {
@@ -454,7 +482,7 @@ object ImplementationProvider {
 
   private def findSymbol(
       semanticDb: TextDocument,
-      symbol: String
+      symbol: String,
   ): Option[SymbolInformation] = {
     semanticDb.symbols
       .find(sym => sym.symbol == symbol)
@@ -463,7 +491,7 @@ object ImplementationProvider {
   def parentsFromSignature(
       symbol: String,
       signature: Signature,
-      filePath: Option[AbsolutePath]
+      filePath: Option[AbsolutePath],
   ): Seq[(String, ClassLocation)] = {
 
     def fromClassSignature(
@@ -480,7 +508,7 @@ object ImplementationProvider {
           Seq(
             tr.symbol -> ClassLocation(
               symbol,
-              filePath.map(_.toNIO)
+              filePath.map(_.toNIO),
             )
           )
         case _ => Seq.empty

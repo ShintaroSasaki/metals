@@ -75,7 +75,7 @@ case class GradleBuildTool(userConfig: () => UserConfiguration)
           "--console=plain",
           "--init-script",
           initScriptPath.toString,
-          "bloopInstall"
+          "bloopInstall",
         )
       }
     }
@@ -95,7 +95,7 @@ case class GradleBuildTool(userConfig: () => UserConfiguration)
   // @tgodzik This this is the wrapper version we specify it as such,
   // since it's hard to determine which version will be used as gradle
   // doesn't save it in any settings
-  override def version: String = "5.3.1"
+  override def version: String = "7.5.0"
 
   override def minimumVersion: String = "4.3.0"
 
@@ -109,7 +109,7 @@ case class GradleBuildTool(userConfig: () => UserConfiguration)
 object GradleBuildTool {
   def isGradleRelatedPath(
       workspace: AbsolutePath,
-      path: AbsolutePath
+      path: AbsolutePath,
   ): Boolean = {
     val buildSrc = workspace.toNIO.resolve("buildSrc")
     val filename = path.toNIO.getFileName.toString

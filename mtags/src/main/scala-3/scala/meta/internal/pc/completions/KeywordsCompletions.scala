@@ -12,9 +12,8 @@ object KeywordsCompletions:
 
   def contribute(
       path: List[Tree],
-      completionPos: CompletionPos
+      completionPos: CompletionPos,
   )(using ctx: Context): List[CompletionValue] =
-
     lazy val notInComment = checkIfNotInComment(completionPos.cursorPos, path)
     path match
       case Nil if completionPos.query.isEmpty =>
@@ -23,6 +22,8 @@ object KeywordsCompletions:
           case kw if (kw.isPackage || kw.isTemplate) && notInComment =>
             CompletionValue.keyword(kw.name, kw.insertText)
         }
+      case Select(qual, name) :: _ if "match".startsWith(name.toString()) =>
+        List(CompletionValue.keyword("match", "match\n\tcase $0\n"))
       case _ =>
         val isExpression = this.isExpression(path)
         val isBlock = this.isBlock(path)
@@ -44,7 +45,7 @@ object KeywordsCompletions:
                 isPackage = isPackage,
                 isParam = isParam,
                 isScala3 = true,
-                allowToplevel = true
+                allowToplevel = true,
               ) && notInComment =>
             CompletionValue.keyword(kw.name, kw.insertText)
         }
@@ -53,7 +54,7 @@ object KeywordsCompletions:
 
   private def checkIfNotInComment(
       pos: SourcePosition,
-      path: List[Tree]
+      path: List[Tree],
   ): Boolean =
     val text = pos.source.content
     val (treeStart, treeEnd) = path.headOption
@@ -90,7 +91,7 @@ object KeywordsCompletions:
   private def isDefinition(
       enclosing: List[Tree],
       name: String,
-      pos: SourcePosition
+      pos: SourcePosition,
   )(using ctx: Context): Boolean =
     enclosing match
       case (_: Ident) :: _ => false

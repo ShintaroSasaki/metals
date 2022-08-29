@@ -36,6 +36,8 @@ import dotty.tools.dotc.util.Spans.Span
 import org.eclipse.{lsp4j as l}
 
 object OverrideCompletions:
+  private type TargetDef = TypeDef | DefDef
+
   private def defaultIndent(tabIndent: Boolean) =
     if tabIndent then 1 else 2
 
@@ -51,7 +53,7 @@ object OverrideCompletions:
       start: Int,
       indexedContext: IndexedContext,
       search: SymbolSearch,
-      config: PresentationCompilerConfig
+      config: PresentationCompilerConfig,
   ): List[CompletionValue] =
     import indexedContext.ctx
     val clazz = td.symbol.asClass
@@ -91,7 +93,7 @@ object OverrideCompletions:
       .flatMap { parent =>
         parent.membersBasedOnFlags(
           flags,
-          Flags.Private
+          Flags.Private,
         )
       }
       .distinct
@@ -115,7 +117,7 @@ object OverrideCompletions:
           shouldMoveCursor = true,
           config,
           indexedContext.ctx.compilationUnit.source.content
-            .startsWith("o", start)
+            .startsWith("o", start),
         )
       )
       .toList
@@ -125,26 +127,40 @@ object OverrideCompletions:
       params: OffsetParams,
       driver: InteractiveDriver,
       search: SymbolSearch,
-      config: PresentationCompilerConfig
+      config: PresentationCompilerConfig,
   ): ju.List[l.TextEdit] =
     object FindTypeDef:
-      def unapply(path: List[Tree]): Option[TypeDef] = path match
+      def unapply(path: List[Tree])(using Context): Option[TypeDef] = path match
+        // class <<Foo>> extends ... {}
         case (td: TypeDef) :: _ => Some(td)
         // new Iterable[Int] {}
         case (_: Ident) :: _ :: (_: Template) :: (td: TypeDef) :: _ =>
           Some(td)
-        // new Context {}
+        // given Foo with {}
         case (_: Ident) :: (_: Template) :: (td: TypeDef) :: _ =>
           Some(td)
+        // <<new>> Foo {}
+        case (_: Template) :: (td: TypeDef) :: _ =>
+          Some(td)
+        // abstract class Mutable { ... }
+        // new <<Mutable>> { }
         case (_: Ident) :: (_: New) :: (_: Select) :: (_: Apply) :: (_: Template) :: (td: TypeDef) :: _ =>
           Some(td)
+        // trait Base[T]:
+        //   extension (x: T)
+        //     ...
+        // class <<Concrete>>[T] extends Base[Int]
+        case (dd: DefDef) :: (_: Template) :: (td: TypeDef) :: _
+            if dd.symbol.isConstructor =>
+          Some(td)
         case _ => None
+    end FindTypeDef
 
     val uri = params.uri
     val ctx = driver.currentCtx
     driver.run(
       uri,
-      SourceFile.virtual(uri.toASCIIString, params.text)
+      SourceFile.virtual(uri.toASCIIString, params.text),
     )
     val unit = driver.currentCtx.run.units.head
     val tree = unit.tpdTree
@@ -158,21 +174,24 @@ object OverrideCompletions:
     )
     import indexedContext.ctx
 
-    val autoImportsGen = AutoImports.generator(
+    lazy val autoImportsGen = AutoImports.generator(
       pos,
       params.text,
       unit.tpdTree,
       indexedContext,
-      config
+      config,
     )
-    val implementAll = implementAllFor(
+    lazy val implementAll = implementAllFor(
       indexedContext,
       params.text,
       search,
       autoImportsGen,
-      config
+      config,
     )
     path match
+      // given <<Foo>>
+      case (_: Ident) :: (dd: DefDef) :: _ =>
+        implementAll(dd).asJava
       case FindTypeDef(td) =>
         implementAll(td).asJava
       case _ =>
@@ -184,16 +203,16 @@ object OverrideCompletions:
       text: String,
       search: SymbolSearch,
       autoImports: AutoImportsGenerator,
-      config: PresentationCompilerConfig
+      config: PresentationCompilerConfig,
   )(
-      td: TypeDef
+      defn: TargetDef
   )(using Context): List[l.TextEdit] =
     def calcIndent(
-        td: TypeDef,
+        defn: TargetDef,
         decls: List[Symbol],
         source: SourceFile,
         text: String,
-        shouldCompleteBraces: Boolean
+        shouldCompleteBraces: Boolean,
     )(using Context): (String, String, String) =
       // For `FooImpl` in the below, the necessaryIndent will be 2
       // because there're 2 spaces before `class FooImpl`.
@@ -202,9 +221,9 @@ object OverrideCompletions:
       // |  class FooImpl extends Foo {
       // |  }
       // ```
-      val (necessaryIndent, tabIndented) = inferIndent(
-        source.lineToOffset(td.sourcePos.line),
-        text
+      val (necessaryIndent, tabIndented) = CompletionPos.inferIndent(
+        source.lineToOffset(defn.sourcePos.line),
+        text,
       )
       // infer indent for implementations
       // If there's declaration in the class/object, follow its indent.
@@ -219,7 +238,10 @@ object OverrideCompletions:
       val (numIndent, shouldTabIndent) =
         decls.headOption
           .map { decl =>
-            inferIndent(source.lineToOffset(decl.sourcePos.line), text)
+            CompletionPos.inferIndent(
+              source.lineToOffset(decl.sourcePos.line),
+              text,
+            )
           }
           .getOrElse({
             val default = defaultIndent(tabIndented)
@@ -228,51 +250,53 @@ object OverrideCompletions:
       val indentChar = if shouldTabIndent then "\t" else " "
       val indent = indentChar * numIndent
       val lastIndent =
-        if (td.sourcePos.startLine == td.sourcePos.endLine) ||
+        if (defn.sourcePos.startLine == defn.sourcePos.endLine) ||
           shouldCompleteBraces
         then "\n" + indentChar * necessaryIndent
         else ""
       (indent, indent, lastIndent)
     end calcIndent
 
-    val overridables = td.tpe.abstractTermMembers.map(_.symbol)
+    val overridables = defn.tpe.abstractTermMembers.map(_.symbol)
     val completionValues = overridables
       .map(sym =>
         toCompletionValue(
           sym.denot,
           0, // we don't care the position of each completion value from ImplementAll
-          td,
+          defn,
           indexedContext,
           search,
           shouldMoveCursor = false,
           config,
-          shouldAddOverrideKwd = true
+          shouldAddOverrideKwd = true,
         )
       )
       .toList
 
     val (edits, imports) = toEdits(
       completionValues,
-      autoImports
+      autoImports,
     )
 
     if edits.isEmpty then Nil
     else
       // A list of declarations in the class/object to implement
-      val decls = td.tpe.decls.toList
+      val decls = defn.tpe.decls.toList
         .filter(sym =>
           !sym.isPrimaryConstructor &&
+            !sym.isTypeParam &&
             !sym.is(ParamAccessor) && // `num` of `class Foo(num: int)`
-            sym.span.exists
+            sym.span.exists &&
+            defn.sourcePos.contains(sym.sourcePos)
         )
         .sortBy(_.sourcePos.start)
 
       val source = indexedContext.ctx.source
 
-      val shouldCompleteBraces = decls.isEmpty && hasBraces(text, td).isEmpty
+      val shouldCompleteBraces = decls.isEmpty && hasBraces(text, defn).isEmpty
 
       val (startIndent, indent, lastIndent) =
-        calcIndent(td, decls, source, text, shouldCompleteBraces)
+        calcIndent(defn, decls, source, text, shouldCompleteBraces)
 
       // If there're declarations in the class/object to implement e.g.
       // ```scala
@@ -285,14 +309,21 @@ object OverrideCompletions:
         decls.headOption.map(decl =>
           val pos = source.lineToOffset(decl.sourcePos.line)
           val span = decl.sourcePos.span.withStart(pos).withEnd(pos)
-          td.sourcePos.withSpan(span)
+          defn.sourcePos.withSpan(span)
         )
-      val editPos = posFromDecls.getOrElse(inferEditPosition(text, td))
+      val editPos = posFromDecls.getOrElse(inferEditPosition(text, defn))
+
+      lazy val shouldCompleteWith = defn match
+        case dd: DefDef =>
+          dd.symbol.is(Given)
+        case _ => false
 
       val (start, last) =
         val (startNL, lastNL) =
           if posFromDecls.nonEmpty then ("\n", "\n\n") else ("\n\n", "\n")
-        if shouldCompleteBraces then
+        if shouldCompleteWith then
+          (s" with$startNL$indent", s"$lastNL$lastIndent")
+        else if shouldCompleteBraces then
           (s" {$startNL$indent", s"$lastNL$lastIndent}")
         else (s"$startNL$indent", s"$lastNL$lastIndent")
 
@@ -300,7 +331,7 @@ object OverrideCompletions:
         edits.mkString(start, s"\n\n$indent", last)
       val implementAll = new l.TextEdit(
         editPos.toLSP,
-        newEdit
+        newEdit,
       )
       implementAll +: imports.toList
     end if
@@ -309,7 +340,7 @@ object OverrideCompletions:
 
   private def toEdits(
       completions: List[CompletionValue.Override],
-      autoImports: AutoImportsGenerator
+      autoImports: AutoImportsGenerator,
   ): (List[String], Set[l.TextEdit]) =
     completions.foldLeft(
       (List.empty[String], Set.empty[l.TextEdit])
@@ -330,66 +361,71 @@ object OverrideCompletions:
     Set[Name](
       StdNames.nme.hashCode_,
       StdNames.nme.toString_,
-      StdNames.nme.equals_
+      StdNames.nme.equals_,
     )
 
   private def toCompletionValue(
       sym: SymDenotation,
       start: Int,
-      td: TypeDef,
+      defn: TargetDef,
       indexedContext: IndexedContext,
       search: SymbolSearch,
       shouldMoveCursor: Boolean,
       config: PresentationCompilerConfig,
-      shouldAddOverrideKwd: Boolean
+      shouldAddOverrideKwd: Boolean,
   )(using Context): CompletionValue.Override =
     val renames = AutoImport.renameConfigMap(config)
     val printer = MetalsPrinter.standard(
       indexedContext,
       search,
       includeDefaultParam = MetalsPrinter.IncludeDefaultParam.Never,
-      renames
+      renames,
     )
     val overrideKeyword: String =
       // if the overriding method is not an abstract member, add `override` keyword
       if !sym.isOneOf(Deferred) || shouldAddOverrideKwd
-      then "override "
+      then "override"
       else ""
 
-    val asciOverrideDef: String =
-      if sym.is(Abstract) then ""
-      else overrideKeyword
-
-    val overrideDef: String = config.overrideDefFormat() match
+    val overrideDefLabel: String = config.overrideDefFormat() match
       case OverrideDefFormat.Unicode =>
-        if sym.is(Abstract) then "🔼 "
+        if sym.is(Deferred) then "🔼 "
         else "⏫ "
-      case _ => asciOverrideDef
+      case _ => ""
 
     val signature =
       // `iterator` method in `new Iterable[Int] { def iterato@@ }`
       // should be completed as `def iterator: Iterator[Int]` instead of `Iterator[A]`.
-      val seenFrom = td.tpe.memberInfo(sym.symbol)
+      val seenFrom = defn.tpe.memberInfo(sym.symbol)
       if sym.is(Method) then
         printer.defaultMethodSignature(
           sym.symbol,
-          seenFrom
+          seenFrom,
+          additionalMods =
+            if overrideKeyword.nonEmpty then List(overrideKeyword) else Nil,
         )
-      else printer.defaultValueSignature(sym.symbol, seenFrom)
+      else
+        printer.defaultValueSignature(
+          sym.symbol,
+          seenFrom,
+          additionalMods =
+            if overrideKeyword.nonEmpty then List(overrideKeyword) else Nil,
+        )
+    end signature
 
-    val label = overrideDef + signature
+    val label = s"$overrideDefLabel$signature"
     val stub =
       if config.isCompletionSnippetsEnabled && shouldMoveCursor then "${0:???}"
       else "???"
-    val value = s"${overrideKeyword}${signature} = $stub"
-    val filterText = s"$overrideKeyword$signature"
+    val value = s"$signature = $stub"
+    val filterText = signature
     CompletionValue.Override(
       label,
       value,
       sym.symbol,
       printer.shortenedNames,
-      filterText,
-      start
+      Some(filterText),
+      start,
     )
   end toCompletionValue
 
@@ -406,48 +442,33 @@ object OverrideCompletions:
    * @param text the whole text of the source file
    * @param td the class/object to impement all
    */
-  private def inferEditPosition(text: String, td: TypeDef)(using
+  private def inferEditPosition(text: String, defn: TargetDef)(using
       Context
   ): SourcePosition =
-    val span = hasBraces(text, td)
+    val span = hasBraces(text, defn)
       .map { offset =>
-        td.sourcePos.span.withStart(offset + 1).withEnd(offset + 1)
+        defn.sourcePos.span.withStart(offset + 1).withEnd(offset + 1)
       }
-      .getOrElse(
-        td.sourcePos.span.withStart(td.span.end)
-      )
-    td.sourcePos.withSpan(span)
+      .getOrElse({
+        defn.sourcePos.span.withStart(defn.span.end)
+      })
+    defn.sourcePos.withSpan(span)
   end inferEditPosition
 
-  private def hasBraces(text: String, td: TypeDef): Option[Int] =
-    def hasSelfTypeAnnot = td.rhs match
-      case t: Template =>
-        t.self.span.isSourceDerived
+  private def hasBraces(text: String, defn: TargetDef): Option[Int] =
+    def hasSelfTypeAnnot = defn match
+      case td: TypeDef =>
+        td.rhs match
+          case t: Template =>
+            t.self.span.isSourceDerived
+          case _ => false
       case _ => false
-    val start = td.span.start
+    val start = defn.span.start
     val offset =
       if hasSelfTypeAnnot then text.indexOf("=>", start) + 1
       else text.indexOf("{", start)
-    if offset > 0 && offset < td.span.end then Some(offset)
+    if offset > 0 && offset < defn.span.end then Some(offset)
     else None
-
-  /**
-   * Infer the indentation by counting the number of spaces in the given line.
-   *
-   * @param lineOffset the offset position of the beginning of the line
-   */
-  private def inferIndent(lineOffset: Int, text: String): (Int, Boolean) =
-    var i = 0
-    var tabIndented = false
-    while lineOffset + i < text.length && {
-        val char = text.charAt(lineOffset + i)
-        if char == '\t' then
-          tabIndented = true
-          true
-        else char == ' '
-      }
-    do i += 1
-    (i, tabIndented)
-  end inferIndent
+  end hasBraces
 
 end OverrideCompletions

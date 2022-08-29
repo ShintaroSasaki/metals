@@ -9,16 +9,26 @@ import scala.meta.pc.CancelToken
 
 import org.eclipse.{lsp4j => l}
 
-class ImportMissingSymbol(compilers: Compilers) extends CodeAction {
+class ImportMissingSymbol(compilers: Compilers, buildTargets: BuildTargets)
+    extends CodeAction {
 
   override def kind: String = l.CodeActionKind.QuickFix
 
   override def contribute(
       params: l.CodeActionParams,
-      token: CancelToken
+      token: CancelToken,
   )(implicit ec: ExecutionContext): Future[Seq[l.CodeAction]] = {
 
     val uri = params.getTextDocument().getUri()
+    val file = uri.toAbsolutePath
+    lazy val isScala3 =
+      (for {
+        buildId <- buildTargets.inverseSources(file)
+        target <- buildTargets.scalaTarget(buildId)
+        isScala3 = ScalaVersions.isScala3Version(
+          target.scalaInfo.getScalaVersion()
+        )
+      } yield isScala3).getOrElse(false)
 
     def joinActionEdits(actions: Seq[l.CodeAction]) = {
       actions
@@ -35,14 +45,20 @@ class ImportMissingSymbol(compilers: Compilers) extends CodeAction {
 
     def importMissingSymbol(
         diagnostic: l.Diagnostic,
-        name: String
+        name: String,
+        findExtensionMethods: Boolean = false,
     ): Future[Seq[l.CodeAction]] = {
       val textDocumentPositionParams = new l.TextDocumentPositionParams(
         params.getTextDocument(),
-        diagnostic.getRange.getEnd()
+        diagnostic.getRange.getEnd(),
       )
       compilers
-        .autoImports(textDocumentPositionParams, name, token)
+        .autoImports(
+          textDocumentPositionParams,
+          name,
+          findExtensionMethods,
+          token,
+        )
         .map { imports =>
           imports.asScala.map { i =>
             val uri = params.getTextDocument().getUri()
@@ -97,6 +113,12 @@ class ImportMissingSymbol(compilers: Compilers) extends CodeAction {
             case diag @ ScalacDiagnostic.SymbolNotFound(name)
                 if params.getRange().overlapsWith(diag.getRange()) =>
               importMissingSymbol(diag, name)
+            // `foo.xxx` where `xxx` is not a member of `foo`
+            // we search for `xxx` only when the target is Scala3
+            // considering there might be an extension method.
+            case d @ ScalacDiagnostic.NotAMember(name)
+                if isScala3 && params.getRange().overlapsWith(d.getRange()) =>
+              importMissingSymbol(d, name, findExtensionMethods = true)
           }
       )
       .map { actions =>

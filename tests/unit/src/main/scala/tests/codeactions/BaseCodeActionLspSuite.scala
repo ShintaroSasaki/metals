@@ -9,6 +9,7 @@ import munit.Location
 import munit.TestOptions
 import org.eclipse.lsp4j.CodeAction
 import tests.BaseLspSuite
+import tests.FileLayout
 
 abstract class BaseCodeActionLspSuite(
     suiteName: String
@@ -21,7 +22,7 @@ abstract class BaseCodeActionLspSuite(
       input: String,
       scalafixConf: String = "",
       scalacOptions: List[String] = Nil,
-      filterAction: CodeAction => Boolean = _ => true
+      filterAction: CodeAction => Boolean = _ => true,
   )(implicit loc: Location): Unit = {
     val fileContent = input.replace("<<", "").replace(">>", "")
     check(
@@ -31,7 +32,7 @@ abstract class BaseCodeActionLspSuite(
       fileContent,
       scalafixConf = scalafixConf,
       scalacOptions = scalacOptions,
-      filterAction = filterAction
+      filterAction = filterAction,
     )
   }
 
@@ -52,28 +53,71 @@ abstract class BaseCodeActionLspSuite(
       fileName: String = "A.scala",
       changeFile: String => String = identity,
       expectError: Boolean = false,
-      filterAction: CodeAction => Boolean = _ => true
+      filterAction: CodeAction => Boolean = _ => true,
   )(implicit loc: Location): Unit = {
     val scalacOptionsJson =
       if (scalacOptions.nonEmpty)
         s""""scalacOptions": ["${scalacOptions.mkString("\",\"")}"],"""
       else ""
     val path = s"a/src/main/scala/a/$fileName"
+
+    val layout =
+      s"""/metals.json
+         |{"a":{$scalacOptionsJson "scalaVersion" : "$scalaVersion"}}
+         |$scalafixConf
+         |/$path
+         |$input""".stripMargin
+
+    checkEdit(
+      name,
+      layout,
+      expectedActions,
+      expectedCode,
+      selectedActionIndex,
+      expectNoDiagnostics,
+      kind,
+      configuration,
+      renamePath,
+      extraOperations,
+      changeFile,
+      expectError,
+      filterAction,
+    )
+  }
+
+  def checkEdit(
+      name: TestOptions,
+      layout: String,
+      expectedActions: String,
+      expectedCode: String,
+      selectedActionIndex: Int = 0,
+      expectNoDiagnostics: Boolean = true,
+      kind: List[String] = Nil,
+      configuration: => Option[String] = None,
+      renamePath: Option[String] = None,
+      extraOperations: => Unit = (),
+      changeFile: String => String = identity,
+      expectError: Boolean = false,
+      filterAction: CodeAction => Boolean = _ => true,
+  )(implicit loc: Location): Unit = {
+    val files = FileLayout.mapFromString(layout)
+    val (path, input) = files
+      .find(f => f._2.contains("<<") && f._2.contains(">>"))
+      .getOrElse {
+        throw new IllegalArgumentException(
+          "No `<< >>` was defined that specifies cursor position"
+        )
+      }
     val newPath = renamePath.getOrElse(path)
-    val fileContent = input.replace("<<", "").replace(">>", "")
+    val fullInput = layout.replace("<<", "").replace(">>", "")
     val actualExpectedCode =
-      if (renamePath.nonEmpty) fileContent else expectedCode
+      if (renamePath.nonEmpty) input.replace("<<", "").replace(">>", "")
+      else expectedCode
 
     test(name) {
       cleanWorkspace()
       for {
-        _ <- initialize(
-          s"""/metals.json
-             |{"a":{$scalacOptionsJson "scalaVersion" : "$scalaVersion"}}
-             |$scalafixConf
-             |/$path
-             |$fileContent""".stripMargin
-        )
+        _ <- initialize(fullInput)
         _ <- server.didOpen(path)
         _ <- {
           configuration match {
@@ -89,7 +133,7 @@ abstract class BaseCodeActionLspSuite(
               changeFile(input),
               expectedActions,
               kind,
-              filterAction = filterAction
+              filterAction = filterAction,
             )
             .recover {
               case _: Throwable if expectError => Nil

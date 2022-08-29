@@ -1,7 +1,11 @@
 package scala.meta.internal.builds
 
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 import scala.util.Properties
 
 import scala.meta.internal.metals.Cancelable
@@ -24,12 +28,13 @@ class ShellRunner(
     languageClient: MetalsLanguageClient,
     userConfig: () => UserConfiguration,
     time: Time,
-    statusBar: StatusBar
+    statusBar: StatusBar,
 )(implicit
     executionContext: scala.concurrent.ExecutionContext
 ) extends Cancelable {
 
   private val cancelables = new MutableCancelable()
+
   override def cancel(): Unit = {
     cancelables.cancel()
   }
@@ -42,7 +47,7 @@ class ShellRunner(
       redirectErrorOutput: Boolean = false,
       processOut: String => Unit = scribe.info(_),
       processErr: String => Unit = scribe.error(_),
-      propagateError: Boolean = false
+      propagateError: Boolean = false,
   ): Future[Int] = {
 
     val classpathSeparator = if (Properties.isWin) ";" else ":"
@@ -57,7 +62,7 @@ class ShellRunner(
       JavaBinary(userConfig().javaHome),
       "-classpath",
       classpath,
-      main
+      main,
     ) ::: arguments
     run(
       main,
@@ -66,7 +71,7 @@ class ShellRunner(
       redirectErrorOutput,
       processOut = processOut,
       processErr = processErr,
-      propagateError = propagateError
+      propagateError = propagateError,
     )
   }
 
@@ -79,7 +84,7 @@ class ShellRunner(
       processOut: String => Unit = scribe.info(_),
       processErr: String => Unit = scribe.error(_),
       propagateError: Boolean = false,
-      logInfo: Boolean = true
+      logInfo: Boolean = true,
   ): Future[Int] = {
     val elapsed = new Timer(time)
 
@@ -91,7 +96,7 @@ class ShellRunner(
       env,
       Some(processOut),
       Some(processErr),
-      propagateError
+      propagateError,
     )
     // NOTE(olafur): older versions of VS Code don't respect cancellation of
     // window/showMessageRequest, meaning the "cancel build import" button
@@ -118,7 +123,7 @@ class ShellRunner(
     val processFuture = ps.complete
     statusBar.trackFuture(
       s"Running '$commandRun'",
-      processFuture
+      processFuture,
     )
     processFuture.map { code =>
       taskResponse.cancel(false)
@@ -129,4 +134,39 @@ class ShellRunner(
     result.future
   }
 
+}
+
+object ShellRunner {
+
+  def runSync(
+      args: List[String],
+      directory: AbsolutePath,
+      redirectErrorOutput: Boolean,
+      additionalEnv: Map[String, String] = Map.empty,
+      processErr: String => Unit = scribe.error(_),
+      propagateError: Boolean = false,
+      maybeJavaHome: Option[String],
+  )(implicit ec: ExecutionContext): Option[String] = {
+
+    val sbOut = new StringBuilder()
+    val env = additionalEnv ++ maybeJavaHome.map("JAVA_HOME" -> _).toMap
+    val ps = SystemProcess.run(
+      args,
+      directory,
+      redirectErrorOutput,
+      env,
+      Some(s => {
+        sbOut.append(s)
+        sbOut.append(Properties.lineSeparator)
+      }),
+      Some(processErr),
+      propagateError,
+    )
+
+    val exit = Await.result(ps.complete, 10 second)
+
+    if (exit == 0) {
+      Some(sbOut.toString())
+    } else None
+  }
 }

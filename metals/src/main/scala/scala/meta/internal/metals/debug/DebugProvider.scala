@@ -72,7 +72,6 @@ import org.eclipse.lsp4j.MessageType
 class DebugProvider(
     workspace: AbsolutePath,
     definitionProvider: DefinitionProvider,
-    buildServerConnect: () => Option[BuildServerConnection],
     buildTargets: BuildTargets,
     buildTargetClasses: BuildTargetClasses,
     compilations: Compilations,
@@ -84,8 +83,7 @@ class DebugProvider(
     clientConfig: ClientConfiguration,
     semanticdbs: Semanticdbs,
     compilers: Compilers,
-    supportsTestSelection: () => Boolean,
-    statusBar: StatusBar
+    statusBar: StatusBar,
 ) {
 
   import DebugProvider._
@@ -93,17 +91,17 @@ class DebugProvider(
   lazy val buildTargetClassesFinder = new BuildTargetClassesFinder(
     buildTargets,
     buildTargetClasses,
-    index
+    index,
   )
 
   def start(
       parameters: b.DebugSessionParams,
-      scalaVersionSelector: ScalaVersionSelector
+      scalaVersionSelector: ScalaVersionSelector,
   )(implicit ec: ExecutionContext): Future[DebugServer] = {
     for {
       sessionName <- Future.fromTry(parseSessionName(parameters))
       jvmOptionsTranslatedParams = translateJvmParams(parameters)
-      buildServer <- buildServerConnect()
+      buildServer <- buildServerConnect(parameters)
         .fold[Future[BuildServerConnection]](BuildServerUnavailableError)(
           Future.successful
         )
@@ -111,7 +109,7 @@ class DebugProvider(
         sessionName,
         jvmOptionsTranslatedParams,
         buildServer,
-        scalaVersionSelector
+        scalaVersionSelector,
       )
     } yield debugServer
   }
@@ -120,7 +118,7 @@ class DebugProvider(
       sessionName: String,
       parameters: b.DebugSessionParams,
       buildServer: BuildServerConnection,
-      scalaVersionSelector: ScalaVersionSelector
+      scalaVersionSelector: ScalaVersionSelector,
   )(implicit ec: ExecutionContext): Future[DebugServer] = {
     val inetAddress = InetAddress.getByName("127.0.0.1")
     val proxyServer = new ServerSocket(0, 50, inetAddress)
@@ -162,7 +160,7 @@ class DebugProvider(
           MetalsDebugAdapter.`2.x`(
             buildTargets,
             targets,
-            supportVirtualDocuments = clientConfig.isVirtualDocumentSupported()
+            supportVirtualDocuments = clientConfig.isVirtualDocumentSupported(),
           )
         } else {
           MetalsDebugAdapter.`1.x`(
@@ -170,7 +168,7 @@ class DebugProvider(
             buildTargets,
             classFinder,
             scalaVersionSelector,
-            targets
+            targets,
           )
         }
       DebugProxy.open(
@@ -182,7 +180,7 @@ class DebugProvider(
         compilers,
         workspace,
         clientConfig.disableColorOutput(),
-        statusBar
+        statusBar,
       )
     }
     val server = new DebugServer(sessionName, uri, proxyFactory)
@@ -212,7 +210,7 @@ class DebugProvider(
             val cls = m.getClassName()
             new MetalsQuickPickItem(cls, cls)
           }.asJava,
-          placeHolder = Messages.MainClass.message
+          placeHolder = Messages.MainClass.message,
         )
       )
       .asScala
@@ -224,13 +222,22 @@ class DebugProvider(
       .collect { case Some(main) => main }
   }
 
+  private def buildServerConnect(parameters: b.DebugSessionParams) = for {
+    targetId <- parameters.getTargets().asScala.headOption
+    buildServer <- buildTargets.buildServerOf(targetId)
+  } yield buildServer
+
+  private def supportsTestSelection(targetId: b.BuildTargetIdentifier) = {
+    buildTargets.buildServerOf(targetId).exists(_.supportsTestSelection)
+  }
+
   private def createMainParams(
       main: ScalaMainClass,
       target: BuildTargetIdentifier,
       args: Option[ju.List[String]],
       jvmOptions: Option[ju.List[String]],
       env: List[String],
-      envFile: Option[String]
+      envFile: Option[String],
   )(implicit ec: ExecutionContext) = {
     main.setArguments(args.getOrElse(ju.Collections.emptyList()))
     main.setJvmOptions(
@@ -252,7 +259,7 @@ class DebugProvider(
       new b.DebugSessionParams(
         singletonList(target),
         b.DebugSessionParamsDataKind.SCALA_MAIN_CLASS,
-        main.toJson
+        main.toJson,
       )
     }
   }
@@ -266,7 +273,7 @@ class DebugProvider(
   private def verifyMain(
       buildTarget: BuildTargetIdentifier,
       classes: List[ScalaMainClass],
-      params: DebugDiscoveryParams
+      params: DebugDiscoveryParams,
   )(implicit ec: ExecutionContext): Future[DebugSessionParams] = {
     val env =
       if (params.env != null) createEnvList(params.env) else Nil
@@ -283,7 +290,7 @@ class DebugProvider(
           Option(params.args),
           Option(params.jvmOptions),
           env,
-          Option(params.envFile)
+          Option(params.envFile),
         )
       case multiple =>
         requestMain(multiple).flatMap { main =>
@@ -293,7 +300,7 @@ class DebugProvider(
             Option(params.args),
             Option(params.jvmOptions),
             env,
-            Option(params.envFile)
+            Option(params.envFile),
           )
         }
     }
@@ -303,13 +310,13 @@ class DebugProvider(
       buildTarget: BuildTargetIdentifier,
       classes: TrieMap[
         BuildTargetClasses.Symbol,
-        ScalaMainClass
+        ScalaMainClass,
       ],
       testClasses: TrieMap[
         BuildTargetClasses.Symbol,
-        BuildTargetClasses.TestSymbolInfo
+        BuildTargetClasses.TestSymbolInfo,
       ],
-      params: DebugDiscoveryParams
+      params: DebugDiscoveryParams,
   )(implicit ec: ExecutionContext) = {
     val path = params.path.toAbsolutePath
     semanticdbs
@@ -342,7 +349,7 @@ class DebugProvider(
             new b.DebugSessionParams(
               singletonList(buildTarget),
               b.DebugSessionParamsDataKind.SCALA_TEST_SUITES,
-              tests.asJava.toJson
+              tests.asJava.toJson,
             )
           )
         } else {
@@ -357,18 +364,15 @@ class DebugProvider(
    * session to not actually work, but fail silently.
    */
   def ensureNoWorkspaceErrors(
-      params: DebugSessionParams
-  )(implicit ec: ExecutionContext): Future[b.DebugSessionParams] = {
+      buildTargets: Seq[BuildTargetIdentifier]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    val hasErrors = buildTargets.exists { target =>
+      buildClient.buildHasErrors(target)
+    }
     val result =
-      if (
-        params.getTargets().asScala.toList.exists { target =>
-          buildClient.buildHasErrors(target)
-        }
-      ) {
-        Future.failed(WorkspaceErrorsException)
-      } else {
-        Future.successful(params)
-      }
+      if (hasErrors) Future.failed(WorkspaceErrorsException)
+      else Future.unit
+
     result.failed.foreach(reportErrors)
     result
   }
@@ -429,7 +433,7 @@ class DebugProvider(
             new b.DebugSessionParams(
               singletonList(target),
               b.DebugSessionParamsDataKind.SCALA_TEST_SUITES,
-              tests.asJava.toJson
+              tests.asJava.toJson,
             )
           }
       case (Some(TestTarget), Some(target)) =>
@@ -441,7 +445,7 @@ class DebugProvider(
               .map(_.fullyQualifiedName)
               .toList
               .asJava
-              .toJson
+              .toJson,
           )
         }
     }
@@ -457,7 +461,7 @@ class DebugProvider(
       buildTargetClassesFinder
         .findMainClassAndItsBuildTarget(
           params.mainClass,
-          Option(params.buildTarget)
+          Option(params.buildTarget),
         )
     ).flatMap {
       case (_, target) :: _ if buildClient.buildHasErrors(target.getId()) =>
@@ -468,7 +472,7 @@ class DebugProvider(
             clazz.getClassName(),
             target,
             others,
-            "main"
+            "main",
           )
         }
 
@@ -479,7 +483,7 @@ class DebugProvider(
           Option(params.args),
           Option(params.jvmOptions),
           env,
-          Option(params.envFile)
+          Option(params.envFile),
         )
 
       // should not really happen due to
@@ -497,7 +501,7 @@ class DebugProvider(
       buildTargetClassesFinder
         .findTestClassAndItsBuildTarget(
           params.testClass,
-          Option(params.buildTarget)
+          Option(params.buildTarget),
         )
     }).flatMap {
       case (_, target) :: _ if buildClient.buildHasErrors(target.getId()) =>
@@ -508,14 +512,14 @@ class DebugProvider(
             clazz,
             target,
             others,
-            "test"
+            "test",
           )
         }
         Future.successful(
           new b.DebugSessionParams(
             singletonList(target.getId()),
             b.DebugSessionParamsDataKind.SCALA_TEST_SUITES,
-            singletonList(clazz).toJson
+            singletonList(clazz).toJson,
           )
         )
       // should not really happen due to
@@ -535,7 +539,7 @@ class DebugProvider(
           new b.DebugSessionParams(
             singletonList(target.getId()),
             b.DebugSessionParamsDataKind.SCALA_ATTACH_REMOTE,
-            ().toJson
+            ().toJson,
           )
         )
       case None =>
@@ -554,26 +558,35 @@ class DebugProvider(
    */
   def resolveTestSelectionParams(
       request: ScalaTestSuitesDebugRequest
-  ): Future[b.DebugSessionParams] = {
-    buildTargets.info(request.target) match {
-      case Some(buildTarget) =>
-        val debugSession =
-          if (supportsTestSelection())
-            new b.DebugSessionParams(
-              singletonList(buildTarget.getId),
-              DebugProvider.ScalaTestSelection,
-              request.requestData.toJson
-            )
-          else
-            new b.DebugSessionParams(
-              singletonList(buildTarget.getId),
-              b.DebugSessionParamsDataKind.SCALA_TEST_SUITES,
-              request.requestData.suites.map(_.className).toJson
-            )
-        Future.successful(debugSession)
-      case None =>
-        Future.failed(BuildTargetNotFoundException(request.target.getUri))
-    }
+  )(implicit ec: ExecutionContext): Future[b.DebugSessionParams] = {
+    val makeDebugSession = () =>
+      buildTargets.info(request.target) match {
+        case Some(buildTarget) =>
+          val debugSession =
+            if (supportsTestSelection(request.target))
+              new b.DebugSessionParams(
+                singletonList(buildTarget.getId),
+                DebugProvider.ScalaTestSelection,
+                request.requestData.toJson,
+              )
+            else
+              new b.DebugSessionParams(
+                singletonList(buildTarget.getId),
+                b.DebugSessionParamsDataKind.SCALA_TEST_SUITES,
+                request.requestData.suites.map(_.className).toJson,
+              )
+          Future.successful(debugSession)
+        case None =>
+          val error = BuildTargetNotFoundException(request.target.getUri)
+          reportErrors(error)
+          Future.failed(error)
+      }
+
+    for {
+      _ <- compilations.compileTarget(request.target)
+      _ <- ensureNoWorkspaceErrors(List(request.target))
+      result <- makeDebugSession()
+    } yield result
   }
 
   private val reportErrors: PartialFunction[Throwable, Unit] = {
@@ -620,7 +633,7 @@ class DebugProvider(
         MetalsStatusParams(
           text = s"${clientConfig.icons.alert}Build misconfiguration",
           tooltip = e.getMessage(),
-          command = ClientCommands.RunDoctor.id
+          command = ClientCommands.RunDoctor.id,
         )
       )
     case e @ DotEnvFileParser.InvalidEnvFileException(_) =>
@@ -736,7 +749,7 @@ class DebugProvider(
       className: String,
       buildTarget: b.BuildTarget,
       others: List[(_, b.BuildTarget)],
-      mainOrTest: String
+      mainOrTest: String,
   ) = {
     val otherTargets = others.map(_._2.getDisplayName())
     languageClient.showMessage(
@@ -747,8 +760,8 @@ class DebugProvider(
             className,
             buildTarget.getDisplayName(),
             otherTargets,
-            mainOrTest
-          )
+            mainOrTest,
+          ),
       )
     )
   }
@@ -770,7 +783,7 @@ object DebugProvider {
    */
   def mainFromAnnotation(
       occurrence: SymbolOccurrence,
-      textDocument: TextDocument
+      textDocument: TextDocument,
   ): Option[String] = {
     if (occurrence.symbol == "scala/main#") {
       occurrence.range match {
@@ -785,7 +798,7 @@ object DebugProvider {
               .map(rng =>
                 (
                   rng.endLine - range.endLine,
-                  rng.endCharacter - range.endCharacter
+                  rng.endCharacter - range.endCharacter,
                 )
               )
               .getOrElse((Int.MaxValue, Int.MaxValue))
@@ -811,9 +824,9 @@ object DebugProvider {
       case GlobalSymbol(
             GlobalSymbol(
               owner,
-              Descriptor.Term(sourceOwner)
+              Descriptor.Term(sourceOwner),
             ),
-            Descriptor.Method(name, _)
+            Descriptor.Method(name, _),
           ) if sourceOwner.endsWith("$package") =>
         val converted = GlobalSymbol(owner, Descriptor.Term(name))
         Some(converted.value)

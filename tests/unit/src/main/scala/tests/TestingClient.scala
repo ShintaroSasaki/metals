@@ -96,6 +96,9 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
   var slowTaskHandler: MetalsSlowTaskParams => Option[MetalsSlowTaskResult] = {
     _: MetalsSlowTaskParams => None
   }
+  var showMessageHandler: MessageParams => Unit = { _: MessageParams =>
+    ()
+  }
   var showMessageRequestHandler
       : ShowMessageRequestParams => Option[MessageActionItem] = {
     _: ShowMessageRequestParams => None
@@ -155,7 +158,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
 
   private def applyEdits(
       uri: String,
-      textEdits: java.util.List[TextEdit]
+      textEdits: java.util.List[TextEdit],
   ): Unit = {
     val path = AbsolutePath.fromAbsoluteUri(URI.create(uri))
     val content = buffers.get(path).getOrElse("")
@@ -267,6 +270,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
       .incrementAndGet()
   }
   override def showMessage(params: MessageParams): Unit = {
+    showMessageHandler(params)
     showMessages.add(params)
   }
   override def showMessageRequest(
@@ -372,7 +376,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
             decorationTypes.filter(p => p.isInline != params.isInline) + params
           }
         }
-      }
+      },
     )
   }
 
@@ -404,7 +408,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
                 o,
                 Option(params.isInline).getOrElse(
                   false.asInstanceOf[java.lang.Boolean]
-                )
+                ),
               )
             )
           )
@@ -457,7 +461,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
   def applyCodeAction(
       selectedActionIndex: Int,
       codeActions: List[CodeAction],
-      server: TestingServer
+      server: TestingServer,
   ): Future[Any] = {
     if (codeActions.nonEmpty) {
       if (selectedActionIndex >= codeActions.length) {
@@ -474,7 +478,7 @@ class TestingClient(workspace: AbsolutePath, val buffers: Buffers)
       if (command != null) {
         server.executeCommandUnsafe(
           command.getCommand(),
-          command.getArguments().asScala.toSeq
+          command.getArguments().asScala.toSeq,
         )
       } else Future.unit
 

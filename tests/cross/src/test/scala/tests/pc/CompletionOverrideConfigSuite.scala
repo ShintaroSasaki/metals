@@ -12,9 +12,9 @@ class CompletionOverrideConfigSuite extends BaseCompletionSuite {
     PresentationCompilerConfigImpl().copy(
       _symbolPrefixes = Map(
         "a/Weekday." -> "w",
-        "java/util/function/" -> "f"
+        "java/util/function/" -> "f",
       ),
-      overrideDefFormat = OverrideDefFormat.Unicode
+      overrideDefFormat = OverrideDefFormat.Unicode,
     )
 
   checkEdit(
@@ -42,7 +42,7 @@ class CompletionOverrideConfigSuite extends BaseCompletionSuite {
        |class Main extends Super {
        |  def weekday: w.Monday = ${0:???}
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -77,7 +77,7 @@ class CompletionOverrideConfigSuite extends BaseCompletionSuite {
            |  def function: f.Function[Int, String] = ${0:???}
            |}
            |""".stripMargin
-    )
+    ),
   )
 
   check(
@@ -96,9 +96,9 @@ class CompletionOverrideConfigSuite extends BaseCompletionSuite {
       |""".stripMargin,
     compat = Map(
       "3" ->
-        """|⏫ def numberAbstract: Int
-           |⏫ def number: Int
+        """|🔼 def numberAbstract: Int
+           |⏫ override def number: Int
            |""".stripMargin
-    )
+    ),
   )
 }

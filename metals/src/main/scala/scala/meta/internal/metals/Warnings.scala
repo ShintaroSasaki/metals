@@ -2,9 +2,9 @@ package scala.meta.internal.metals
 
 import scala.meta.internal.builds.BuildTools
 import scala.meta.internal.metals.MetalsEnrichments._
-import scala.meta.internal.metals.MetalsLogger.{silentInTests => logger}
 import scala.meta.internal.metals.ScalaVersions._
 import scala.meta.internal.metals.clients.language.MetalsStatusParams
+import scala.meta.internal.metals.logging.MetalsLogger.{silentInTests => logger}
 import scala.meta.internal.mtags.SemanticdbClasspath
 import scala.meta.io.AbsolutePath
 
@@ -19,7 +19,7 @@ final class Warnings(
     statusBar: StatusBar,
     icons: Icons,
     buildTools: BuildTools,
-    isCompiling: BuildTargetIdentifier => Boolean
+    isCompiling: BuildTargetIdentifier => Boolean,
 ) {
   def noSemanticdb(path: AbsolutePath): Unit = {
     def doesntWorkBecause =
@@ -27,14 +27,14 @@ final class Warnings(
 
     def reportSemanticDB(
         buildTarget: BuildTargetIdentifier,
-        targetName: String
+        targetName: String,
     ): Unit = {
       def pluginNotEnabled(language: String) =
         s"$doesntWorkBecause the $language SemanticDB compiler plugin is not enabled for the build target $targetName."
 
       def missingCompilerOption(
           language: String,
-          option: String
+          option: String,
       ) =
         s"$doesntWorkBecause the build target $targetName is missing the $language compiler option $option. " +
           "To fix this problems, update the build settings to include this compiler option."
@@ -43,7 +43,7 @@ final class Warnings(
         statusBar.addMessage(
           MetalsStatusParams(
             s"${icons.alert}Build misconfiguration",
-            command = ClientCommands.RunDoctor.id
+            command = ClientCommands.RunDoctor.id,
           )
         )
       }
@@ -149,7 +149,7 @@ final class Warnings(
     statusBar.addMessage(
       MetalsStatusParams(
         s"${icons.alert}No build tool",
-        command = ClientCommands.ToggleLogs.id
+        command = ClientCommands.ToggleLogs.id,
       )
     )
   }

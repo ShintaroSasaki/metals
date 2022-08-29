@@ -202,6 +202,15 @@ final class BuildTargets() {
   ): Option[AbsolutePath] =
     buildServerOf(buildTarget).map(_.workspaceDirectory)
 
+  def canCompile(id: BuildTargetIdentifier): Boolean = {
+    targetData(id).exists { data =>
+      data.buildTargetInfo
+        .get(id)
+        .map[Boolean](_.getCapabilities().getCanCompile())
+        .getOrElse(true)
+    }
+  }
+
   /**
    * Returns the first build target containing this source file.
    */
@@ -365,14 +374,14 @@ final class BuildTargets() {
   case class InferredBuildTarget(
       jar: AbsolutePath,
       symbol: String,
-      id: BuildTargetIdentifier
+      id: BuildTargetIdentifier,
   )
   def inferBuildTarget(
       toplevels: Iterable[Symbol]
   ): Option[InferredBuildTarget] = {
     val classloader = new URLClassLoader(
       allWorkspaceJars.map(_.toNIO.toUri().toURL()).toArray,
-      null
+      null,
     )
     lazy val classpaths: Seq[(BuildTargetIdentifier, Iterator[AbsolutePath])] =
       allBuildTargetIdsInternal.toVector.map { case (data, id) =>
@@ -422,12 +431,12 @@ final class BuildTargets() {
 
   def isInverseDependency(
       query: BuildTargetIdentifier,
-      roots: List[BuildTargetIdentifier]
+      roots: List[BuildTargetIdentifier],
   ): Boolean = {
     BuildTargets.isInverseDependency(
       query,
       roots,
-      id => data.fromOptions(_.inverseDependencies.get(id))
+      id => data.fromOptions(_.inverseDependencies.get(id)),
     )
   }
   def inverseDependencyLeaves(
@@ -445,7 +454,7 @@ final class BuildTargets() {
   ): BuildTargets.InverseDependencies = {
     BuildTargets.inverseDependencies(
       List(target),
-      id => data.fromOptions(_.inverseDependencies.get(id))
+      id => data.fromOptions(_.inverseDependencies.get(id)),
     )
   }
 
@@ -497,7 +506,7 @@ object BuildTargets {
       roots: List[BuildTargetIdentifier],
       inverseDeps: BuildTargetIdentifier => Option[
         collection.Seq[BuildTargetIdentifier]
-      ]
+      ],
   ): Boolean = {
     val isVisited = mutable.Set.empty[BuildTargetIdentifier]
     @tailrec
@@ -537,7 +546,7 @@ object BuildTargets {
       root: List[BuildTargetIdentifier],
       inverseDeps: BuildTargetIdentifier => Option[
         collection.Seq[BuildTargetIdentifier]
-      ]
+      ],
   ): InverseDependencies = {
     val isVisited = mutable.Set.empty[BuildTargetIdentifier]
     val leaves = mutable.Set.empty[BuildTargetIdentifier]
@@ -556,8 +565,8 @@ object BuildTargets {
                 // in Bloop to compile only `B` than `A+B`.
                 leaves += head
             }
-            loop(tail)
           }
+          loop(tail)
       }
     loop(root)
     InverseDependencies(isVisited, leaves)
@@ -565,7 +574,7 @@ object BuildTargets {
 
   case class InverseDependencies(
       visited: collection.Set[BuildTargetIdentifier],
-      leaves: collection.Set[BuildTargetIdentifier]
+      leaves: collection.Set[BuildTargetIdentifier],
   )
 
   final case class DataSeq(list: List[TargetData]) {

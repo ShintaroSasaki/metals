@@ -20,7 +20,7 @@ class FindTextInDependencyJarsSuite
 
   test(
     "find exact string match in .conf file inside jar",
-    withoutVirtualDocs = true
+    withoutVirtualDocs = true,
   ) {
     val isJavaAtLeast9 = scala.util.Properties.isJavaAtLeast(9.toString)
     val isJavaAtLeast17 = scala.util.Properties.isJavaAtLeast(17.toString)
@@ -38,11 +38,11 @@ class FindTextInDependencyJarsSuite
       )
       akkaLocations <- server.findTextInDependencyJars(
         include = ".conf",
-        pattern = "jvm-shutdown-hooks"
+        pattern = "jvm-shutdown-hooks",
       )
       jdkLocations <- server.findTextInDependencyJars(
         include = ".java",
-        pattern = "public String(StringBuffer buffer) {"
+        pattern = "public String(StringBuffer buffer) {",
       )
     } yield {
 
@@ -61,13 +61,13 @@ class FindTextInDependencyJarsSuite
             |akka-actor_2.12-${akkaVersion}-sources.jar/reference.conf:1178:41: info: result
             |    # This property is related to `akka.jvm-shutdown-hooks` above.
             |                                        ^^^^^^^^^^^^^^^^^^
-            |""".stripMargin
+            |""".stripMargin,
       )
 
       assertLocations(
         jdkLocations, {
           val line =
-            if (isJavaAtLeast17) 1444
+            if (isJavaAtLeast17) 1447
             else if (isJavaAtLeast9) 626
             else 578
 
@@ -79,17 +79,17 @@ class FindTextInDependencyJarsSuite
               |    public String(StringBuffer buffer) {
               |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
               |""".stripMargin
-        }
+        },
       )
     }
   }
 
   private def assertLocations(
       locations: List[Location],
-      expected: String
+      expected: String,
   ): Unit = {
     val rendered = locations
-      .map { loc =>
+      .flatMap { loc =>
         val uri = URI.create(loc.getUri())
         val input = if (uri.getScheme() == "jar") {
           val jarPath = uri.toAbsolutePath
@@ -107,8 +107,8 @@ class FindTextInDependencyJarsSuite
         loc
           .getRange()
           .toMeta(input)
-          .formatMessage("info", "result")
       }
+      .map(_.formatMessage("info", "result"))
       .mkString("\n")
     assertNoDiff(rendered, expected)
   }

@@ -23,7 +23,8 @@ import scala.meta.pc.PresentationCompilerConfig
 abstract class CompilerAccess[Reporter, Compiler](
     config: PresentationCompilerConfig,
     sh: Option[ScheduledExecutorService],
-    newCompiler: () => CompilerWrapper[Reporter, Compiler]
+    newCompiler: () => CompilerWrapper[Reporter, Compiler],
+    shouldResetJobQueue: Boolean
 )(implicit ec: ExecutionContextExecutor) {
   private val logger: Logger =
     Logger.getLogger(classOf[CompilerAccess[_, _]].getName)
@@ -98,12 +99,11 @@ abstract class CompilerAccess[Reporter, Compiler](
             isFinished.compareAndSet(false, true) &&
             isDefined
           ) {
-            _compiler.presentationCompilerThread.foreach(_.interrupt())
-            if (
-              _compiler.presentationCompilerThread.isEmpty || !_compiler.presentationCompilerThread
-                .contains(thread)
-            ) {
-              thread.interrupt()
+            _compiler.presentationCompilerThread match {
+              case None => // don't interrupt if we don't have separate thread
+              case Some(pcThread) =>
+                pcThread.interrupt()
+                if (thread != pcThread) thread.interrupt()
             }
           }
         }
@@ -214,6 +214,7 @@ abstract class CompilerAccess[Reporter, Compiler](
         { () =>
           if (!result.isDone()) {
             try {
+              if (shouldResetJobQueue) jobs.reset()
               result.cancel(false)
               shutdownCurrentCompiler()
             } catch {

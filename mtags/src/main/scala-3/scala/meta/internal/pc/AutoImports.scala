@@ -93,7 +93,7 @@ object AutoImports:
       text: String,
       tree: Tree,
       indexedContext: IndexedContext,
-      config: PresentationCompilerConfig
+      config: PresentationCompilerConfig,
   ): AutoImportsGenerator =
 
     import indexedContext.ctx
@@ -111,13 +111,13 @@ object AutoImports:
       pos,
       importPos,
       indexedContext,
-      renames
+      renames,
     )
   end generator
 
   case class AutoImportEdits(
       nameEdit: Option[l.TextEdit],
-      importEdit: Option[l.TextEdit]
+      importEdit: Option[l.TextEdit],
   ):
 
     def edits: List[l.TextEdit] = List(nameEdit, importEdit).flatten
@@ -144,7 +144,7 @@ object AutoImports:
       pos: SourcePosition,
       importPosition: AutoImportPosition,
       indexedContext: IndexedContext,
-      renames: Symbol => Option[String]
+      renames: Symbol => Option[String],
   ):
 
     import indexedContext.ctx
@@ -179,7 +179,7 @@ object AutoImports:
         case AutoImport.SpecifiedOwner(sym) =>
           AutoImportEdits(
             specifyOwnerEdit(sym, sym.owner.showName),
-            mkImportEdit
+            mkImportEdit,
           )
         case AutoImport.Renamed(sym, ownerRename)
             if indexedContext.hasRename(sym.owner, ownerRename) =>
@@ -208,7 +208,7 @@ object AutoImports:
 
     private def importEdit(
         values: List[AutoImport],
-        importPosition: AutoImportPosition
+        importPosition: AutoImportPosition,
     )(using Context): l.TextEdit =
       val indent = " " * importPosition.indent
       val topPadding =
@@ -240,13 +240,13 @@ object AutoImports:
   private def autoImportPosition(
       pos: SourcePosition,
       text: String,
-      tree: Tree
+      tree: Tree,
   )(using Context): AutoImportPosition =
 
     @tailrec
     def lastPackageDef(
         prev: Option[PackageDef],
-        tree: Tree
+        tree: Tree,
     ): Option[PackageDef] =
       tree match
         case curr @ PackageDef(_, (next: PackageDef) :: Nil)
@@ -255,28 +255,17 @@ object AutoImports:
         case pkg: PackageDef if !pkg.symbol.isPackageObject => Some(pkg)
         case _ => prev
 
-    def ammoniteObjectBody(tree: Tree)(using Context): Option[Template] =
+    def firstObjectBody(tree: Tree)(using Context): Option[Template] =
       tree match
         case PackageDef(_, stats) =>
           stats.flatMap {
-            case s: PackageDef => ammoniteObjectBody(s)
+            case s: PackageDef => firstObjectBody(s)
             case TypeDef(_, t @ Template(defDef, _, _, _))
                 if defDef.symbol.showName == "<init>" =>
               Some(t)
             case _ => None
           }.headOption
         case _ => None
-
-    // Naive way to find the start discounting any first lines that may be
-    // scala-cli directives.
-    @tailrec
-    def findStart(text: String, index: Int): Int =
-      if text.startsWith("//") then
-        val newline = text.indexOf("\n")
-        if newline != -1 then
-          findStart(text.drop(newline + 1), index + newline + 1)
-        else index + newline + 1
-      else index
 
     def forScalaSource: Option[AutoImportPosition] =
       lastPackageDef(None, tree).map { pkg =>
@@ -285,7 +274,9 @@ object AutoImports:
         val (lineNumber, padTop) = lastImportStatement match
           case Some(stm) => (stm.endPos.line + 1, false)
           case None if pkg.pid.symbol.isEmptyPackage =>
-            (pos.source.offsetToLine(findStart(text, 0)), false)
+            val offset =
+              ScriptFirstImportPosition.skipUsingDirectivesOffset(text)
+            (pos.source.offsetToLine(offset), false)
           case None =>
             val pos = pkg.pid.endPos
             val line =
@@ -297,25 +288,42 @@ object AutoImports:
         new AutoImportPosition(offset, text, padTop)
       }
 
-    def forScript: Option[AutoImportPosition] =
-      ammoniteObjectBody(tree).map { tmpl =>
+    def forScript(isAmmonite: Boolean): Option[AutoImportPosition] =
+      firstObjectBody(tree).map { tmpl =>
         val lastImportStatement =
           tmpl.body.takeWhile(_.isInstanceOf[Import]).lastOption
-        val (lineNumber, padTop) = lastImportStatement match
-          case Some(stm) => (stm.endPos.line + 1, false)
-          case None => (tmpl.self.srcPos.line, false)
-        val offset = pos.source.lineToOffset(lineNumber)
-        new AutoImportPosition(offset, text, padTop)
+        val offset = lastImportStatement match
+          case Some(stm) =>
+            val offset = pos.source.lineToOffset(stm.endPos.line + 1)
+            offset
+          case None =>
+            val scriptOffset =
+              if isAmmonite then
+                ScriptFirstImportPosition.ammoniteScStartOffset(text)
+              else ScriptFirstImportPosition.scalaCliScStartOffset(text)
+
+            scriptOffset.getOrElse(
+              pos.source.lineToOffset(tmpl.self.srcPos.line)
+            )
+        new AutoImportPosition(offset, text, false)
       }
+    end forScript
 
     val path = pos.source.path
 
     def fileStart =
-      AutoImportPosition(findStart(text, 0), 0, padTop = false)
+      AutoImportPosition(
+        ScriptFirstImportPosition.skipUsingDirectivesOffset(text),
+        0,
+        padTop = false,
+      )
 
-    val ammonite =
-      if path.endsWith(".sc.scala") then forScript else None
-    ammonite
+    val scriptPos =
+      if path.endsWith(".sc") then forScript(isAmmonite = false)
+      else if path.endsWith(".amm.sc.scala") then forScript(isAmmonite = true)
+      else None
+
+    scriptPos
       .orElse(forScalaSource)
       .getOrElse(fileStart)
   end autoImportPosition

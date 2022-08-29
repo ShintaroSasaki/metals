@@ -13,7 +13,7 @@ class CompletionDapSuite
     extends BaseDapSuite(
       "debug-completion",
       QuickBuildInitializer,
-      QuickBuildLayout
+      QuickBuildLayout,
     ) {
 
   assertCompletion(
@@ -27,7 +27,7 @@ class CompletionDapSuite
                              |toRadians: Double
                              |toString(): String
                              |""".stripMargin,
-    expectedEdit = "1.toShort"
+    expectedEdit = "1.toShort",
   )(
     """|/a/src/main/scala/a/Main.scala
        |package a
@@ -52,7 +52,7 @@ class CompletionDapSuite
                              |main(args: Array[String]): Unit
                              |""".stripMargin,
     expectedEdit = "Preceding(num = )",
-    topLines = Some(4)
+    topLines = Some(4),
   )(
     """|/a/src/main/scala/a/Main.scala
        |package a
@@ -78,7 +78,7 @@ class CompletionDapSuite
          |until(end: Int, step: Int): Range
          |""".stripMargin,
     expectedEdit = "1.until(@@)",
-    topLines = Some(4)
+    topLines = Some(4),
   )(
     """|/a/src/main/scala/a/Main.scala
        |package a
@@ -100,7 +100,7 @@ class CompletionDapSuite
     expectedCompletions = "",
     expectedEdit = "",
     topLines = Some(4),
-    noResults = true
+    noResults = true,
   )(
     """|/a/src/main/scala/a/Main.scala
        |package a
@@ -117,6 +117,95 @@ class CompletionDapSuite
        |""".stripMargin
   )
 
+  assertCompletion(
+    "multiline",
+    expression = """|val a = 123
+                    |a.toStri@@""".stripMargin,
+    expectedCompletions = """|toBinaryString: String
+                             |toHexString: String
+                             |toOctalString: String
+                             |toString(): String
+                             |""".stripMargin,
+    expectedEdit = """|val a = 123
+                      |a.toBinaryString""".stripMargin,
+    topLines = Some(4),
+  )(
+    """|/a/src/main/scala/a/Main.scala
+       |package a
+       |
+       |object Main {
+       |  case class Preceding(num: Int)
+       |
+       |  def main(args: Array[String]): Unit = {
+       |>>  println()
+       |    System.exit(0)
+       |  }
+       |}
+       |""".stripMargin
+  )
+
+  assertCompletion(
+    "multiline-longer",
+    expression = """|val a = 123
+                    |val b = 111
+                    |val c = 111
+                    |val d = 111
+                    |a.toStri@@
+                    |1 + 234""".stripMargin,
+    expectedCompletions = """|toBinaryString: String
+                             |toHexString: String
+                             |toOctalString: String
+                             |toString(): String
+                             |""".stripMargin,
+    expectedEdit = """|val a = 123
+                      |val b = 111
+                      |val c = 111
+                      |val d = 111
+                      |a.toBinaryString
+                      |1 + 234
+                      |""".stripMargin,
+    topLines = Some(4),
+  )(
+    """|/a/src/main/scala/a/Main.scala
+       |package a
+       |
+       |object Main {
+       |  case class Preceding(num: Int)
+       |
+       |  def main(args: Array[String]): Unit = {
+       |>>  println()
+       |    System.exit(0)
+       |  }
+       |}
+       |""".stripMargin
+  )
+
+  assertCompletion(
+    "single-dot",
+    expression = "Main.@@",
+    expectedCompletions = """|name: Option[String]
+                             |args: Array[String]
+                             |executionStart: Long
+                             |main(args: Array[String]): Unit
+                             |""".stripMargin,
+    expectedEdit = "Main.name",
+    topLines = Some(4),
+  )(
+    """|/a/src/main/scala/a/Main.scala
+       |package a
+       |
+       |object Main extends App{
+       |
+       |  val name: Option[String] = Option("Tom")
+       |>>println(name)
+       |
+       |
+       |  System.exit(0)
+       |}
+       |
+       |""".stripMargin
+  )
+
   def assertCompletion(
       name: TestOptions,
       expression: String,
@@ -124,7 +213,7 @@ class CompletionDapSuite
       expectedEdit: String,
       main: Option[String] = None,
       topLines: Option[Int] = None,
-      noResults: Boolean = false
+      noResults: Boolean = false,
   )(
       source: String
   )(implicit loc: Location): Unit = {

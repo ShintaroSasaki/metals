@@ -29,7 +29,43 @@ class InsertInferredTypeLspSuite
        |object A {
        |  val alpha: Int = 123
        |}
-       |""".stripMargin
+       |""".stripMargin,
+  )
+
+  check(
+    "wrong-type",
+    """|package a
+       |
+       |object A {
+       |  val alpha:String= 1<<>>23
+       |}
+       |""".stripMargin,
+    s"""|${InsertInferredType.adjustType("Int(123)")}
+        |""".stripMargin,
+    """|package a
+       |
+       |object A {
+       |  val alpha: Int= 123
+       |}
+       |""".stripMargin,
+  )
+
+  check(
+    "wrong-type2",
+    """|package a
+       |
+       |object A {
+       |  def alpha:String= 1<<>>23
+       |}
+       |""".stripMargin,
+    s"""|${InsertInferredType.adjustType("Int(123)")}
+        |""".stripMargin,
+    """|package a
+       |
+       |object A {
+       |  def alpha: Int= 123
+       |}
+       |""".stripMargin,
   )
 
   check(
@@ -47,7 +83,7 @@ class InsertInferredTypeLspSuite
        |object A {
        |  def alpha(): Int = 123
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -66,7 +102,7 @@ class InsertInferredTypeLspSuite
        |    second <- 1 to 11
        |  } yield (first, second)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -85,7 +121,7 @@ class InsertInferredTypeLspSuite
        |    second: Int = first
        |  } yield (first, second)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkNoAction(
@@ -95,7 +131,7 @@ class InsertInferredTypeLspSuite
        |    fir<<>>st: Int <- 1 to 10
        |    second <- 1 to 11
        |  } yield (first, second)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   check(
@@ -109,7 +145,7 @@ class InsertInferredTypeLspSuite
        |  val list = "123".foreach((ch: Char) => ch.toInt)
        |}
        |""".stripMargin,
-    filterAction = filterAction
+    filterAction = filterAction,
   )
 
   check(
@@ -123,7 +159,7 @@ class InsertInferredTypeLspSuite
        |  val list = "123".foreach{ch: Char => ch.toInt}
        |}
        |""".stripMargin,
-    filterAction = filterAction
+    filterAction = filterAction,
   )
 
   check(
@@ -136,7 +172,7 @@ class InsertInferredTypeLspSuite
     """|object A{
        |  val (first: List[Int], second) = (List(1), List(""))
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -155,7 +191,7 @@ class InsertInferredTypeLspSuite
        |    case (first, second: List[String]) =>
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -174,7 +210,7 @@ class InsertInferredTypeLspSuite
        |    case None =>
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkNoAction(
@@ -184,7 +220,7 @@ class InsertInferredTypeLspSuite
        |    case <<num>> @ (first, _) => "Two!"
        |    case otherDigit => "Not two!"
        |  }
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkNoAction(
@@ -193,7 +229,7 @@ class InsertInferredTypeLspSuite
        |  (1, 2) match {
        |    case num @ <<first>> => "Two!"
        |  }
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkNoAction(
@@ -203,7 +239,7 @@ class InsertInferredTypeLspSuite
        |object A {
        |  val al<<>>pha: Int = 123
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -223,7 +259,7 @@ class InsertInferredTypeLspSuite
        |object A {
        |  var alpha: Buffer[Int] = List(123).toBuffer
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
 }

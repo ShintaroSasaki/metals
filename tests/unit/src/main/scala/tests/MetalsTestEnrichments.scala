@@ -59,13 +59,17 @@ object MetalsTestEnrichments {
       } {
         val input = source.toInput
         val symbols = ArrayBuffer.empty[WorkspaceSymbolInformation]
+        val methodSymbols = ArrayBuffer.empty[WorkspaceSymbolInformation]
         SemanticdbDefinition.foreach(input, dialect) {
           case defn @ SemanticdbDefinition(info, _, _) =>
             if (WorkspaceSymbolProvider.isRelevantKind(info.kind)) {
               symbols += defn.toCached
             }
+            if (info.kind == s.SymbolInformation.Kind.METHOD) {
+              methodSymbols += defn.toCached
+            }
         }
-        wsp.didChange(source, symbols.toSeq)
+        wsp.didChange(source, symbols.toSeq, methodSymbols.toSeq)
       }
     }
     def indexLibraries(libraries: Seq[Library]): Unit = {
@@ -84,14 +88,14 @@ object MetalsTestEnrichments {
         Nil.asJava,
         Nil.asJava,
         Nil.asJava,
-        new BuildTargetCapabilities(true, true, true)
+        new BuildTargetCapabilities(true, true, true),
       )
       val scalaTarget = new ScalaBuildTarget(
         "org.scala-lang",
         BuildInfo.scalaVersion,
         BuildInfo.scalaVersion.split('.').take(2).mkString("."),
         ScalaPlatform.JVM,
-        Nil.asJava
+        Nil.asJava,
       )
       val gson = new Gson
       val data = gson.toJsonTree(scalaTarget)
@@ -103,10 +107,11 @@ object MetalsTestEnrichments {
         bti,
         Nil.asJava,
         libraries.flatMap(_.classpath.entries).map(_.toURI.toString).asJava,
-        ""
+        "",
       )
       data0.addScalacOptions(
-        new ScalacOptionsResult(List(item).asJava)
+        new ScalacOptionsResult(List(item).asJava),
+        None,
       )
       wsp.buildTargets.addData(data0)
     }
@@ -115,7 +120,7 @@ object MetalsTestEnrichments {
     def formatMessage(
         severity: String,
         message: String,
-        input: m.Input
+        input: m.Input,
     ): String = {
       try {
         val start = range.getStart
@@ -125,7 +130,7 @@ object MetalsTestEnrichments {
           start.getLine,
           start.getCharacter,
           end.getLine,
-          end.getCharacter
+          end.getCharacter,
         )
         pos.formatMessage(severity, message)
       } catch {
@@ -143,7 +148,7 @@ object MetalsTestEnrichments {
       diag.getRange.formatMessage(
         diag.getSeverity.toString.toLowerCase(),
         diag.getMessage,
-        input
+        input,
       )
     }
   }
@@ -174,13 +179,13 @@ object MetalsTestEnrichments {
             startRange.getLine,
             startRange.getCharacter,
             startRange.getLine,
-            startRange.getCharacter
+            startRange.getCharacter,
           )
         ),
         // include end line for testing purposes
         symbol =
           s"${info.getContainerName}${info.getName}(${info.getKind}):${endRange.getLine + 1}",
-        role = s.SymbolOccurrence.Role.DEFINITION
+        role = s.SymbolOccurrence.Role.DEFINITION,
       )
     }
   }

@@ -64,8 +64,8 @@ class HoverDocSuite extends BaseHoverSuite {
            |```
            |List<String> s = Collections.emptyList();
            |```
-           |""".stripMargin
-    )
+           |""".stripMargin,
+    ),
   )
 
   check(
@@ -96,7 +96,22 @@ class HoverDocSuite extends BaseHoverSuite {
            |**Returns:** the first element of this traversable collection if it is nonempty,
            |          `None` if it is empty.
            |""".stripMargin
-    )
+    ),
   )
 
+  check(
+    "java-method",
+    """|import java.nio.file.Paths
+       |
+       |object O{
+       |  <<Paths.g@@et("")>>
+       |}
+       |""".stripMargin,
+    """|```scala
+       |def get(first: String, more: String*): Path
+       |```
+       |Converts a path string, or a sequence of strings that when joined form
+       |a path string, to a `Path`.
+       |""".stripMargin,
+  )
 }

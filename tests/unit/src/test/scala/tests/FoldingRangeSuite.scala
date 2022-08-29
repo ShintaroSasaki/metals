@@ -14,10 +14,12 @@ import tests.BuildInfo.testResourceDirectory
 
 abstract class FoldingRangeSuite(
     scalaVersion: String,
-    directory: String
+    directory: String,
+    lineFoldingOnly: Boolean,
 ) extends DirectoryExpectSuite(s"$directory/expect") {
   private val (buffers, trees) = TreeUtils.getTrees(scalaVersion)
   private val foldingRangeProvider = new FoldingRangeProvider(trees, buffers)
+  foldingRangeProvider.setFoldOnlyLines(lineFoldingOnly)
 
   override def testCases(): List[ExpectTestCase] = {
     val inputDirectory = AbsolutePath(testResourceDirectory)
@@ -45,7 +47,7 @@ abstract class FoldingRangeSuite(
 
   private def findFoldingRangesFor(
       source: String,
-      extension: String
+      extension: String,
   ): java.util.List[l.FoldingRange] = {
     val path = registerSource(source, extension)
     if (path.isScala) foldingRangeProvider.getRangedForScala(path)
@@ -54,7 +56,7 @@ abstract class FoldingRangeSuite(
 
   private def registerSource(
       source: String,
-      extension: String
+      extension: String,
   ): AbsolutePath = {
     val name = UUID.randomUUID().toString + "." + extension
     val path = AbsolutePath(Paths.get(name))
@@ -64,6 +66,21 @@ abstract class FoldingRangeSuite(
 }
 
 class FoldingRangeScala2Suite
-    extends FoldingRangeSuite(V.scala213, "foldingRange")
+    extends FoldingRangeSuite(
+      V.scala213,
+      "foldingRange",
+      lineFoldingOnly = false,
+    )
 class FoldingRangeScala3Suite
-    extends FoldingRangeSuite(V.scala3, "foldingRange-scala3")
+    extends FoldingRangeSuite(
+      V.scala3,
+      "foldingRange-scala3",
+      lineFoldingOnly = false,
+    )
+
+class FoldingRangeScala3LineFolingOnlySuite
+    extends FoldingRangeSuite(
+      V.scala3,
+      "foldingRange-scala3-foldLineOnly",
+      lineFoldingOnly = true,
+    )

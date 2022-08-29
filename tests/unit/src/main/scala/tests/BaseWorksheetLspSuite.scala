@@ -49,20 +49,20 @@ abstract class BaseWorksheetLspSuite(
         _ <- server.didSave("a/src/main/scala/foo/Main.worksheet.sc")(identity)
         identity <- server.completion(
           "a/src/main/scala/foo/Main.worksheet.sc",
-          "identity@@"
+          "identity@@",
         )
         _ = assertNoDiff(identity, "identity[A](x: A): A")
         generate <- server.completion(
           "a/src/main/scala/foo/Main.worksheet.sc",
-          "generate@@"
+          "generate@@",
         )
         _ = assertNoDiff(
           generate,
           getExpected(
             "generate: Name",
-            Map(V.scala3 -> "generate=> sourcecode.Name"),
-            scalaVersion
-          )
+            Map("3" -> "generate=> sourcecode.Name"),
+            scalaVersion,
+          ),
         )
         _ = assertNoDiagnostics()
         _ = assertNoDiff(
@@ -72,13 +72,13 @@ abstract class BaseWorksheetLspSuite(
                |val name = sourcecode.Name.generate.value // : String = "name"
                |""".stripMargin,
             Map(
-              V.scala3 ->
+              "3" ->
                 """|identity(42) // : Int = 42
                    |val name = sourcecode.Name.generate.value // : String = name
                    |""".stripMargin
             ),
-            scalaVersion
-          )
+            scalaVersion,
+          ),
         )
       } yield ()
     }
@@ -112,7 +112,7 @@ abstract class BaseWorksheetLspSuite(
              |val List(a, b) = List(42, 10) // a: Int = 42, b: Int = 10
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|import java.nio.file.Files
                  |val name = "Susan" // : String = Susan
                  |val greeting = s"Hello $name" // : String = Hello Susan
@@ -122,8 +122,8 @@ abstract class BaseWorksheetLspSuite(
                  |given str: String = ""
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -157,7 +157,7 @@ abstract class BaseWorksheetLspSuite(
              |val List(a, b) = List(42, 10) // a: Int = 42, b: Int = 10
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|import java.nio.file.Files
                  |val name = "Susan" // : String = Susan
                  |val greeting = s"Hello $name" // : String = Hello Susan
@@ -166,8 +166,8 @@ abstract class BaseWorksheetLspSuite(
                  |val List(a, b) = List(42, 10) // a: Int = 42, b: Int = 10
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
       _ = assertNoDiff(
         client.workspaceDecorationHoverMessage,
@@ -197,7 +197,7 @@ abstract class BaseWorksheetLspSuite(
              |```
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|import java.nio.file.Files
                  |val name = "Susan"
                  |```scala
@@ -223,8 +223,8 @@ abstract class BaseWorksheetLspSuite(
                  |```
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -260,7 +260,7 @@ abstract class BaseWorksheetLspSuite(
         """|
            |println(43) // 43
            |// Stream.from(10).last
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -283,30 +283,30 @@ abstract class BaseWorksheetLspSuite(
         """|
            |val x = 42 // : Int = 42
            |throw new RuntimeException("boom")
-           |""".stripMargin
+           |""".stripMargin,
       )
       _ = assertNoDiff(
         client.workspaceDiagnostics,
         getExpected(
           """|a/src/main/scala/Main.worksheet.sc:2:1: error: java.lang.RuntimeException: boom
-             |	at repl.MdocSession$App.<init>(Main.worksheet.sc:11)
+             |	at repl.MdocSession$MdocApp.<init>(Main.worksheet.sc:11)
              |	at repl.MdocSession$.app(Main.worksheet.sc:3)
              |
              |throw new RuntimeException("boom")
              |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|a/src/main/scala/Main.worksheet.sc:2:1: error: java.lang.RuntimeException: boom
-                 |	at repl.MdocSession$App.<init>(Main.worksheet.sc:12)
+                 |	at repl.MdocSession$MdocApp.<init>(Main.worksheet.sc:12)
                  |	at repl.MdocSession$.app(Main.worksheet.sc:3)
                  |
                  |throw new RuntimeException("boom")
                  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -340,7 +340,7 @@ abstract class BaseWorksheetLspSuite(
         client.workspaceDecorations,
         """|println(core.Lib) // Lib
            |println(core.Lib2) // Lib2
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -360,7 +360,7 @@ abstract class BaseWorksheetLspSuite(
       _ = assertNoDiagnostics()
       identity <- server.completion(
         "a/src/main/scala/Main.sc",
-        "identity@@"
+        "identity@@",
       )
       // completions work despite error
       _ = assertNoDiff(identity, "identity[A](x: A): A")
@@ -393,7 +393,7 @@ abstract class BaseWorksheetLspSuite(
         client.workspaceDecorations,
         """
           |a.Util.increase(1) // : Int = 2
-          |""".stripMargin
+          |""".stripMargin,
       )
       _ <- server.didSave("a/src/main/scala/a/Util.scala")(
         _.replace("n + 1", "n + 2")
@@ -403,7 +403,7 @@ abstract class BaseWorksheetLspSuite(
         client.workspaceDecorations,
         """
           |a.Util.increase(1) // : Int = 3
-          |""".stripMargin
+          |""".stripMargin,
       )
     } yield ()
   }
@@ -429,7 +429,7 @@ abstract class BaseWorksheetLspSuite(
              |             ^^
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|a/src/main/scala/a/Main.worksheet.sc:1:14: error:
                  |Found:    ("" : String)
                  |Required: Int
@@ -437,9 +437,15 @@ abstract class BaseWorksheetLspSuite(
                  |             ^^
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
+      _ <- server.didClose("a/src/main/scala/a/Main.worksheet.sc")
+      _ = assertNoDiff(
+        client.workspaceDiagnostics,
+        "",
+      )
+      _ <- server.didOpen("a/src/main/scala/a/Main.worksheet.sc")
       _ <- server.didChange("a/src/main/scala/a/Main.worksheet.sc")(
         _.replace("val x", "def y = \nval x")
       )
@@ -456,7 +462,7 @@ abstract class BaseWorksheetLspSuite(
              |             ^^
              |""".stripMargin,
           Map(
-            V.scala3 ->
+            "3" ->
               """|a/src/main/scala/a/Main.worksheet.sc:2:1: error: illegal start of simple expression
                  |val x: Int = ""
                  |^^^
@@ -467,8 +473,8 @@ abstract class BaseWorksheetLspSuite(
                  |             ^^
                  |""".stripMargin
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -496,7 +502,7 @@ abstract class BaseWorksheetLspSuite(
         """|/a/src/main/scala/Main.worksheet.sc
            |val message/*L0*/ = "Hello World!"
            |println/*Predef.scala*/(message/*L0*/)
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -534,16 +540,16 @@ abstract class BaseWorksheetLspSuite(
                   |val x/*L2*/ = Instant/*Instant.java*/.now/*Instant.java*/()
                   |val y/*L3*/ = List/*package.scala*/.fill/*Factory.scala*/(2)(2)
                   |""".stripMargin,
-            V.scala3 ->
+            "3" ->
               """|/Main.worksheet.sc
                  |import java.time.Instant/*Instant.java*/
                  |
                  |val x/*L2*/ = Instant/*Instant.java*/.now/*Instant.java*/()
                  |val y/*L3*/ = List/*package.scala*/.fill/*Factory.scala*/(2)(2)
-                 |""".stripMargin
+                 |""".stripMargin,
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -577,16 +583,16 @@ abstract class BaseWorksheetLspSuite(
                  |type Structural = {
                  |^
                  |""".stripMargin,
-            V.scala3 ->
+            "3" ->
               """|a/src/main/scala/Main.worksheet.sc:5:1: error:
-                 |Found:    App.this.Structural
+                 |Found:    MdocApp.this.Structural
                  |Required: Selectable
                  |new Foo().asInstanceOf[Structural].foo()
                  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                 |""".stripMargin
+                 |""".stripMargin,
           ),
-          scalaVersion
-        )
+          scalaVersion,
+        ),
       )
     } yield ()
   }
@@ -614,24 +620,24 @@ abstract class BaseWorksheetLspSuite(
       _ = assertNoDiff(
         client.workspaceDiagnostics,
         """|a/src/main/scala/IncompatibleClassChangeError.worksheet.sc:1:1: error: java.lang.IncompatibleClassChangeError
-           |	at repl.MdocSession$App.<init>(IncompatibleClassChangeError.worksheet.sc:8)
+           |	at repl.MdocSession$MdocApp.<init>(IncompatibleClassChangeError.worksheet.sc:8)
            |	at repl.MdocSession$.app(IncompatibleClassChangeError.worksheet.sc:3)
            |
            |throw new IncompatibleClassChangeError()
            |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
            |a/src/main/scala/NoSuchMethodError.worksheet.sc:1:1: error: java.lang.NoSuchMethodError
-           |	at repl.MdocSession$App.<init>(NoSuchMethodError.worksheet.sc:8)
+           |	at repl.MdocSession$MdocApp.<init>(NoSuchMethodError.worksheet.sc:8)
            |	at repl.MdocSession$.app(NoSuchMethodError.worksheet.sc:3)
            |
            |throw new NoSuchMethodError()
            |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
            |a/src/main/scala/StackOverflowError.worksheet.sc:1:1: error: java.lang.StackOverflowError
-           |	at repl.MdocSession$App.<init>(StackOverflowError.worksheet.sc:8)
+           |	at repl.MdocSession$MdocApp.<init>(StackOverflowError.worksheet.sc:8)
            |	at repl.MdocSession$.app(StackOverflowError.worksheet.sc:3)
            |
            |throw new StackOverflowError()
            |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -683,25 +689,25 @@ abstract class BaseWorksheetLspSuite(
                                |
                                |val hellos = List(hi1, hi2)
                                |// hellos: List[Hi] = List(Hi(a = 1, b = 2, c = 3), Hi(a = 4, b = 5, c = 6))""".stripMargin,
-              V.scala3 -> """|
-                             |case class Hi(a: Int, b: Int, c: Int)
-                             |val hi1 =
-                             |  Hi(1, 2, 3)
-                             |// hi1: Hi = Hi(1,2,3)
-                             |val hi2 = Hi(4, 5, 6)
-                             |// hi2: Hi = Hi(4,5,6)
-                             |
-                             |val hellos = List(hi1, hi2)
-                             |// hellos: List[Hi] = List(Hi(1,2,3), Hi(4,5,6))""".stripMargin
+              "3" -> """|
+                        |case class Hi(a: Int, b: Int, c: Int)
+                        |val hi1 =
+                        |  Hi(1, 2, 3)
+                        |// hi1: Hi = Hi(1,2,3)
+                        |val hi2 = Hi(4, 5, 6)
+                        |// hi2: Hi = Hi(4,5,6)
+                        |
+                        |val hellos = List(hi1, hi2)
+                        |// hellos: List[Hi] = List(Hi(1,2,3), Hi(4,5,6))""".stripMargin,
             ),
-            scalaVersion
+            scalaVersion,
           )
-        )
+        ),
       )
       _ <- server.didSave("a/src/main/scala/foo/Main.worksheet.sc")(
         _.replace(
           "Hi(1, 2, 3)",
-          "Hi(7, 8, 9)"
+          "Hi(7, 8, 9)",
         )
       )
       export = server.exportEvaluation(
@@ -732,20 +738,20 @@ abstract class BaseWorksheetLspSuite(
                                |
                                |val hellos = List(hi1, hi2)
                                |// hellos: List[Hi] = List(Hi(a = 7, b = 8, c = 9), Hi(a = 4, b = 5, c = 6))""".stripMargin,
-              V.scala3 -> """|
-                             |case class Hi(a: Int, b: Int, c: Int)
-                             |val hi1 =
-                             |  Hi(7, 8, 9)
-                             |// hi1: Hi = Hi(7,8,9)
-                             |val hi2 = Hi(4, 5, 6)
-                             |// hi2: Hi = Hi(4,5,6)
-                             |
-                             |val hellos = List(hi1, hi2)
-                             |// hellos: List[Hi] = List(Hi(7,8,9), Hi(4,5,6))""".stripMargin
+              "3" -> """|
+                        |case class Hi(a: Int, b: Int, c: Int)
+                        |val hi1 =
+                        |  Hi(7, 8, 9)
+                        |// hi1: Hi = Hi(7,8,9)
+                        |val hi2 = Hi(4, 5, 6)
+                        |// hi2: Hi = Hi(4,5,6)
+                        |
+                        |val hellos = List(hi1, hi2)
+                        |// hellos: List[Hi] = List(Hi(7,8,9), Hi(4,5,6))""".stripMargin,
             ),
-            scalaVersion
+            scalaVersion,
           )
-        )
+        ),
       )
     } yield ()
 

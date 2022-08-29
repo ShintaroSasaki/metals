@@ -36,6 +36,24 @@ class ConvertToNamedArguments(trees: Trees) extends CodeAction {
     }
   }
 
+  private def methodName(t: Term, isFirst: Boolean = false): String = {
+    t match {
+      // a.foo(a)
+      case Term.Select(_, name) =>
+        name.value
+      // foo(a)(b@@)
+      case Term.Apply(fun, _) if isFirst =>
+        methodName(fun) + "(...)"
+      // foo(a@@)(b)
+      case appl: Term.Apply =>
+        methodName(appl.fun) + "()"
+      // foo(a)
+      case Term.Name(name) =>
+        name
+      case _ =>
+        t.syntax
+    }
+  }
   override def contribute(params: l.CodeActionParams, token: CancelToken)(
       implicit ec: ExecutionContext
   ): Future[Seq[l.CodeAction]] = {
@@ -47,7 +65,7 @@ class ConvertToNamedArguments(trees: Trees) extends CodeAction {
       term <- trees.findLastEnclosingAt[Term.Apply](
         path,
         range.getStart(),
-        term => !term.fun.pos.encloses(range)
+        term => !term.fun.pos.encloses(range),
       )
       apply <- firstApplyWithUnnamedArgs(Some(term))
     } yield apply
@@ -55,18 +73,19 @@ class ConvertToNamedArguments(trees: Trees) extends CodeAction {
     maybeApply
       .map { apply =>
         {
-          val codeAction = new l.CodeAction(title(apply.app.fun.syntax))
+          val codeAction =
+            new l.CodeAction(title(methodName(apply.app, isFirst = true)))
           codeAction.setKind(l.CodeActionKind.RefactorRewrite)
           val position = new l.TextDocumentPositionParams(
             params.getTextDocument(),
-            new l.Position(apply.app.pos.endLine, apply.app.pos.endColumn)
+            new l.Position(apply.app.pos.endLine, apply.app.pos.endColumn),
           )
           codeAction.setCommand(
             ServerCommands.ConvertToNamedArguments.toLSP(
               ServerCommands
                 .ConvertToNamedArgsRequest(
                   position,
-                  apply.argIndices.map(new Integer(_)).asJava
+                  apply.argIndices.map(new Integer(_)).asJava,
                 )
             )
           )
@@ -74,10 +93,12 @@ class ConvertToNamedArguments(trees: Trees) extends CodeAction {
         }
       }
       .getOrElse(Future.successful(Nil))
+
   }
 }
 
 object ConvertToNamedArguments {
   case class ApplyTermWithArgIndices(app: Term.Apply, argIndices: List[Int])
-  def title(funcName: String): String = s"Convert $funcName to named arguments"
+  def title(funcName: String): String =
+    s"Convert '$funcName' to named arguments"
 }

@@ -10,7 +10,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
     """
       |object Main {
       |  Option(1).<<he@@ad>>
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -20,7 +20,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  val <<abc>> = 123
       |  <<abc>>.toInt
       |  println(<<ab@@c>>)
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -30,7 +30,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  val abc = 123
       |  abc.<<to@@Int>>
       |  134l.toInt
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -40,7 +40,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  val <<@@a>> = 123
       |  val f = (a: Int) => a + 1
       |  println(<<a>>)
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -51,7 +51,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  val user = User(<<na@@me>> = "Susan")
       |  println(user.<<name>>)
       |  user.copy(<<name>> = "John")
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -63,7 +63,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  val user = <<U@@ser>>(name = "Susan")
       |  println(user.name)
       |  user.copy(name = "John")
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -75,7 +75,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  println(user.<<name>>)
       |  user.<<name>> = ""
       |  user.copy(<<name>> = "John")
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -86,7 +86,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  <<ab@@d>> = 344
       |  <<abd>> +=1
       |  println(<<abd>>)
-      |}""".stripMargin
+      |}""".stripMargin,
   )
 
   check(
@@ -96,7 +96,56 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
       |  def hello() = ""
       |  def <<hel@@lo>>(a : Int) = ""
       |  def hello(a : Int, b : String) = ""
-      |}""".stripMargin
+      |}""".stripMargin,
+  )
+
+  check(
+    "local-var",
+    """
+      |object Test {
+      |  def met() = {
+      |    class T1(var abc: Int) {
+      |       class T2(var <<abc>>: Int) {
+      |          <<ab@@c>> = 4
+      |          def m3: Int = <<abc>> + 2
+      |      }
+      |      abc = 4
+      |      def m2: Int = abc + 2
+      |    }
+      |  }
+      |}""".stripMargin,
+  )
+  check(
+    "local-assign",
+    """
+      |object Test {
+      |  def met() = {
+      |    class T1(var abc: Int) {
+      |       class T2(var <<abc>>: Int) {
+      |          <<a@@bc>> = 4
+      |          def m3: Int = <<abc>> + 2
+      |      }
+      |      abc = 4
+      |      def m2: Int = abc + 2
+      |    }
+      |  }
+      |}""".stripMargin,
+  )
+  check(
+    "local-class",
+    """
+      |object Test {
+      |  def met() = {
+      |    class T1(var abc: Int) {
+      |       class T2(var <<ab@@c>>: Int) {
+      |          <<abc>> = 4
+      |          def m3: Int = <<abc>> + 2
+      |      }
+      |      abc = 4
+      |      def m2: Int = abc + 2
+      |    }
+      |  }
+      |}""".stripMargin,
   )
 
   def check(name: TestOptions, testCase: String)(implicit
@@ -118,7 +167,7 @@ class DocumentHighlightLspSuite extends BaseLspSuite("documentHighlight") {
         _ <- server.assertHighlight(
           "a/src/main/scala/a/Main.scala",
           edit,
-          expected
+          expected,
         )
       } yield ()
     }

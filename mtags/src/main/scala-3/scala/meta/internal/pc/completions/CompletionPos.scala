@@ -19,7 +19,7 @@ case class CompletionPos(
     start: Int,
     end: Int,
     query: String,
-    cursorPos: SourcePosition
+    cursorPos: SourcePosition,
 ):
 
   def sourcePos: SourcePosition = cursorPos.withSpan(Spans.Span(start, end))
@@ -34,7 +34,7 @@ object CompletionPos:
   def infer(
       cursorPos: SourcePosition,
       text: String,
-      treePath: List[Tree]
+      treePath: List[Tree],
   )(using Context): CompletionPos =
     val start = inferIdentStart(cursorPos, text, treePath)
     val end = inferIdentEnd(cursorPos, text)
@@ -51,9 +51,31 @@ object CompletionPos:
       start,
       end,
       query,
-      cursorPos
+      cursorPos,
     )
   end infer
+
+  /**
+   * Infer the indentation by counting the number of spaces in the given line.
+   *
+   * @param lineOffset the offset position of the beginning of the line
+   */
+  private[completions] def inferIndent(
+      lineOffset: Int,
+      text: String,
+  ): (Int, Boolean) =
+    var i = 0
+    var tabIndented = false
+    while lineOffset + i < text.length && {
+        val char = text.charAt(lineOffset + i)
+        if char == '\t' then
+          tabIndented = true
+          true
+        else char == ' '
+      }
+    do i += 1
+    (i, tabIndented)
+  end inferIndent
 
   /**
    * Returns the start offset of the identifier starting as the given offset position.
@@ -61,7 +83,7 @@ object CompletionPos:
   private def inferIdentStart(
       pos: SourcePosition,
       text: String,
-      path: List[Tree]
+      path: List[Tree],
   )(using Context): Int =
     def fallback: Int =
       var i = pos.point - 1

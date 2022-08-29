@@ -4,20 +4,21 @@ import scala.meta.internal.metals.MetalsEnrichments._
 
 import ch.epfl.scala.bsp4j.BuildTarget
 import org.eclipse.{lsp4j => l}
+
 final case class BuildTargetUpdate(
     targetName: String,
     targetUri: String,
-    events: java.util.List[TestExplorerEvent]
+    events: java.util.List[TestExplorerEvent],
 )
 object BuildTargetUpdate {
   def apply(
       buildTarget: BuildTarget,
-      events: Seq[TestExplorerEvent]
+      events: Seq[TestExplorerEvent],
   ): BuildTargetUpdate =
     BuildTargetUpdate(
       buildTarget.getDisplayName,
       buildTarget.getId.getUri,
-      events.asJava
+      events.asJava,
     )
 }
 
@@ -30,7 +31,7 @@ sealed abstract class TestExplorerEvent(
 object TestExplorerEvent {
   final case class RemoveTestSuite(
       fullyQualifiedClassName: String,
-      className: String
+      className: String,
   ) extends TestExplorerEvent("removeSuite")
 
   final case class AddTestSuite(
@@ -38,21 +39,27 @@ object TestExplorerEvent {
       className: String,
       symbol: String,
       location: l.Location,
-      canResolveChildren: Boolean
+      canResolveChildren: Boolean,
   ) extends TestExplorerEvent("addSuite") {
     def asRemove: RemoveTestSuite =
       RemoveTestSuite(fullyQualifiedClassName, className)
   }
 
+  final case class UpdateSuiteLocation(
+      fullyQualifiedClassName: String,
+      className: String,
+      location: l.Location,
+  ) extends TestExplorerEvent("updateSuiteLocation")
+
   final case class AddTestCases(
       fullyQualifiedClassName: String,
       className: String,
-      testCases: java.util.List[TestCaseEntry]
+      testCases: java.util.List[TestCaseEntry],
   ) extends TestExplorerEvent("addTestCases")
 }
 
 // Represents a single test within a test suite
 final case class TestCaseEntry(
     name: String,
-    location: l.Location
+    location: l.Location,
 )

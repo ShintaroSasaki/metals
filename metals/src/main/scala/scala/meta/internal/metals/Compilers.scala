@@ -67,7 +67,7 @@ class Compilers(
     scalaVersionSelector: ScalaVersionSelector,
     trees: Trees,
     mtagsResolver: MtagsResolver,
-    sourceMapper: SourceMapper
+    sourceMapper: SourceMapper,
 )(implicit ec: ExecutionContextExecutorService)
     extends Cancelable {
   val plugins = new CompilerPlugins()
@@ -97,7 +97,7 @@ class Compilers(
       classpath: Seq[Path],
       standaloneSearch: SymbolSearch,
       name: String,
-      path: AbsolutePath
+      path: AbsolutePath,
   ): PresentationCompiler = {
     val mtags =
       mtagsResolver.resolve(scalaVersion).getOrElse(MtagsBinaries.BuildIn)
@@ -112,7 +112,7 @@ class Compilers(
       List.empty,
       classpath ++ Embedded.scalaLibrary(scalaVersion),
       standaloneSearch,
-      name
+      name,
     )
   }
 
@@ -146,14 +146,14 @@ class Compilers(
                   userConfig,
                   trees,
                   buildTargets,
-                  saveSymbolFileToDisk = !config.isVirtualDocumentSupported()
+                  saveSymbolFileToDisk = !config.isVirtualDocumentSupported(),
                 )
               ).getOrElse(EmptySymbolSearch),
               "default",
-              path
+              path,
             )
         }
-      }
+      },
     )
   }
 
@@ -163,6 +163,7 @@ class Compilers(
     Cancelable.cancelEach(cache.values)(_.shutdown())
     Cancelable.cancelEach(worksheetsCache.values)(_.shutdown())
     cache.clear()
+    worksheetsCache.clear()
   }
 
   def restartAll(): Unit = {
@@ -187,7 +188,7 @@ class Compilers(
               CompilerOffsetParams(
                 Paths.get("Main.scala").toUri(),
                 "object Ma\n",
-                "object Ma".length()
+                "object Ma".length(),
               )
             )
           }
@@ -219,7 +220,7 @@ class Compilers(
 
         val (input, adjust) = inputAndAdjust.getOrElse(
           originInput,
-          AdjustedLspData.default
+          AdjustedLspData.default,
         )
 
         for {
@@ -266,7 +267,7 @@ class Compilers(
         "-Ypresentation-debug",
         "-Ypresentation-verbose",
         "-Ypresentation-log",
-        workspace.resolve(Directories.pc).toString()
+        workspace.resolve(Directories.pc).toString(),
       )
     } else {
       Nil
@@ -276,43 +277,94 @@ class Compilers(
       path: AbsolutePath,
       breakpointPosition: LspPosition,
       token: CancelToken,
-      expression: d.CompletionsArguments
+      expression: d.CompletionsArguments,
   ): Future[Seq[d.CompletionItem]] = {
 
+    /**
+     * Find the offset of the cursor inside the modified expression.
+     * We need it to give the compiler the right offset.
+     *
+     * @param modified modified expression with indentation inserted
+     * @param indentation indentation of the current breakpoint
+     * @return offset where the compiler should insert completions
+     */
+    def expressionOffset(modified: String, indentation: String) = {
+      val line = expression.getLine()
+      val column = expression.getColumn()
+      modified.split("\n").zipWithIndex.take(line).foldLeft(0) {
+        case (offset, (lineText, index)) =>
+          if (index + 1 == line) {
+            if (line > 1)
+              offset + column + indentation.size - 1
+            else
+              offset + column - 1
+          } else offset + lineText.size + 1
+      }
+    }
     loadCompiler(path)
       .map { compiler =>
         val input = path.toInputFromBuffers(buffers)
-        val metaPos = breakpointPosition.toMeta(input)
-        val oldText = metaPos.input.text
-        val lineStart = oldText.indexWhere(
-          c => c != ' ' && c != '\t',
-          metaPos.start + 1
-        )
+        breakpointPosition.toMeta(input) match {
+          case Some(metaPos) =>
+            val oldText = metaPos.input.text
+            val lineStart = oldText.indexWhere(
+              c => c != ' ' && c != '\t',
+              metaPos.start + 1,
+            )
 
-        val indentation = lineStart - metaPos.start
-        // insert expression at the start of breakpoint's line and move the lines one down
-        val modified =
-          s"${oldText.substring(0, lineStart)};${expression
-              .getText()}\n${" " * indentation}${oldText.substring(lineStart)}"
+            val indentationSize = lineStart - metaPos.start
+            val indentationChar =
+              if (oldText.lift(lineStart - 1).exists(_ == '\t')) '\t' else ' '
+            val indentation = indentationChar.toString * indentationSize
 
-        val offsetParams = CompilerOffsetParams(
-          path.toURI,
-          modified,
-          lineStart + expression.getColumn(),
-          token
-        )
-        compiler
-          .complete(offsetParams)
-          .asScala
-          .map(list =>
-            list.getItems.asScala.toSeq
-              .map(
-                toDebugCompletionItem(
-                  _,
-                  indentation + 1
-                )
+            val expressionText =
+              expression.getText().replace("\n", s"\n$indentation")
+
+            val prev = oldText.substring(0, lineStart)
+            val succ = oldText.substring(lineStart)
+            // insert expression at the start of breakpoint's line and move the lines one down
+            val modified = s"$prev;$expressionText\n$indentation$succ"
+
+            val offsetParams = CompilerOffsetParams(
+              path.toURI,
+              modified,
+              lineStart + expressionOffset(expressionText, indentation) + 1,
+              token,
+            )
+
+            val previousLines = expression
+              .getText()
+              .split("\n")
+
+            // we need to adjust start to point at the start of the replacement in the expression
+            val adjustStart =
+              /* For multiple line we need to insert at the correct offset and
+               * then adjust column by indentation that was added to the expression
+               */
+              if (previousLines.size > 1)
+                previousLines
+                  .take(expression.getLine() - 1)
+                  .map(_.size + 1)
+                  .sum - indentationSize
+              // for one line we only need to adjust column with indentation + ; that was added to the expression
+              else -(1 + indentationSize)
+
+            compiler
+              .complete(offsetParams)
+              .asScala
+              .map(list =>
+                list.getItems.asScala.toSeq
+                  .map(
+                    toDebugCompletionItem(
+                      _,
+                      adjustStart,
+                    )
+                  )
               )
-          )
+          case None =>
+            scribe.debug(s"$breakpointPosition was not found in $path ")
+            Future.successful(Nil)
+        }
       }
       .getOrElse(Future.successful(Nil))
   }
@@ -366,7 +418,7 @@ class Compilers(
 
   def completions(
       params: CompletionParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[CompletionList] =
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       val offsetParams =
@@ -382,11 +434,15 @@ class Compilers(
   def autoImports(
       params: TextDocumentPositionParams,
       name: String,
-      token: CancelToken
+      findExtensionMethods: Boolean,
+      token: CancelToken,
   ): Future[ju.List[AutoImportsResult]] = {
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
-      pc.autoImports(name, CompilerOffsetParams.fromPos(pos, token))
-        .asScala
+      pc.autoImports(
+        name,
+        CompilerOffsetParams.fromPos(pos, token),
+        findExtensionMethods,
+      ).asScala
         .map { list =>
           list.map(adjust.adjustImportResult)
           list
@@ -396,7 +452,7 @@ class Compilers(
 
   def insertInferredType(
       params: TextDocumentPositionParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[ju.List[TextEdit]] = {
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       pc.insertInferredType(CompilerOffsetParams.fromPos(pos, token))
@@ -410,12 +466,12 @@ class Compilers(
   def convertToNamedArguments(
       position: TextDocumentPositionParams,
       argIndices: ju.List[Integer],
-      token: CancelToken
+      token: CancelToken,
   ): Future[ju.List[TextEdit]] = {
     withPCAndAdjustLsp(position) { (pc, pos, adjust) =>
       pc.convertToNamedArguments(
         CompilerOffsetParams.fromPos(pos, token),
-        argIndices
+        argIndices,
       ).asScala
         .map { edits =>
           adjust.adjustTextEdits(edits)
@@ -425,7 +481,7 @@ class Compilers(
 
   def implementAbstractMembers(
       params: TextDocumentPositionParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[ju.List[TextEdit]] = {
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       pc.implementAbstractMembers(CompilerOffsetParams.fromPos(pos, token))
@@ -438,7 +494,7 @@ class Compilers(
 
   def hover(
       params: HoverExtParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[Option[Hover]] = {
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       pc.hover(CompilerRangeParams.offsetOrRange(pos, token))
@@ -449,7 +505,7 @@ class Compilers(
 
   def definition(
       params: TextDocumentPositionParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[DefinitionResult] =
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       pc.definition(CompilerOffsetParams.fromPos(pos, token))
@@ -473,14 +529,14 @@ class Compilers(
             c.locations(),
             c.symbol(),
             definitionPath,
-            None
+            None,
           )
         }
     }.getOrElse(Future.successful(DefinitionResult.empty))
 
   def signatureHelp(
       params: TextDocumentPositionParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[SignatureHelp] =
     withPCAndAdjustLsp(params) { (pc, pos, _) =>
       pc.signatureHelp(CompilerOffsetParams.fromPos(pos, token)).asScala
@@ -488,7 +544,7 @@ class Compilers(
 
   def selectionRange(
       params: SelectionRangeParams,
-      token: CancelToken
+      token: CancelToken,
   ): Future[ju.List[SelectionRange]] = {
     withPCAndAdjustLsp(params) { (pc, positions) =>
       val offsetPositions: ju.List[OffsetParams] =
@@ -525,7 +581,7 @@ class Compilers(
   def restartWorksheetPresentationCompiler(
       path: AbsolutePath,
       classpath: List[Path],
-      sources: List[Path]
+      sources: List[Path],
   ): Unit = {
     val created: Option[Unit] = for {
       targetId <- buildTargets.inverseSources(path)
@@ -553,15 +609,15 @@ class Compilers(
             trees,
             buildTargets,
             saveSymbolFileToDisk = !config.isVirtualDocumentSupported(),
-            workspaceFallback = Some(search)
+            workspaceFallback = Some(search),
           )
           newCompiler(
             scalaTarget,
             mtags,
             classpath,
-            worksheetSearch
+            worksheetSearch,
           )
-        }
+        },
       )
     }
 
@@ -583,12 +639,12 @@ class Compilers(
               userConfig,
               trees,
               buildTargets,
-              saveSymbolFileToDisk = !config.isVirtualDocumentSupported()
+              saveSymbolFileToDisk = !config.isVirtualDocumentSupported(),
             ),
             path.toString(),
-            path
+            path,
           )
-        }
+        },
       )
     }
   }
@@ -614,7 +670,7 @@ class Compilers(
             ) {
               newCompiler(scalaTarget, mtags, search)
             }
-          }
+          },
         )
         Option(out)
       case None =>
@@ -632,7 +688,8 @@ class Compilers(
         .toInputFromBuffers(buffers)
         .copy(path = params.getTextDocument.getUri)
 
-      val positions = params.getPositions().map(_.toMeta(input))
+      val positions =
+        params.getPositions().asScala.flatMap(_.toMeta(input)).asJava
 
       fn(compiler, positions)
     }
@@ -642,13 +699,13 @@ class Compilers(
       params: TextDocumentPositionParams
   )(fn: (PresentationCompiler, Position, AdjustLspData) => T): Option[T] = {
     val path = params.getTextDocument.getUri.toAbsolutePath
-    loadCompiler(path).map { compiler =>
-      val (input, pos, adjust) = sourceAdjustments(
-        params,
-        compiler.scalaVersion()
-      )
-      val metaPos = pos.toMeta(input)
-      fn(compiler, metaPos, adjust)
+    loadCompiler(path).flatMap { compiler =>
+      val (input, pos, adjust) =
+        sourceAdjustments(
+          params,
+          compiler.scalaVersion(),
+        )
+      pos.toMeta(input).map(metaPos => fn(compiler, metaPos, adjust))
     }
   }
 
@@ -657,47 +714,47 @@ class Compilers(
   )(fn: (PresentationCompiler, Position, AdjustLspData) => T): Option[T] = {
 
     val path = params.textDocument.getUri.toAbsolutePath
-    loadCompiler(path).map { compiler =>
+    loadCompiler(path).flatMap { compiler =>
       if (params.range != null) {
         val (input, range, adjust) = sourceAdjustments(
           params,
-          compiler.scalaVersion()
+          compiler.scalaVersion(),
         )
-        fn(compiler, range.toMeta(input), adjust)
+        range.toMeta(input).map(fn(compiler, _, adjust))
 
       } else {
         val positionParams =
           new TextDocumentPositionParams(
             params.textDocument,
-            params.getPosition
+            params.getPosition,
           )
         val (input, pos, adjust) = sourceAdjustments(
           positionParams,
-          compiler.scalaVersion()
+          compiler.scalaVersion(),
         )
-        fn(compiler, pos.toMeta(input), adjust)
+        pos.toMeta(input).map(fn(compiler, _, adjust))
       }
     }
   }
 
   private def sourceAdjustments(
       params: TextDocumentPositionParams,
-      scalaVersion: String
+      scalaVersion: String,
   ): (Input.VirtualFile, LspPosition, AdjustLspData) = {
     val (input, adjustRequest, adjustResponse) = sourceAdjustments(
       params.getTextDocument().getUri(),
-      scalaVersion
+      scalaVersion,
     )
     (input, adjustRequest(params.getPosition()), adjustResponse)
   }
 
   private def sourceAdjustments(
       params: HoverExtParams,
-      scalaVersion: String
+      scalaVersion: String,
   ): (Input.VirtualFile, LspRange, AdjustLspData) = {
     val (input, adjustRequest, adjustResponse) = sourceAdjustments(
       params.textDocument.getUri(),
-      scalaVersion
+      scalaVersion,
     )
     val start = params.range.getStart()
     val end = params.range.getEnd()
@@ -707,7 +764,7 @@ class Compilers(
 
   private def sourceAdjustments(
       uri: String,
-      scalaVersion: String
+      scalaVersion: String,
   ): (Input.VirtualFile, LspPosition => LspPosition, AdjustLspData) = {
     val path = uri.toAbsolutePath
     sourceMapper.pcMapping(path, scalaVersion)
@@ -715,7 +772,7 @@ class Compilers(
 
   private def configure(
       pc: PresentationCompiler,
-      search: SymbolSearch
+      search: SymbolSearch,
   ): PresentationCompiler =
     pc.withSearch(search)
       .withExecutorService(ec)
@@ -733,14 +790,14 @@ class Compilers(
             isCompletionSnippetsEnabled =
               initializeParams.supportsCompletionSnippets,
             _isStripMarginOnTypeFormattingEnabled =
-              () => userConfig().enableStripMarginOnTypeFormatting
+              () => userConfig().enableStripMarginOnTypeFormatting,
           )
       )
 
   def newCompiler(
       target: ScalaTarget,
       mtags: MtagsBinaries,
-      search: SymbolSearch
+      search: SymbolSearch,
   ): PresentationCompiler = {
     val classpath =
       target.scalac.classpath.toAbsoluteClasspath.map(_.toNIO).toSeq
@@ -751,14 +808,14 @@ class Compilers(
       target: ScalaTarget,
       mtags: MtagsBinaries,
       classpath: Seq[Path],
-      search: SymbolSearch
+      search: SymbolSearch,
   ): PresentationCompiler = {
     newCompiler(
       mtags,
       target.scalac.getOptions().asScala.toSeq,
       classpath,
       search,
-      target.scalac.getTarget.getUri
+      target.scalac.getTarget.getUri,
     )
   }
 
@@ -767,7 +824,7 @@ class Compilers(
       options: Seq[String],
       classpath: Seq[Path],
       search: SymbolSearch,
-      name: String
+      name: String,
   ): PresentationCompiler = {
     val pc: PresentationCompiler =
       mtags match {
@@ -781,7 +838,7 @@ class Compilers(
     configure(pc, search).newInstance(
       name,
       classpath.asJava,
-      (log ++ filteredOptions).asJava
+      (log ++ filteredOptions).asJava,
     )
   }
 
@@ -819,7 +876,7 @@ class Compilers(
 
   private def toDebugCompletionItem(
       item: CompletionItem,
-      indentation: Int
+      adjustStart: Int,
   ): d.CompletionItem = {
     val debugItem = new d.CompletionItem()
     debugItem.setLabel(item.getLabel())
@@ -829,10 +886,9 @@ class Compilers(
       case Right(insertReplace) =>
         (insertReplace.getNewText, insertReplace.getReplace)
     }
-    val start = range.getStart().getCharacter() - indentation
-    val end = range.getEnd().getCharacter() - indentation
+    val start = range.getStart().getCharacter + adjustStart
 
-    val length = end - start
+    val length = range.getEnd().getCharacter() - range.getStart().getCharacter()
     debugItem.setLength(length)
 
     // remove snippets, since they are not supported in DAP

@@ -8,11 +8,13 @@ import java.{util => ju}
 import scala.meta.inputs.Input
 import scala.meta.internal.metals.ClasspathSearch
 import scala.meta.internal.metals.Docstrings
+import scala.meta.internal.metals.WorkspaceSymbolInformation
 import scala.meta.internal.metals.WorkspaceSymbolQuery
 import scala.meta.internal.mtags.GlobalSymbolIndex
 import scala.meta.internal.mtags.Mtags
 import scala.meta.internal.mtags.OnDemandSymbolIndex
 import scala.meta.internal.mtags.Symbol
+import scala.meta.internal.{semanticdb => s}
 import scala.meta.pc.ParentSymbols
 import scala.meta.pc.SymbolDocumentation
 import scala.meta.pc.SymbolSearch
@@ -29,11 +31,11 @@ class TestingSymbolSearch(
     classpath: ClasspathSearch = ClasspathSearch.empty,
     docs: Docstrings = Docstrings.empty,
     workspace: TestingWorkspaceSearch = TestingWorkspaceSearch.empty,
-    index: GlobalSymbolIndex = OnDemandSymbolIndex.empty()
+    index: GlobalSymbolIndex = OnDemandSymbolIndex.empty(),
 ) extends SymbolSearch {
   override def documentation(
       symbol: String,
-      parents: ParentSymbols
+      parents: ParentSymbols,
   ): Optional[SymbolDocumentation] = {
     docs.documentation(symbol, parents)
   }
@@ -50,7 +52,7 @@ class TestingSymbolSearch(
         ju.Collections.singletonList(
           new Location(
             uri,
-            new Range(new Position(0, 0), new Position(0, 0))
+            new Range(new Position(0, 0), new Position(0, 0)),
           )
         )
     }
@@ -58,7 +60,7 @@ class TestingSymbolSearch(
 
   override def definitionSourceToplevels(
       symbol: String,
-      source: URI
+      source: URI,
   ): ju.List[String] = {
     index.definition(Symbol(symbol)) match {
       case None =>
@@ -69,7 +71,7 @@ class TestingSymbolSearch(
         val content = new String(Files.readAllBytes(value.path.toNIO))
         val input = Input.VirtualFile(
           filename,
-          content
+          content,
         )
         Mtags.toplevels(input).asJava
     }
@@ -78,10 +80,26 @@ class TestingSymbolSearch(
   override def search(
       textQuery: String,
       buildTargetIdentifier: String,
-      visitor: SymbolSearchVisitor
+      visitor: SymbolSearchVisitor,
   ): SymbolSearch.Result = {
     val query = WorkspaceSymbolQuery.exact(textQuery)
     workspace.search(query, visitor)
     classpath.search(query, visitor)
+  }
+
+  override def searchMethods(
+      textQuery: String,
+      buildTargetIdentifier: String,
+      visitor: SymbolSearchVisitor,
+  ): SymbolSearch.Result = {
+    val query = WorkspaceSymbolQuery.exact(textQuery)
+    workspace.search(
+      query,
+      visitor,
+      (info: WorkspaceSymbolInformation) => {
+        info.sematicdbKind == s.SymbolInformation.Kind.METHOD
+      },
+    )
+    SymbolSearch.Result.COMPLETE
   }
 }

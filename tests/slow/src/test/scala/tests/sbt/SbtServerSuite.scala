@@ -48,7 +48,7 @@ class SbtServerSuite
         client.workspaceMessageRequests,
         List(
           importBuildMessage
-        ).mkString("\n")
+        ).mkString("\n"),
       )
       _ = client.messageRequests.clear()
       // Attempt to create a .bsp/sbt.json file
@@ -56,7 +56,7 @@ class SbtServerSuite
     } yield {
       assertNoDiff(
         client.workspaceShowMessages,
-        Messages.NoBspSupport.toString
+        Messages.NoBspSupport.toString,
       )
     }
   }
@@ -77,7 +77,7 @@ class SbtServerSuite
         client.workspaceMessageRequests,
         // Project has no .bloop directory so user is asked to "import via bloop"
         // since bloop is still the default
-        importBuildMessage
+        importBuildMessage,
       )
       _ = client.messageRequests.clear() // restart
       _ = assert(!sbtBspConfig.exists)
@@ -95,10 +95,11 @@ class SbtServerSuite
 
   test("reload") {
     cleanWorkspace()
+    client.importBuildChanges = ImportBuildChanges.yes
     for {
       _ <- initialize(SbtBuildLayout("", V.scala213))
       // reload build after build.sbt changes
-      _ = client.importBuildChanges = ImportBuildChanges.yes
+      _ <- server.executeCommand(ServerCommands.ResetNotifications)
       _ <- server.didSave("build.sbt") { text =>
         s"""$text
            |ibraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4"
@@ -107,7 +108,7 @@ class SbtServerSuite
       _ = {
         assertNoDiff(
           client.workspaceErrorShowMessages,
-          Messages.ReloadProjectFailed.getMessage
+          Messages.ReloadProjectFailed.getMessage,
         )
         client.showMessages.clear()
       }
@@ -127,7 +128,7 @@ class SbtServerSuite
     val mainClass = new ScalaMainClass(
       "a.Main",
       List("Bar").asJava,
-      List("-Dproperty=Foo").asJava
+      List("-Dproperty=Foo").asJava,
     )
     mainClass.setEnvironmentVariables(List("HELLO=Foo").asJava)
     for {
@@ -159,7 +160,7 @@ class SbtServerSuite
       debugger <- server.startDebugging(
         "debug",
         DebugSessionParamsDataKind.SCALA_MAIN_CLASS,
-        mainClass
+        mainClass,
       )
       _ <- debugger.initialize
       _ <- debugger.launch
@@ -187,8 +188,8 @@ class SbtServerSuite
         client.workspaceMessageRequests,
         List(
           importBuildMessage,
-          Messages.BspSwitch.message
-        ).mkString("\n")
+          Messages.BspSwitch.message,
+        ).mkString("\n"),
       )
       // assert contains the meta-build-target-build
       assertNoDiff(
@@ -200,8 +201,8 @@ class SbtServerSuite
         Seq(
           "meta-build-target",
           "meta-build-target-build",
-          "meta-build-target-test"
-        ).mkString("\n")
+          "meta-build-target-test",
+        ).mkString("\n"),
       )
     }
   }

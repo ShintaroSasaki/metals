@@ -20,7 +20,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """|superVisorStrategy: Int (commit: '')
        |super (commit: '')
        |""".stripMargin,
-    includeCommitCharacter = true
+    includeCommitCharacter = true,
   )
 
   check(
@@ -37,7 +37,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     "",
-    includeCommitCharacter = true
+    includeCommitCharacter = true,
   )
 
   check(
@@ -56,7 +56,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     "",
-    includeCommitCharacter = true
+    includeCommitCharacter = true,
   )
 
   check(
@@ -76,7 +76,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|superVisorStrategy: Int
        |super
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -96,7 +96,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|superVisorStrategy: Int
        |super
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -116,7 +116,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|superVisorStrategy: Int
        |super
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -133,7 +133,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     """|super
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -166,8 +166,8 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
         """|value: Int
            |val
            |var
-           |""".stripMargin
-    )
+           |""".stripMargin,
+    ),
   )
 
   check(
@@ -183,7 +183,51 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|val
        |var
-       |""".stripMargin
+       |""".stripMargin,
+  )
+
+  check(
+    "match",
+    """
+      |package foo
+      |
+      |object A {
+      |  val x: Option[Int] = ???
+      |  val a = {
+      |    x ma@@
+      |  }
+      |}
+      |""".stripMargin,
+    """|match
+       |""".stripMargin,
+    filter = _ == "match",
+  )
+
+  checkEdit(
+    "match-edit".tag(IgnoreScala2),
+    """
+      |package foo
+      |
+      |object A {
+      |  val abc: Option[Int] = ???
+      |  val a = {
+      |    abc ma@@
+      |  }
+      |}
+      |""".stripMargin,
+    s"""
+       |package foo
+       |
+       |object A {
+       |  val abc: Option[Int] = ???
+       |  val a = {
+       |    abc match
+       |\tcase $$0
+       |
+       |  }
+       |}
+       |""".stripMargin,
+    filter = _ == "match",
   )
 
   check(
@@ -202,7 +246,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     includeCommitCharacter = true,
     compat = Map(
       "2" -> ""
-    )
+    ),
   )
 
   check(
@@ -218,7 +262,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|value: Int
        |""".stripMargin,
-    topLines = Some(1)
+    topLines = Some(1),
   )
 
   checkEditLine(
@@ -232,7 +276,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     "  va@@",
     "  val ",
-    filter = _ == "val"
+    filter = _ == "val",
   )
 
   check(
@@ -245,7 +289,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     """|return
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -257,7 +301,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |  val someVal = ret@@
       |}
       |""".stripMargin,
-    ""
+    "",
   )
 
   check(
@@ -274,7 +318,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     compat = Map(
       "3" -> ""
-    )
+    ),
   )
 
   check(
@@ -284,7 +328,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |
       |ret@@
       |""".stripMargin,
-    ""
+    "",
   )
 
   check(
@@ -299,7 +343,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|import (commit: '')
        |""".stripMargin,
-    includeCommitCharacter = true
+    includeCommitCharacter = true,
   )
 
   check(
@@ -313,7 +357,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """|import (commit: '')
        |""".stripMargin,
     includeCommitCharacter = true,
-    enablePackageWrap = false
+    enablePackageWrap = false,
   )
 
   check(
@@ -324,7 +368,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |abstract cla@@
       |""".stripMargin,
     """|class
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -337,7 +381,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     "",
     compat = Map(
       "3" -> "type"
-    )
+    ),
   )
 
   check(
@@ -350,7 +394,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |}
     """.stripMargin,
     """type
-    """.stripMargin
+    """.stripMargin,
   )
 
   check(
@@ -367,7 +411,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     // NOTE(olafur) `type` is technically valid in blocks but they're not completed
     // to reduce noise (we do the same for class, object, trait).
-    ""
+    "",
   )
 
   check(
@@ -381,7 +425,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     "",
     // to avoid newMain annotation
-    filter = str => !str.contains("newMain")
+    filter = str => !str.contains("newMain"),
   )
 
   check(
@@ -397,7 +441,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     "",
     // to avoid newMain annotation
-    filter = str => !str.contains("newMain")
+    filter = str => !str.contains("newMain"),
   )
 
   check(
@@ -412,7 +456,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     """|supervisorStrategy: Int
        |super
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -424,7 +468,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
       |  protected de@@
       |}
     """.stripMargin,
-    "def"
+    "def",
   )
 
   check(
@@ -438,7 +482,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """.stripMargin,
     """val
       |var
-      |""".stripMargin
+      |""".stripMargin,
   )
 
   check(
@@ -483,7 +527,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
                 |sealed class
                 |implicit
                 |""".stripMargin
-    )
+    ),
   )
 
   check(
@@ -496,7 +540,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     includeCommitCharacter = true,
     compat = Map(
       "2" -> ""
-    )
+    ),
   )
 
   check(
@@ -504,7 +548,7 @@ class CompletionKeywordSuite extends BaseCompletionSuite {
     """|object A{
        |  def hello(a: String, u@@)
        |}""".stripMargin,
-    ""
+    "",
   )
 
 }

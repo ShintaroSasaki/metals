@@ -26,7 +26,7 @@ class ImportMissingSymbolLspSuite
        |object A {
        |  val f = Future.successful(2)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -48,7 +48,7 @@ class ImportMissingSymbolLspSuite
        |object A {
        |  val f = Future.successful(2)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -71,7 +71,7 @@ class ImportMissingSymbolLspSuite
        |  val f = Try{}
        |  val g = Try{}
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -88,7 +88,7 @@ class ImportMissingSymbolLspSuite
         |${ImportMissingSymbol.title("Instant", "java.time")}
         |${CreateNewSymbol.title("Future")}
         |${CreateNewSymbol.title("Instant")}
-        |${ConvertToNamedArguments.title("Future.successful")}
+        |${ConvertToNamedArguments.title("successful(...)")}
         |""".stripMargin,
     """|package a
        |
@@ -99,7 +99,7 @@ class ImportMissingSymbolLspSuite
        |  val b = ListBuffer.newBuilder[Int]
        |}
        |""".stripMargin,
-    expectNoDiagnostics = false
+    expectNoDiagnostics = false,
   )
 
   check(
@@ -118,7 +118,7 @@ class ImportMissingSymbolLspSuite
         |${ImportMissingSymbol.title("ListBuffer", "scala.collection.mutable")}
         |${CreateNewSymbol.title("Instant")}
         |${CreateNewSymbol.title("ListBuffer")}
-        |${ConvertToNamedArguments.title("Future.successful")}
+        |${ConvertToNamedArguments.title("successful(...)")}
         |""".stripMargin,
     """|package a
        |
@@ -131,7 +131,7 @@ class ImportMissingSymbolLspSuite
        |  val b = ListBuffer.newBuilder[Int]
        |}
        |""".stripMargin,
-    expectNoDiagnostics = false
+    expectNoDiagnostics = false,
   )
 
   check(
@@ -151,7 +151,7 @@ class ImportMissingSymbolLspSuite
         |${CreateNewSymbol.title("Future")}
         |${CreateNewSymbol.title("Instant")}
         |${CreateNewSymbol.title("ListBuffer")}
-        |${ConvertToNamedArguments.title("Future.successful")}
+        |${ConvertToNamedArguments.title("successful(...)")}
         |""".stripMargin,
     """|package a
        |
@@ -163,7 +163,7 @@ class ImportMissingSymbolLspSuite
        |  val b = ListBuffer.newBuilder[Int]
        |}
        |""".stripMargin,
-    expectNoDiagnostics = false
+    expectNoDiagnostics = false,
   )
 
   check(
@@ -184,7 +184,7 @@ class ImportMissingSymbolLspSuite
         |${CreateNewSymbol.title("Future")}
         |${CreateNewSymbol.title("Instant")}
         |${CreateNewSymbol.title("ListBuffer")}
-        |${ConvertToNamedArguments.title("Future.successful")}
+        |${ConvertToNamedArguments.title("successful(...)")}
         |""".stripMargin,
     """|package a
        |
@@ -197,7 +197,7 @@ class ImportMissingSymbolLspSuite
        |  val t = Future.successful(ListBuffer.empty)
        |}
        |""".stripMargin,
-    expectNoDiagnostics = false
+    expectNoDiagnostics = false,
   )
 
   check(
@@ -213,7 +213,7 @@ class ImportMissingSymbolLspSuite
        |""".stripMargin,
     s"""|${ImportMissingSymbol.title("Instant", "java.time")}
         |${CreateNewSymbol.title("Instant")}
-        |${ConvertToNamedArguments.title("Future.successful")}
+        |${ConvertToNamedArguments.title("successful(...)")}
         |""".stripMargin,
     """|package a
        |
@@ -226,7 +226,7 @@ class ImportMissingSymbolLspSuite
        | }
        |}
        |""".stripMargin,
-    expectNoDiagnostics = false
+    expectNoDiagnostics = false,
   )
 
 }

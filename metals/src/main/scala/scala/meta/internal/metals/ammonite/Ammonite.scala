@@ -16,11 +16,11 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 import scala.util.control.NonFatal
 
 import scala.meta.inputs.Input
 import scala.meta.internal.bsp.BuildChange
-import scala.meta.internal.builds.BuildTools
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals._
 import scala.meta.internal.metals.ammonite.Ammonite.AmmoniteMetalsException
@@ -50,9 +50,8 @@ final class Ammonite(
     indexWorkspace: () => Future[Unit],
     workspace: () => AbsolutePath,
     focusedDocument: () => Option[AbsolutePath],
-    buildTools: () => BuildTools,
     config: MetalsServerConfig,
-    scalaVersionSelector: ScalaVersionSelector
+    scalaVersionSelector: ScalaVersionSelector,
 )(implicit ec: ExecutionContextExecutorService)
     extends Cancelable {
 
@@ -101,7 +100,7 @@ final class Ammonite(
         for {
           build0 <- statusBar.trackFuture(
             "Importing Ammonite scripts",
-            ImportedBuild.fromConnection(conn)
+            ImportedBuild.fromConnection(conn),
           )
           _ = {
             lastImportedBuild0 = build0
@@ -178,79 +177,40 @@ final class Ammonite(
         AmmVersions(
           ammoniteVersion = BuildInfo.ammoniteVersion,
           scalaVersion =
-            scalaVersionSelector.fallbackScalaVersion(isAmmonite = true)
+            scalaVersionSelector.fallbackScalaVersion(isAmmonite = true),
         )
       )
-    val res = AmmoniteFetcher(versions)
-      .withInterpOnly(false)
-      .withProgressBars(false)
-      .withResolutionParams(
-        coursierapi.ResolutionParams
-          .create()
-          .withScalaVersion(versions.scalaVersion)
-      )
-      .command()
+    val res = Try {
+      AmmoniteFetcher(versions)
+        .withInterpOnly(false)
+        .withProgressBars(false)
+        .withResolutionParams(
+          coursierapi.ResolutionParams
+            .create()
+            .withScalaVersion(versions.scalaVersion)
+        )
+        .command()
+    } match {
+      case Success(v) => v
+      // some coursier exceptions are not wrapped in the Fetcher exception
+      case Failure(e) =>
+        Left(new AmmoniteFetcherException(e.getMessage(), e) {})
+    }
     res match {
       case Left(e) =>
         scribe.error(
           s"Error getting Ammonite ${versions.ammoniteVersion} (scala ${versions.scalaVersion})",
-          e
+          e,
         )
         Left(e)
       case Right(command) =>
         lastImportVersions = VersionsOption(
           Some(versions.ammoniteVersion),
-          Some(versions.scalaVersion)
+          Some(versions.scalaVersion),
         )
         Right((command, path))
     }
   }
-
-  private def isMillBuildSc(path: AbsolutePath): Boolean =
-    path.toNIO.getFileName.toString == "build.sc" &&
-      // for now, this only checks for build.sc, but this could be made more strict in the future
-      // (require ./mill or ./.mill-version)
-      buildTools().isMill
-
-  def maybeImport(path: AbsolutePath): Future[Unit] =
-    if (path.isAmmoniteScript && !isMillBuildSc(path) && !loaded(path)) {
-
-      def doImport(): Unit =
-        start(Some(path)).onComplete {
-          case Failure(e) =>
-            languageClient.showMessage(
-              Messages.ImportAmmoniteScript.ImportFailed(path.toString)
-            )
-            scribe.warn(s"Error importing Ammonite script $path", e)
-          case Success(_) =>
-        }
-
-      val autoImport =
-        tables().dismissedNotifications.AmmoniteImportAuto.isDismissed
-      if (autoImport) {
-        doImport()
-        Future.unit
-      } else {
-        val futureResp = languageClient
-          .showMessageRequest(Messages.ImportAmmoniteScript.params())
-          .asScala
-        futureResp.onComplete {
-          case Failure(e) => scribe.warn("Error requesting Ammonite import", e)
-          case Success(resp) =>
-            resp.getTitle match {
-              case Messages.ImportAmmoniteScript.importAll =>
-                tables().dismissedNotifications.AmmoniteImportAuto
-                  .dismissForever()
-                doImport()
-              case Messages.ImportAmmoniteScript.doImport =>
-                doImport()
-              case _ =>
-            }
-        }
-        futureResp.ignoreValue
-      }
-    } else
-      Future.unit
 
   def reload(): Future[Unit] = stop().asScala.flatMap(_ => start())
 
@@ -290,11 +250,11 @@ final class Ammonite(
               .socketConn(
                 commandWithJVMOpts,
                 script +: extraScripts,
-                workspace()
+                workspace(),
               ),
           tables().dismissedNotifications.ReconnectAmmonite,
           config,
-          "Ammonite"
+          "Ammonite",
         )
         for {
           conn <- futureConn
@@ -343,7 +303,7 @@ object Ammonite {
   private val threadCounter = new AtomicInteger
   private def logOutputThread(
       is: InputStream,
-      stopSendingOutput: => Boolean
+      stopSendingOutput: => Boolean,
   ): Thread =
     new Thread(
       s"ammonite-bsp-server-stderr-to-metals-log-${threadCounter.incrementAndGet()}"
@@ -370,7 +330,7 @@ object Ammonite {
   private def socketConn(
       command: AmmCommand,
       scripts: Seq[AbsolutePath],
-      workspace: AbsolutePath
+      workspace: AbsolutePath,
   )(implicit ec: ExecutionContext): Future[SocketConnection] =
     // meh, blocks on random ec
     Future {
@@ -403,9 +363,9 @@ object Ammonite {
         proc.getInputStream,
         List(
           Cancelable { () => proc.destroyForcibly() },
-          Cancelable { () => stopSendingOutput = true }
+          Cancelable { () => stopSendingOutput = true },
         ),
-        finished
+        finished,
       )
     }
 
@@ -468,4 +428,6 @@ object Ammonite {
       (updatedInput, updatePos, adjustLspData0)
     }
   }
+
+  val name = "Ammonite"
 }

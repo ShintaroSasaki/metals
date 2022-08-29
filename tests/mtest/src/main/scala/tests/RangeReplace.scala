@@ -11,10 +11,14 @@ trait RangeReplace {
       base: String,
       range: Range,
       prefix: String = "<<",
-      suffix: String = ">>"
+      suffix: String = ">>",
   ): String = {
     val input = Input.String(base)
-    val pos = range.toMeta(input)
+    val pos = range
+      .toMeta(input)
+      .getOrElse(
+        throw new RuntimeException(s"$range was not contained in file")
+      )
     new java.lang.StringBuilder()
       .append(base, 0, pos.start)
       .append(prefix)

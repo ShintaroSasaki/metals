@@ -239,17 +239,19 @@ trait CommonMtagsEnrichments {
       range.getStart().isNone &&
         range.getEnd().isNone
 
-    def toMeta(input: m.Input): m.Position =
+    def toMeta(input: m.Input): Option[m.Position] =
       if (range.isNone) {
-        m.Position.None
+        None
       } else {
-        m.Position.Range(
-          input,
-          range.getStart.getLine,
-          range.getStart.getCharacter,
-          range.getEnd.getLine,
-          range.getEnd.getCharacter
-        )
+        Try(
+          m.Position.Range(
+            input,
+            range.getStart.getLine,
+            range.getStart.getCharacter,
+            range.getEnd.getLine,
+            range.getEnd.getCharacter
+          )
+        ).toOption
       }
 
     def encloses(position: l.Position): Boolean = {
@@ -355,7 +357,7 @@ trait CommonMtagsEnrichments {
     def isAmmoniteGeneratedFile: Boolean =
       doc.endsWith(".amm.sc.scala")
     def isAmmoniteScript: Boolean =
-      isScalaScript && !isWorksheet
+      isScalaScript && !isWorksheet && !doc.endsWith("/build.sc")
     def asSymbol: Symbol = Symbol(doc)
     def endsWithAt(value: String, offset: Int): Boolean = {
       val start = offset - value.length
@@ -500,7 +502,7 @@ trait CommonMtagsEnrichments {
       filename.endsWith(".sc")
     }
     def isAmmoniteScript: Boolean =
-      isScalaScript && !isWorksheet
+      isScalaScript && !isWorksheet && filename != "build.sc"
     def isWorksheet: Boolean = {
       filename.endsWith(".worksheet.sc")
     }

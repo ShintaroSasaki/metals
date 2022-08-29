@@ -23,8 +23,8 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |""".stripMargin,
       "3" ->
         """|apply($0)
-           |""".stripMargin
-    )
+           |""".stripMargin,
+    ),
   )
 
   checkSnippet(
@@ -37,7 +37,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|println()
        |println($0)
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkSnippet(
@@ -49,7 +49,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
       |""".stripMargin,
     """|head
        |headOption
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkSnippet(
@@ -64,7 +64,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |""".stripMargin,
     """|now()
        |""".stripMargin,
-    topLines = Some(1)
+    topLines = Some(1),
   )
 
   checkSnippet(
@@ -88,12 +88,14 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
       "3" ->
         """|toString
            |""".stripMargin
-    )
+    ),
   )
 
   checkSnippet(
-    // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
-    "type-empty".tag(IgnoreScala3),
+    // Dotty does not currently support fuzzy completions. Please take a look at
+    // https://github.com/lampepfl/dotty-feature-requests/issues/314
+    "type-empty"
+      .tag(IgnoreScala3),
     """
       |object Main {
       |  type MyType = List[Int]
@@ -101,12 +103,14 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     """|MyType
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkSnippet(
-    // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
-    "type-new-empty".tag(IgnoreScala3),
+    // Dotty does not currently support fuzzy completions. Please take a look at
+    // https://github.com/lampepfl/dotty-feature-requests/issues/314
+    "type-new-empty"
+      .tag(IgnoreScala3),
     """
       |object Main {
       |  class Gen[T]
@@ -115,7 +119,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
       |}
       |""".stripMargin,
     """|MyType
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkSnippet(
@@ -131,22 +135,33 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
        |""".stripMargin,
     compat = Map(
       "3" ->
-        // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
-        """|IndexedSeq
-           |IndexedSeq
+        """|IndexedSeq[$0]
            |""".stripMargin
-    )
+    ),
   )
 
   checkSnippet(
-    "type2".tag(IgnoreScala3),
+    "empty-params-with-implicit",
+    s"""|object Main {
+        |  def doSomething()(implicit x: Int) = x
+        |  val bar = doSomethi@@
+        |}
+        |""".stripMargin,
+    "doSomething($0)",
+  )
+
+  checkSnippet(
+    // handling this in Scala 3 requires covering CompletionKind.Member in enrichWithSymbols
+    // and filtering out the non-member items.
+    "type2"
+      .tag(IgnoreScala3),
     s"""|object Main {
         |  new scala.IndexedSeq@@
         |}
         |""".stripMargin,
     """|IndexedSeq
        |IndexedSeq[$0] {}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkSnippet(
@@ -163,14 +178,12 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |ArrayDeque
            |ArrayDequeOps
            |""".stripMargin,
-      // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
-      "3" ->
-        """|ArrayDeque($0)
-           |ArrayDeque
-           |ArrayDeque
-           |ArrayDequeOps
-           |""".stripMargin
-    )
+      "3" -> // ArrayDeque upper is for java, the lower for scala
+        """|ArrayDeque[$0]
+           |ArrayDeque[$0]
+           |ArrayDequeOps[$0]
+           |""".stripMargin,
+    ),
   )
 
   checkSnippet(
@@ -181,12 +194,6 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |""".stripMargin,
     """|SimpleFileVisitor[$0]
        |""".stripMargin,
-    compat = Map(
-      // scala 3 new completions not implemented, so no way to distinguish if we are at a type position
-      "3" ->
-        """|SimpleFileVisitor
-           |""".stripMargin
-    )
   )
 
   checkSnippet(
@@ -205,12 +212,10 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |IterableOnce[$0] {}
            |""".stripMargin,
       "3" ->
-        // scala 3 new completions not implemented, so no way to distinguish if we are at a type position
-        """|Iterable
-           |Iterable
-           |IterableOnce
-           |""".stripMargin
-    )
+        """|Iterable[$0] {}
+           |IterableOnce[$0] {}
+           |""".stripMargin,
+    ),
   )
 
   checkSnippet(
@@ -229,12 +234,10 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |IterableOnce[$0]
            |""".stripMargin,
       "3" ->
-        // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
-        """|Iterable
-           |Iterable
-           |IterableOnce
-           |""".stripMargin
-    )
+        """|Iterable[$0]
+           |IterableOnce[$0]
+           |""".stripMargin,
+    ),
   )
 
   checkSnippet(
@@ -252,13 +255,11 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |Iterable[$0]
            |IterableOnce[$0]
            |""".stripMargin,
-      // scala 3 type completions not implemented, so no way to distinguish if we are at a type position
       "3" ->
-        """|Iterable
-           |Iterable
-           |IterableOnce
-           |""".stripMargin
-    )
+        """|Iterable[$0]
+           |IterableOnce[$0]
+           |""".stripMargin,
+    ),
   )
 
   checkEditLine(
@@ -269,7 +270,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "trailing@@()",
-    "trailing()"
+    "trailing()",
   )
 
   checkEditLine(
@@ -280,7 +281,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "trailing@@ { }",
-    "trailing { }"
+    "trailing { }",
   )
 
   checkEditLine(
@@ -291,7 +292,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "trailing@@{ }",
-    "trailing{ }"
+    "trailing{ }",
   )
 
   checkEditLine(
@@ -302,7 +303,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "trailing@@ _",
-    "trailing _"
+    "trailing _",
   )
 
   checkEditLine(
@@ -312,7 +313,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "List(1).flatte@@",
-    "List(1).flatten"
+    "List(1).flatten",
   )
 
   checkEditLine(
@@ -323,7 +324,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |}
         |""".stripMargin,
     "scala.util.Try@@(1)",
-    "scala.util.Try(1)"
+    "scala.util.Try(1)",
   )
 
   checkEditLine(
@@ -334,7 +335,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |""".stripMargin,
     "scala.util.Tr@@(1)",
     "scala.util.Try(1)",
-    filter = str => str.contains("Try")
+    filter = str => str.contains("Try"),
   )
 
   checkSnippet(
@@ -358,8 +359,8 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |PropertiesTrait
            |Either
            |control
-           |""".stripMargin
-    )
+           |""".stripMargin,
+    ),
   )
 
   checkSnippet(
@@ -373,15 +374,14 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
        |""".stripMargin,
     // additional completion when apply method is present
     compat = Map(
+      // Note: the class and trait items in here are invalid. So
+      // they are filtered out.
       "3" ->
         """|Try
            |Try($0)
-           |TryBlock
-           |TryModule
-           |TryMethods
            |TryMethods
            |""".stripMargin
-    )
+    ),
   )
 
   checkEditLine(
@@ -393,7 +393,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |""".stripMargin,
     "out.+@@=('a')",
     "out.++==('a')",
-    filter = _.contains("++=(s: String)")
+    filter = _.contains("++=(s: String)"),
   )
 
   checkSnippet(
@@ -418,7 +418,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
            |Widget($0) - (name: String, age: Int): Widget
            |""".stripMargin
     ),
-    includeDetail = true
+    includeDetail = true,
   )
 
   checkSnippet(
@@ -436,7 +436,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         """|Widget -  example
            |""".stripMargin
     ),
-    includeDetail = true
+    includeDetail = true,
   )
 
   // https://github.com/scalameta/metals/issues/4004
@@ -453,7 +453,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |  extension (s: String)
         |    def bar = 0
         |  val bar = "abc".bar
-    """.stripMargin
+    """.stripMargin,
   )
 
   // https://github.com/scalameta/metals/issues/4004
@@ -470,7 +470,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |  extension (s: String)
         |    def bar() = 0
         |  val bar = "abc".bar()
-    """.stripMargin
+    """.stripMargin,
   )
 
   // https://github.com/scalameta/metals/issues/4004
@@ -487,7 +487,7 @@ class CompletionSnippetSuite extends BaseCompletionSuite {
         |  extension (s: String)
         |    def bar()() = 0
         |  val bar = "abc".bar()()
-    """.stripMargin
+    """.stripMargin,
   )
 
 }

@@ -15,7 +15,7 @@ import org.eclipse.lsp4j.FoldingRange
 
 final class FoldingRangeProvider(
     val trees: Trees,
-    buffers: Buffers
+    buffers: Buffers,
 ) {
 
   private val foldOnlyLines = new AtomicBoolean(false)
@@ -75,6 +75,11 @@ final class FoldingRanges(foldOnlyLines: Boolean) {
   def add(kind: String, range: FoldingRange): Unit = {
     range.setKind(kind)
     add(range, adjust = true)
+  }
+
+  def add(kind: String, range: FoldingRange, adjust: Boolean): Unit = {
+    range.setKind(kind)
+    add(range, adjust)
   }
 
   def addAsIs(kind: String, range: FoldingRange): Unit = {

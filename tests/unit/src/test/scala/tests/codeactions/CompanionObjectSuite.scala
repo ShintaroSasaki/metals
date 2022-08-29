@@ -16,7 +16,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |}
        |""".stripMargin,
     s"""|${ExtractRenameMember.title("class", "Foo")}
-        |${CreateCompanionObjectCodeAction.companionObjectCreation}
+        |${CreateCompanionObjectCodeAction.companionObjectCreation("Foo")}
         |""".stripMargin,
     """|class Foo {
        |
@@ -30,14 +30,14 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |
        |}
        |""".stripMargin,
-    selectedActionIndex = 1
+    selectedActionIndex = 1,
   )
 
   check(
     "bracefull-companion-object-insert-for-scala2-file-end",
     """|case class F<<>>oo()""".stripMargin,
     s"""|${ExtractRenameMember.renameFileAsClassTitle("A.scala", "Foo")}
-        |${CreateCompanionObjectCodeAction.companionObjectCreation}
+        |${CreateCompanionObjectCodeAction.companionObjectCreation("Foo")}
         |""".stripMargin,
     """|case class Foo()
        |
@@ -45,7 +45,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |
        |}
        |""".stripMargin,
-    selectedActionIndex = 1
+    selectedActionIndex = 1,
   )
 
   check(
@@ -60,7 +60,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |  }
        |}
        |""".stripMargin,
-    s"""|${CreateCompanionObjectCodeAction.companionObjectCreation}
+    s"""|${CreateCompanionObjectCodeAction.companionObjectCreation("Foo")}
         |""".stripMargin,
     """|object Baz {
        |  class Foo {
@@ -75,7 +75,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkNoAction(
@@ -94,7 +94,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |  }
        |
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -108,7 +108,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |}
        |""".stripMargin,
     s"""|${ExtractRenameMember.title("trait", "Foo")}
-        |${CreateCompanionObjectCodeAction.companionObjectCreation}
+        |${CreateCompanionObjectCodeAction.companionObjectCreation("Foo")}
         |""".stripMargin,
     """|trait Foo {
        |
@@ -122,7 +122,7 @@ class CompanionObjectSuite extends BaseCodeActionLspSuite("companionObject") {
        |
        |}
        |""".stripMargin,
-    selectedActionIndex = 1
+    selectedActionIndex = 1,
   )
 
 }

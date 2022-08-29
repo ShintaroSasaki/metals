@@ -16,13 +16,13 @@ class RewriteBracesParensLspSuite
        |}
        |""".stripMargin,
     s"""|${RewriteBracesParensCodeAction.toBraces("foo")}
-        |${ExtractValueCodeAction.title}
-        |${ConvertToNamedArguments.title("foo")}""".stripMargin,
+        |${ExtractValueCodeAction.title("5")}
+        |${ConvertToNamedArguments.title("foo(...)")}""".stripMargin,
     """|object Main {
        |  def foo(n: Int) = ???
        |  foo{5}
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -33,12 +33,12 @@ class RewriteBracesParensLspSuite
        |}
        |""".stripMargin,
     s"""|${RewriteBracesParensCodeAction.toBraces("foreach")}
-        |${ConvertToNamedArguments.title("List(1,2).foreach")}""".stripMargin,
+        |${ConvertToNamedArguments.title("foreach(...)")}""".stripMargin,
     """|object Main {
        |  var x = 0
        |  List(1,2).foreach { a => a }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -52,7 +52,7 @@ class RewriteBracesParensLspSuite
        |}
        |""".stripMargin,
     s"""|${RewriteBracesParensCodeAction.toBraces("foreach")}
-        |${ConvertToNamedArguments.title("x.foreach")}""".stripMargin,
+        |${ConvertToNamedArguments.title("foreach(...)")}""".stripMargin,
     """|object Main {
        |  val x = List(1, 2, 3)
        |  x.foreach{_ match {
@@ -60,7 +60,7 @@ class RewriteBracesParensLspSuite
        |    case _ => 1
        |  }}
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -71,12 +71,12 @@ class RewriteBracesParensLspSuite
        |}
        |""".stripMargin,
     s"""|${RewriteBracesParensCodeAction.toParens("foo")}
-        |${ExtractValueCodeAction.title}""".stripMargin,
+        |${ExtractValueCodeAction.title("{5}")}""".stripMargin,
     """|object Main {
        |  def foo(n: Int) = ???
        |  foo(5)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -91,7 +91,7 @@ class RewriteBracesParensLspSuite
        |  var x = 0
        |  List(1,2).foreach ( a => a )
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   check(
@@ -114,7 +114,7 @@ class RewriteBracesParensLspSuite
        |  })
        |}
        |""".stripMargin,
-    selectedActionIndex = 1
+    selectedActionIndex = 1,
   )
 
   checkNoAction(
@@ -127,6 +127,6 @@ class RewriteBracesParensLspSuite
        |    <<>>a 
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 }

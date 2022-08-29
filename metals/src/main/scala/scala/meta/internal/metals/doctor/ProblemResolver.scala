@@ -21,7 +21,8 @@ class ProblemResolver(
     mtagsResolver: MtagsResolver,
     currentBuildServer: () => Option[BspSession],
     javaHome: () => Option[String],
-    isTestExplorerProvider: () => Boolean
+    isTestExplorerProvider: () => Boolean,
+    maybeJDKVersion: Option[JdkVersion],
 ) {
 
   def isUnsupportedBloopVersion(): Boolean = {
@@ -30,7 +31,7 @@ class ProblemResolver(
         bspSession.main.name == BloopServers.name && !SemVer
           .isCompatibleVersion(
             BuildInfo.bloopVersion,
-            bspSession.main.version
+            bspSession.main.version,
           )
       case None =>
         false
@@ -39,7 +40,7 @@ class ProblemResolver(
 
   def recommendation(
       java: JavaTarget,
-      scalaTarget: Option[ScalaTarget]
+      scalaTarget: Option[ScalaTarget],
   ): Option[String] = {
     findProblem(java, scalaTarget).map(_.message)
   }
@@ -50,7 +51,7 @@ class ProblemResolver(
 
   def problemMessage(
       scalaTargets: List[ScalaTarget],
-      javaTargets: List[JavaTarget]
+      javaTargets: List[JavaTarget],
   ): Option[String] = {
 
     val unsupportedVersions = ListBuffer[String]()
@@ -84,7 +85,7 @@ class ProblemResolver(
       target <- javaTargets
       issue <- findProblem(
         target,
-        scalaTargets.find(_.info.getId() == target.info.getId())
+        scalaTargets.find(_.info.getId() == target.info.getId()),
       )
     } yield {
       issue match {
@@ -157,13 +158,13 @@ class ProblemResolver(
       unsupportedSbtMessage,
       futureSbtMessage,
       semanticdbMessage,
-      testFrameworks
+      testFrameworks,
     ).flatten
 
     def scalaVersionsMessages = List(
       deprecatedMessage,
       unsupportedMessage,
-      futureMessage
+      futureMessage,
     ).flatten
 
     allMessages match {
@@ -203,7 +204,7 @@ class ProblemResolver(
           SemanticDBDisabled(
             version,
             currentBuildServer().map(_.main.name).getOrElse("<none>"),
-            isUnsupportedBloopVersion()
+            isUnsupportedBloopVersion(),
           )
         )
       case _
@@ -256,7 +257,7 @@ class ProblemResolver(
             major: Int,
             minor: Int,
             patch: Int,
-            dep: String
+            dep: String,
         ): Boolean = {
           if (major == 0) true
           else if (major == 1 && minor == 0 && patch == 0) {
@@ -295,13 +296,13 @@ class ProblemResolver(
 
   private def findProblem(
       javaTarget: JavaTarget,
-      scalaTarget: Option[ScalaTarget]
+      scalaTarget: Option[ScalaTarget],
   ): Option[JavaProblem] = {
     if (!javaTarget.isSemanticdbEnabled)
       Some(
         JavaSemanticDBDisabled(
           currentBuildServer().map(_.main.name).getOrElse("<none>"),
-          isUnsupportedBloopVersion()
+          isUnsupportedBloopVersion(),
         )
       )
     else if (!javaTarget.isSourcerootDeclared)
@@ -317,14 +318,14 @@ class ProblemResolver(
 
   private def isWrongJavaRelease(
       javaTarget: JavaTarget,
-      scalaTarget: Option[ScalaTarget]
+      scalaTarget: Option[ScalaTarget],
   ): Option[JavaProblem] = {
     def buildJavaVersion =
       for {
         target <- scalaTarget
         javaHome <- target.jvmHome
         version <-
-          JdkVersion.getJavaVersionFromJavaHome(javaHome.toAbsolutePath)
+          maybeJDKVersion
       } yield version
 
     val releaseVersion = javaTarget.releaseVersion.flatMap(JdkVersion.parse)
@@ -334,7 +335,7 @@ class ProblemResolver(
         Some(
           WrongJavaReleaseVersion(
             jvmHomeVersion.toString(),
-            releaseVersion.major.toString()
+            releaseVersion.major.toString(),
           )
         )
       case _ => None

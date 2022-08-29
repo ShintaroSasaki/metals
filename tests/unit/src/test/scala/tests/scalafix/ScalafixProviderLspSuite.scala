@@ -63,19 +63,19 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |a/src/main/scala/Main.scala:7:15: warning: private val notUsed in object Main is never used
            |  private val notUsed = 123 
            |              ^^^^^^^
-           |""".stripMargin
+           |""".stripMargin,
       )
       textParams =
         new TextDocumentPositionParams(
           new TextDocumentIdentifier(
             workspace.resolve("a/src/main/scala/Main.scala").toURI.toString()
           ),
-          new Position(0, 0)
+          new Position(0, 0),
         )
       // run the actual scalafix command
       _ <- server.executeCommand(
         ServerCommands.RunScalafix,
-        textParams
+        textParams,
       )
       contents = server.bufferContents("a/src/main/scala/Main.scala")
       _ = assertNoDiff(
@@ -88,19 +88,19 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |  val addTypeHere: A = new A{}
            |   
            |}
-           |""".stripMargin
+           |""".stripMargin,
       )
       // add a new rule to scalafix configuration
       _ <- server.didSave(".scalafix.conf") { old =>
         old.replace(
           "ExplicitResultTypes,",
-          "ExplicitResultTypes,\n  ProcedureSyntax,"
+          "ExplicitResultTypes,\n  ProcedureSyntax,",
         )
       }
       // execute the scalafix command again
       _ <- server.executeCommand(
         ServerCommands.RunScalafix,
-        textParams
+        textParams,
       )
       contentsAfterConfigChange = server.bufferContents(
         "a/src/main/scala/Main.scala"
@@ -116,7 +116,7 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |  val addTypeHere: A = new A{}
            |   
            |}
-           |""".stripMargin
+           |""".stripMargin,
       ),
 
     } yield ()
@@ -148,19 +148,19 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
           new TextDocumentIdentifier(
             workspace.resolve("a/src/main/scala/Main.scala").toURI.toString()
           ),
-          new Position(0, 0)
+          new Position(0, 0),
         )
       _ <- server
         .executeCommand(
           ServerCommands.RunScalafix,
-          textParams
+          textParams,
         )
         .recoverWith { case ScalafixProvider.ScalafixRunException(_) =>
           Future.unit
         }
       _ = assertNoDiff(
         client.workspaceShowMessages,
-        "Metals is unable to run NotARule. Please add the rule dependency to `metals.scalafixRulesDependencies`."
+        "Metals is unable to run NotARule. Please add the rule dependency to `metals.scalafixRulesDependencies`.",
       )
       contents = server.bufferContents("a/src/main/scala/Main.scala")
       _ = assertNoDiff(
@@ -169,7 +169,7 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |  val addTypeHere = new A{}
            |  private val notUsed = 123 
            |}
-           |""".stripMargin
+           |""".stripMargin,
       )
     } yield ()
   }
@@ -195,11 +195,11 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
           new TextDocumentIdentifier(
             workspace.resolve("a/src/main/scala/Main.scala").toURI.toString()
           ),
-          new Position(0, 0)
+          new Position(0, 0),
         )
       _ <- server.executeCommand(
         ServerCommands.RunScalafix,
-        textParams
+        textParams,
       )
       contents = server.bufferContents("a/src/main/scala/Main.scala")
       _ = assertNoDiff(
@@ -209,7 +209,7 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |object Main{
            |   
            |}
-           |""".stripMargin
+           |""".stripMargin,
       )
       _ <- server.didChangeConfiguration(
         """{
@@ -222,12 +222,12 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
       _ <- server.didSave(".scalafix.conf") { old =>
         old.replace(
           "ExplicitResultTypes,",
-          "ExplicitResultTypes,\n   \"class:fix.Examplescalafixrule_v1\","
+          "ExplicitResultTypes,\n   \"class:fix.Examplescalafixrule_v1\",",
         )
       }
       _ <- server.executeCommand(
         ServerCommands.RunScalafix,
-        textParams
+        textParams,
       )
       contentsAfterConfigChange = server.bufferContents(
         "a/src/main/scala/Main.scala"
@@ -239,7 +239,67 @@ class ScalafixProviderLspSuite extends BaseLspSuite("scalafix-provider") {
            |   
            |}
            |// Hello world!
+           |""".stripMargin,
+      )
+    } yield ()
+  }
+
+  // Testing one of each contributed dependency
+  test("contrib") {
+    cleanWorkspace()
+    for {
+      _ <- initialize(
+        s"""/metals.json
+           |{"a":{"scalacOptions": ["-Wunused"] }}
+           |/.scalafix.conf
+           |rules = [
+           |  EmptyCollectionsUnified,
+           |  UseNamedParameters,
+           |  MissingFinal,
+           |  RemoveEmptyObject,
+           |  ZeroIndexToHead
+           |]
+           |
+           |/a/src/main/scala/Main.scala
+           |object RemoveMe
+           |object A {
+           |  case class Bar(i: Int)
+           |  def func(a: Int, b: Int, c: Int) = a + b + c 
+           |}
+           |object Main{
+           |  val used = List()
+           |  val used2 = List(1)
+           |  used2(0)
+           |  A.func(1, 2, 3)
+           |}
            |""".stripMargin
+      )
+      _ <- server.didOpen("a/src/main/scala/Main.scala")
+      textParams =
+        new TextDocumentPositionParams(
+          new TextDocumentIdentifier(
+            workspace.resolve("a/src/main/scala/Main.scala").toURI.toString()
+          ),
+          new Position(0, 0),
+        )
+      _ <- server.executeCommand(
+        ServerCommands.RunScalafix,
+        textParams,
+      )
+      contents = server.bufferContents("a/src/main/scala/Main.scala")
+      _ = assertNoDiff(
+        contents,
+        """|object A {
+           |  final case class Bar(i: Int)
+           |  def func(a: Int, b: Int, c: Int) = a + b + c 
+           |}
+           |object Main{
+           |  val used = List.empty
+           |  val used2 = List(1)
+           |  used2.head
+           |  A.func(a = 1, b = 2, c = 3)
+           |}
+           |""".stripMargin,
       )
     } yield ()
   }

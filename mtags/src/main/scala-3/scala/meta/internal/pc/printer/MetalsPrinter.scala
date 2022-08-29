@@ -10,6 +10,7 @@ import scala.meta.internal.pc.IndexedContext
 import scala.meta.internal.pc.Params
 import scala.meta.internal.pc.printer.ShortenedNames.ShortName
 import scala.meta.pc.PresentationCompilerConfig
+import scala.meta.pc.SymbolDocumentation
 import scala.meta.pc.SymbolSearch
 
 import dotty.tools.dotc.core.Contexts.Context
@@ -32,7 +33,7 @@ class MetalsPrinter(
     dotcPrinter: DotcPrinter,
     symbolSearch: SymbolSearch,
     includeDefaultParam: MetalsPrinter.IncludeDefaultParam =
-      IncludeDefaultParam.ResolveLater
+      IncludeDefaultParam.ResolveLater,
 )(using
     Context
 ):
@@ -49,7 +50,7 @@ class MetalsPrinter(
       Erased,
       Inline,
       AbsOverride,
-      Lazy
+      Lazy,
     )
 
   private val defaultWidth = 1000
@@ -132,7 +133,8 @@ class MetalsPrinter(
   def defaultMethodSignature(
       gsym: Symbol,
       gtpe: Type,
-      onlyMethodParams: Boolean = false
+      onlyMethodParams: Boolean = false,
+      additionalMods: List[String] = Nil,
   ): String =
     val namess = gtpe.paramNamess
     val infoss = gtpe.paramInfoss
@@ -156,12 +158,10 @@ class MetalsPrinter(
         implicitEvidenceParams.toList
       )
 
-    lazy val defaultValues =
+    lazy val paramsDocs =
       symbolSearch.symbolDocumentation(gsym) match
         case Some(info) =>
-          (info.parameters.asScala ++ info.typeParameters.asScala)
-            .map(_.defaultValue)
-            .toSeq
+          (info.typeParameters.asScala ++ info.parameters.asScala).toSeq
         case _ =>
           Seq.empty
 
@@ -180,8 +180,8 @@ class MetalsPrinter(
                 param,
                 implicitEvidencesByTypeParam,
                 index,
-                defaultValues,
-                nameToInfo
+                paramsDocs,
+                nameToInfo,
               ) :: Nil
           index += 1
           lab
@@ -212,19 +212,23 @@ class MetalsPrinter(
           else ""
         flags.flagStrings(privateWithin).mkString(" ") + " "
       else ""
+    val mods =
+      if additionalMods.isEmpty then flagString
+      else additionalMods.mkString(" ") + " " + flagString
 
     if onlyMethodParams then paramssSignature
     else
       // For Scala2 compatibility, show "this" instead of <init> for constructor
       val name = if gsym.isConstructor then StdNames.nme.this_ else gsym.name
       extensionSignatureString +
-        s"${flagString}def $name" +
+        s"${mods}def $name" +
         paramssSignature
   end defaultMethodSignature
 
   def defaultValueSignature(
       gsym: Symbol,
-      gtpe: Type
+      gtpe: Type,
+      additionalMods: List[String] = Nil,
   ): String =
     val flags = (gsym.flags & methodFlags)
     val flagString =
@@ -234,8 +238,11 @@ class MetalsPrinter(
           else ""
         flags.flagStrings(privateWithin).mkString(" ") + " "
       else ""
+    val mods =
+      if additionalMods.isEmpty then flagString
+      else additionalMods.mkString(" ") + " " + flagString
     val prefix = if gsym.is(Mutable) then "var" else "val"
-    s"${flagString}$prefix ${gsym.name.show}: ${tpe(gtpe)}"
+    s"${mods}$prefix ${gsym.name.show}: ${tpe(gtpe)}"
   end defaultValueSignature
 
   /*
@@ -285,7 +292,7 @@ class MetalsPrinter(
 
   private def paramssString(
       paramLabels: Iterator[Iterator[String]],
-      paramss: List[List[Symbol]]
+      paramss: List[List[Symbol]],
   )(using Context): Iterator[String] =
     paramLabels
       .zipAll(paramss, Nil, Nil)
@@ -299,13 +306,13 @@ class MetalsPrinter(
             params.mkString(
               "(using ",
               ", ",
-              ")"
+              ")",
             )
           case Params.Kind.Implicit if params.nonEmpty =>
             params.mkString(
               "(implicit ",
               ", ",
-              ")"
+              ")",
             )
           case _ => ""
       }
@@ -319,10 +326,15 @@ class MetalsPrinter(
       param: Symbol,
       implicitEvidences: Map[Symbol, List[String]],
       index: Int,
-      defaultValues: => Seq[String],
-      nameToInfo: Map[Name, Type]
+      defaultValues: => Seq[SymbolDocumentation],
+      nameToInfo: Map[Name, Type],
   ): String =
-    val keywordName = dotcPrinter.name(param)
+    val docInfo = defaultValues.lift(index)
+    val rawKeywordName = dotcPrinter.name(param)
+    val keywordName = docInfo match
+      case Some(info) if rawKeywordName.startsWith("x$") =>
+        info.displayName()
+      case _ => rawKeywordName
     val info = nameToInfo
       .get(param.name)
       .flatMap { info =>
@@ -356,8 +368,9 @@ class MetalsPrinter(
       val default =
         if includeDefaultParam == MetalsPrinter.IncludeDefaultParam.Include && isDefaultParam
         then
-          val defaultValue = defaultValues.lift(index) match
-            case Some(value) if !value.isEmpty => value
+          val defaultValue = docInfo match
+            case Some(value) if !value.defaultValue().isEmpty =>
+              value.defaultValue()
             case _ => "..."
           s" = $defaultValue"
         // to be populated later, otherwise we would spend too much time in completions
@@ -401,28 +414,28 @@ object MetalsPrinter:
       indexed: IndexedContext,
       symbolSearch: SymbolSearch,
       includeDefaultParam: IncludeDefaultParam,
-      renames: Map[Symbol, String] = Map.empty
+      renames: Map[Symbol, String] = Map.empty,
   ): MetalsPrinter =
     import indexed.ctx
     MetalsPrinter(
       new ShortenedNames(indexed, renames),
       DotcPrinter.Std(),
       symbolSearch,
-      includeDefaultParam
+      includeDefaultParam,
     )
 
   def forInferredType(
       shortenedNames: ShortenedNames,
       indexed: IndexedContext,
       symbolSearch: SymbolSearch,
-      includeDefaultParam: IncludeDefaultParam
+      includeDefaultParam: IncludeDefaultParam,
   ): MetalsPrinter =
     import shortenedNames.indexedContext.ctx
     MetalsPrinter(
       shortenedNames,
       DotcPrinter.ForInferredType(indexed),
       symbolSearch,
-      includeDefaultParam
+      includeDefaultParam,
     )
 
   enum IncludeDefaultParam:

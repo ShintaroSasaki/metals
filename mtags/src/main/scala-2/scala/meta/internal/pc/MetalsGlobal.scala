@@ -156,6 +156,61 @@ class MetalsGlobal(
     }
   }
 
+  def workspaceSymbolListMembers(
+      query: String,
+      pos: Position,
+      visit: Member => Boolean
+  ): SymbolSearch.Result = {
+
+    lazy val isInStringInterpolation = {
+      lastVisitedParentTrees match {
+        case Apply(
+              Select(Apply(Ident(TermName("StringContext")), _), _),
+              _
+            ) :: _ =>
+          true
+        case _ => false
+      }
+    }
+
+    if (query.isEmpty) SymbolSearch.Result.INCOMPLETE
+    else {
+      val context = doLocateContext(pos)
+      val visitor = new CompilerSearchVisitor(
+        context,
+        sym =>
+          visit {
+            if (isInStringInterpolation)
+              new WorkspaceInterpolationMember(
+                sym,
+                Nil,
+                edit => s"{$edit}",
+                None
+              )
+            else
+              new WorkspaceMember(sym)
+          }
+      )
+      search.search(query, buildTargetIdentifier, visitor)
+    }
+  }
+
+  def workspaceSymbolListMembers(
+      query: String,
+      pos: Position
+  ): List[Member] = {
+    val buffer = mutable.ListBuffer.empty[Member]
+    workspaceSymbolListMembers(
+      query,
+      pos,
+      mem => {
+        buffer.append(mem)
+        true
+      }
+    )
+    buffer.toList
+  }
+
   def symbolDocumentation(symbol: Symbol): Option[SymbolDocumentation] = {
     def toSemanticdbSymbol(sym: Symbol) = compiler.semanticdbSymbol(
       if (!sym.isJava && sym.isPrimaryConstructor) sym.owner

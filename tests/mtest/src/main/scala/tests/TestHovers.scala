@@ -18,7 +18,7 @@ trait TestHovers {
             expressionType,
             symbolSignature,
             "",
-            forceExpressionType = true
+            forceExpressionType = true,
           )
         case _ =>
           string
@@ -34,7 +34,7 @@ trait TestHovers {
             expressionType,
             symbolSignature,
             "",
-            forceExpressionType = true
+            forceExpressionType = true,
           )
         case _ =>
           string
@@ -44,16 +44,23 @@ trait TestHovers {
   def renderAsString(
       code: String,
       hover: Option[Hover],
-      includeRange: Boolean
+      includeRange: Boolean,
   ): String = {
     hover match {
       case Some(value) =>
         val types = value.getContents.getRight.getValue()
+
         val range = Option(value.getRange) match {
           case Some(value) if includeRange =>
+            val input = Input.String(code)
+            val pos = value
+              .toMeta(input)
+              .getOrElse(
+                throw new RuntimeException(s"$value was not contained in file")
+              )
             codeFence(
-              value.toMeta(Input.String(code)).text,
-              "range"
+              pos.text,
+              "range",
             )
           case _ => ""
         }

@@ -14,7 +14,7 @@ class JunitTestFinder {
   def findTests(
       doc: TextDocument,
       path: AbsolutePath,
-      suiteSymbol: mtags.Symbol
+      suiteSymbol: mtags.Symbol,
   ): Vector[TestCaseEntry] = {
     val uri = path.toURI
 
@@ -36,7 +36,7 @@ class JunitTestFinder {
       .collect {
         case symbol if isValid(symbol) =>
           doc
-            .toLocation(uri.toString, symbol.symbol)
+            .toLocation(uri, symbol.symbol)
             .map(location => TestCaseEntry(symbol.displayName, location))
       }
       .flatten

@@ -30,15 +30,15 @@ final class AutoImportsProvider(
     name: String,
     params: OffsetParams,
     config: PresentationCompilerConfig,
-    buildTargetIdentifier: String
+    buildTargetIdentifier: String,
 ):
 
-  def autoImports(): List[AutoImportsResult] =
+  def autoImports(isExtension: Boolean): List[AutoImportsResult] =
     val uri = params.uri
     val filePath = Paths.get(uri)
     driver.run(
       uri,
-      SourceFile.virtual(filePath.toString, params.text)
+      SourceFile.virtual(filePath.toString, params.text),
     )
     val unit = driver.currentCtx.run.units.head
     val tree = unit.tpdTree
@@ -67,7 +67,9 @@ final class AutoImportsProvider(
       sym.name.show == query
 
     val visitor = new CompilerSearchVisitor(name, visit)
-    search.search(name, buildTargetIdentifier, visitor)
+    if isExtension then
+      search.searchMethods(name, buildTargetIdentifier, visitor)
+    else search.search(name, buildTargetIdentifier, visitor)
     val results = symbols.result.filter(isExactMatch(_, name))
 
     if results.nonEmpty then
@@ -78,7 +80,7 @@ final class AutoImportsProvider(
           params.text,
           tree,
           indexedContext.importContext,
-          config
+          config,
         )
 
       for
@@ -86,7 +88,7 @@ final class AutoImportsProvider(
         edits <- generator.forSymbol(sym)
       yield AutoImportsResultImpl(
         sym.owner.showFullName,
-        edits.asJava
+        edits.asJava,
       )
     else List.empty
     end if

@@ -92,7 +92,7 @@ final class BuildTargetClasses(
 
   private def cacheMainClasses(
       classes: Map[b.BuildTargetIdentifier, Classes],
-      result: b.ScalaMainClassesResult
+      result: b.ScalaMainClassesResult,
   ): Unit = {
     for {
       item <- result.getItems.asScala
@@ -101,7 +101,7 @@ final class BuildTargetClasses(
       descriptors = descriptorsForMainClasses(target)
       symbol <- symbolFromClassName(
         aClass.getClassName,
-        descriptors
+        descriptors,
       )
     } {
       classes(target).mainClasses.put(symbol, aClass)
@@ -110,7 +110,7 @@ final class BuildTargetClasses(
 
   private def cacheTestClasses(
       classes: Map[b.BuildTargetIdentifier, Classes],
-      result: b.ScalaTestClassesResult
+      result: b.ScalaTestClassesResult,
   ): Unit = {
     for {
       item <- result.getItems.asScala
@@ -139,7 +139,7 @@ final class BuildTargetClasses(
 
   def symbolFromClassName(
       className: String,
-      descriptors: List[String => Descriptor]
+      descriptors: List[String => Descriptor],
   ): List[String] = {
     import scala.reflect.NameTransformer
     val isEmptyPackage = !className.contains(".")
@@ -161,12 +161,14 @@ object TestFramework {
     .map {
       case "JUnit" => JUnit4
       case "munit" => MUnit
+      case "ScalaTest" => Scalatest
       case _ => Unknown
     }
     .getOrElse(Unknown)
 }
 case object JUnit4 extends TestFramework(true)
 case object MUnit extends TestFramework(true)
+case object Scalatest extends TestFramework(true)
 case object Unknown extends TestFramework(false)
 
 object BuildTargetClasses {
@@ -175,7 +177,7 @@ object BuildTargetClasses {
 
   final case class TestSymbolInfo(
       fullyQualifiedName: FullyQualifiedClassName,
-      framework: TestFramework
+      framework: TestFramework,
   )
   final class Classes {
     val mainClasses = new TrieMap[Symbol, b.ScalaMainClass]()

@@ -7,7 +7,7 @@ import scala.meta.io.AbsolutePath
 
 class ScalaVersionSelector(
     userConfig: () => UserConfiguration,
-    buildTargets: BuildTargets
+    buildTargets: BuildTargets,
 ) {
 
   def scalaVersionForPath(path: AbsolutePath): String = {
@@ -28,20 +28,19 @@ class ScalaVersionSelector(
     }
 
     val binary = ScalaVersions.scalaBinaryVersionFromFullVersion(selected)
-    // ammonite doesn't support Scala3 yet
     if (isAmmonite && ScalaVersions.isScala3Version(selected))
-      BuildInfo.ammonite213
+      BuildInfo.ammonite3
     else if (
       isAmmonite && binary == "2.12" && SemVer.isLaterVersion(
         BuildInfo.ammonite212,
-        selected
+        selected,
       )
     )
       BuildInfo.ammonite212
     else if (
       isAmmonite && binary == "2.13" && SemVer.isLaterVersion(
         BuildInfo.ammonite213,
-        selected
+        selected,
       )
     )
       BuildInfo.ammonite213
@@ -54,7 +53,7 @@ class ScalaVersionSelector(
   def fallbackDialect(isAmmonite: Boolean): Dialect = {
     ScalaVersions.dialectForScalaVersion(
       fallbackScalaVersion(isAmmonite),
-      includeSource3 = true
+      includeSource3 = true,
     )
   }
 

@@ -28,7 +28,108 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  val alpha: Int = 123
-       |}""".stripMargin
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def-params",
+    """|object A{
+       |  def <<alpha>>(a: Int, b: String): String = 123
+       |}""".stripMargin,
+    """|object A{
+       |  def alpha(a: Int, b: String): Int = 123
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-val",
+    """|object A{
+       |  val <<alpha>>:  String = 123
+       |}""".stripMargin,
+    """|object A{
+       |  val alpha: Int = 123
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-val2",
+    """|object A{
+       |  val <<alpha>> :  String = List(1, 2, 3)
+       |}""".stripMargin,
+    """|object A{
+       |  val alpha: List[Int] = List(1, 2, 3)
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-val3",
+    """|object A{
+       |  val <<alpha>> :  List[Int] = ""
+       |}""".stripMargin,
+    """|object A{
+       |  val alpha: String = ""
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-val4",
+    """|object A{
+       |  val <<alpha>> :  List[Int] = s""
+       |}""".stripMargin,
+    """|object A{
+       |  val alpha: String = s""
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def",
+    """|object A{
+       |  def <<alpha>> :  String = 123
+       |}""".stripMargin,
+    """|object A{
+       |  def alpha: Int = 123
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def2",
+    """|object A{
+       |  def <<alpha>> :  String = List(1, 2, 3)
+       |}""".stripMargin,
+    """|object A{
+       |  def alpha: List[Int] = List(1, 2, 3)
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def3",
+    """|object A{
+       |  def <<alpha>> :  List[Int] = ""
+       |}""".stripMargin,
+    """|object A{
+       |  def alpha: String = ""
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def4",
+    """|object A{
+       |  def <<alpha>> :  List[Int] = s""
+       |}""".stripMargin,
+    """|object A{
+       |  def alpha: String = s""
+       |}""".stripMargin,
+  )
+
+  checkEdit(
+    "wrong-def-toplevel".tag(IgnoreScala2),
+    """|def hello =
+       |  val <<a>> :  List[Int] = ""
+       |""".stripMargin,
+    """|def hello =
+       |  val a: String = ""
+       |
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -36,7 +137,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|def <<alpha>> = List("")
        |""".stripMargin,
     """|def alpha: List[String] = List("")
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -46,7 +147,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  val (alpha: Int, beta) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -57,7 +158,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object A{
        |  val ((alpha: Int, gamma), beta) = ((123, 1), 12)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -67,7 +168,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  var (alpha: Int, beta) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -77,7 +178,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  var alpha: (Int, Int) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -87,7 +188,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  def alpha: (Int, Int) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -98,7 +199,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object A{
        |  def alpha: (Int, Int) /* [] */= (123, 12)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -109,7 +210,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object A{
        |  def alpha(): (Int, Int) /* [] */= (123, 12)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -119,7 +220,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  def alpha(a : String): (Int, Int) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -129,7 +230,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  def alpha[T]: (Int, Int) = (123, 12)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -140,7 +241,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|import scala.collection.mutable.Buffer
        |object A{
        |  val buffer: Buffer[String] = List("").toBuffer
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -150,7 +251,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  val toStringList = List(1, 2, 3).map((int: Int) => int.toString)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -160,7 +261,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |}""".stripMargin,
     """|object A{
        |  val toStringList = List(1, 2, 3).map( /*{}*/(int: Int) => int.toString)
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -176,7 +277,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
         """|object A{
            |  val toStringList = List(1, 2, 3).map{(int: Int) => int.toString}
            |}""".stripMargin
-    )
+    ),
   )
 
   checkEdit(
@@ -192,7 +293,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    case (head: Int) :: tail => tail
        |    case Nil => Nil
        |  }
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -209,7 +310,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    case (one, two: Int) => 2
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -226,7 +327,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    case None =>
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -243,7 +344,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    case _ =>
        |  }
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -259,7 +360,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    case 2 => "Two!"
        |    case otherDigit: Int => "Not two!"
        |  }
-       |}""".stripMargin
+       |}""".stripMargin,
   )
 
   checkEdit(
@@ -276,7 +377,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    j <- 1 to 11
        |  } yield (i, j)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -293,7 +394,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |    j: Int = i
        |  } yield (i, j)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   val additionalSpace: String = if (isScala3Version(scalaVersion)) " " else ""
@@ -332,7 +433,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
         |    } yield ()
         |
         |}
-        |""".stripMargin
+        |""".stripMargin,
   )
 
   checkEdit(
@@ -367,7 +468,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |  }
        |
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -387,7 +488,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |  val second: I = every
        |}
        |
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -406,7 +507,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |  val every: t.Instant = ???
        |  val second: t.Instant = every
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -425,7 +526,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |  val every: c.duration.Duration = ???
        |  val second: c.duration.Duration = every
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -451,7 +552,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
        |  def apply(org: String): Any = Dependency(org, None, None)
        |  def apply(org: String, name: String) = Dependency(org, Some(name), None)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -475,7 +576,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
            |  }
            |}
            |""".stripMargin
-    )
+    ),
   )
 
   checkEdit(
@@ -486,7 +587,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object O{
        |  val `bar`: Int = 42
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -497,7 +598,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object O{
        |  def `bar`: Int = 42
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -508,14 +609,115 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
     """|object O{
        |  List(1).map((`a`: Int) => a + 1)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
+  checkEdit(
+    "literal-types1".tag(IgnoreScalaVersion.forLessThan("2.13.0")),
+    """|object O {
+       |  val a: Some[1] = Some(1)
+       |  val <<b>> = a
+       |}
+       |""".stripMargin,
+    """|object O {
+       |  val a: Some[1] = Some(1)
+       |  val b: Some[1] = a
+       |}
+       |""".stripMargin,
+  )
+
+  checkEdit(
+    "refined-types",
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |    type G
+       |  }
+       |
+       |  val <<c>> = new Foo { type T = Int; type G = Long}
+       |}
+       |""".stripMargin,
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |    type G
+       |  }
+       |
+       |  val c: Foo{type T = Int; type G = Long} = new Foo { type T = Int; type G = Long}
+       |}
+       |""".stripMargin,
+  )
+
+  checkEdit(
+    "refined-types2",
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |  }
+       |  val c = new Foo { type T = Int }
+       |  val <<d>> = c
+       |}
+       |""".stripMargin,
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |  }
+       |  val c = new Foo { type T = Int }
+       |  val d: Foo{type T = Int} = c
+       |}
+       |""".stripMargin,
+  )
+
+  checkEdit(
+    "refined-types3",
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |  }
+       |
+       |  val <<c>> = new Foo { type T = Int }
+       |}
+       |""".stripMargin,
+    """|object O{
+       |  trait Foo {
+       |    type T
+       |  }
+       |
+       |  val c: Foo{type T = Int} = new Foo { type T = Int }
+       |}
+       |""".stripMargin,
+  )
+
+  checkEdit(
+    "refined-types4".tag(IgnoreScala2),
+    """|trait Foo extends Selectable {
+       |  type T
+       |}
+       |
+       |val <<c>> = new Foo {
+       |  type T = Int
+       |  val x = 0
+       |  def y = 0
+       |  var z = 0
+       |}
+       |""".stripMargin,
+    """|trait Foo extends Selectable {
+       |  type T
+       |}
+       |
+       |val c: Foo{type T = Int; val x: Int; def y: Int; val z: Int; def z_=(x$1: Int): Unit} = new Foo {
+       |  type T = Int
+       |  val x = 0
+       |  def y = 0
+       |  var z = 0
+       |}
+       |""".stripMargin,
+  )
   def checkEdit(
       name: TestOptions,
       original: String,
       expected: String,
-      compat: Map[String, String] = Map.empty
+      compat: Map[String, String] = Map.empty,
   )(implicit location: Location): Unit =
     test(name) {
       val edits = getAutoImplement(original)
@@ -526,7 +728,7 @@ class InsertInferredTypeSuite extends BaseCodeActionSuite {
 
   def getAutoImplement(
       original: String,
-      filename: String = "file:/A.scala"
+      filename: String = "file:/A.scala",
   ): List[l.TextEdit] = {
     val (code, _, offset) = params(original)
     val result = presentationCompiler

@@ -19,7 +19,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
            |scala.concurrent.impl
            |java.util.concurrent
            |""".stripMargin
-    )
+    ),
   )
 
   checkEdit(
@@ -37,7 +37,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  Future.successful(2)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -58,7 +58,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  Future.successful(2)
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -77,7 +77,30 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  Future.successful(2)
        |}
-       |""".stripMargin
+       |""".stripMargin,
+  )
+
+  checkEdit(
+    "scala-cli-sc-using-directives",
+    """|object main {
+       |/*<script>*///> using scala "3.1.3"
+       |
+       |object x {
+       |  <<Try>>("1".toString)
+       |}
+       |}
+       |
+       |""".stripMargin,
+    """|object main {
+       |/*<script>*///> using scala "3.1.3"
+       |import scala.util.Try
+       |
+       |object x {
+       |  Try("1".toString)
+       |}
+       |}
+       |""".stripMargin,
+    filename = "A.sc",
   )
 
   checkEdit(
@@ -95,7 +118,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val uuid = UUID.randomUUID()
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -113,7 +136,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val uuid = UUID.randomUUID()
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -131,7 +154,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val l : ju.Map[String, Int] = ???
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -150,7 +173,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |  val l = s"${mutable.Seq(2)}"
        |}
        |""".stripMargin,
-    selection = 1
+    selection = 1,
   )
 
   checkEdit(
@@ -168,7 +191,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val l = s"${mutable.Seq(2)}"
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -189,7 +212,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object Main{
        | val obj = ABC
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -207,7 +230,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |package object b {
        |  val l = s"${ListBuffer(2)}"
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -229,7 +252,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val l = s"${ListBuffer(2)}"
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkEdit(
@@ -254,28 +277,26 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
        |object A {
        |  val l = s"${ListBuffer(2)}"
        |}
-       |""".stripMargin
+       |""".stripMargin,
   )
 
   checkAmmoniteEdit(
-    "first-auto-import-amm-script".tag(IgnoreScala3),
+    "first-auto-import-amm-script",
     ammoniteWrapper(
-      """val p: <<Path>> = ???
-        |""".stripMargin
+      """|
+         |val p: <<Path>> = ???
+         |""".stripMargin
     ),
-    // Import added *before* the wrapper here…
-    // This *seems* wrong, but the logic converting the scala file
-    // edits to sc file edits will simply add it at the beginning of
-    // the sc file, as expected.
-    "import java.nio.file.Path\n" +
-      ammoniteWrapper(
-        """val p: Path = ???
-          |""".stripMargin
-      )
+    ammoniteWrapper(
+      """|import java.nio.file.Path
+         |
+         |val p: Path = ???
+         |""".stripMargin
+    ),
   )
 
   checkAmmoniteEdit(
-    "second-auto-import-amm-script".tag(IgnoreScala3),
+    "second-auto-import-amm-script",
     ammoniteWrapper(
       """import java.nio.file.Files
         |val p: <<Path>> = ???
@@ -286,7 +307,30 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
         |import java.nio.file.Path
         |val p: Path = ???
         |""".stripMargin
-    )
+    ),
+  )
+
+  checkAmmoniteEdit(
+    "amm-objects",
+    ammoniteWrapper(
+      """|
+         |object a {
+         |  object b {
+         |    val p: <<Path>> = ???
+         |  }
+         |}
+         |""".stripMargin
+    ),
+    ammoniteWrapper(
+      """|import java.nio.file.Path
+         |
+         |object a {
+         |  object b {
+         |    val p: Path = ???
+         |  }
+         |}
+         |""".stripMargin
+    ),
   )
 
   private def ammoniteWrapper(code: String): String =
@@ -301,6 +345,7 @@ class AutoImportsSuite extends BaseAutoImportsSuite {
         |}
         |
         |object test{
+        |/*<start>*/
         |$code
         |}
         |""".stripMargin

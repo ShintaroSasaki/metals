@@ -32,15 +32,9 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
     new GsonBuilder().setPrettyPrinting.disableHtmlEscaping().create()
 
   testDiscover(
-    "discover-single-junit",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : [ "junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "single-junit",
+    List("junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3"),
+    s"""|
         |/app/src/main/scala/NoPackage.scala
         |import org.junit.Test
         |class NoPackage {
@@ -63,26 +57,20 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "_empty_/NoPackage#",
               QuickLocation(
                 classUriFor("app/src/main/scala/NoPackage.scala"),
-                (1, 6, 1, 15)
+                (1, 6, 1, 15),
               ).toLsp,
-              canResolveChildren = true
+              canResolveChildren = true,
             )
-          ).asJava
+          ).asJava,
         )
       )
-    }
+    },
   )
 
   testDiscover(
-    "discover-single-munit",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : [ "org.scalameta::munit:0.7.29" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "single-munit",
+    List("org.scalameta::munit:0.7.29"),
+    s"""|
         |/app/src/main/scala/a/b/c/MunitTestSuite.scala
         |package a.b
         |package c
@@ -105,26 +93,24 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "a/b/c/MunitTestSuite#",
               QuickLocation(
                 classUriFor("app/src/main/scala/a/b/c/MunitTestSuite.scala"),
-                (3, 6, 3, 20)
+                (3, 6, 3, 20),
               ).toLsp,
-              canResolveChildren = true
+              canResolveChildren = true,
             )
-          ).asJava
+          ).asJava,
         )
       )
-    }
+    },
   )
 
   testDiscover(
-    "discover-multiple-suites",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : [ "org.scalameta::munit:0.7.29", "junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3"],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "multiple-suites",
+    List(
+      "org.scalameta::munit:0.7.29",
+      "junit:junit:4.13.2",
+      "com.github.sbt:junit-interface:0.13.3",
+    ),
+    s"""|
         |/app/src/main/scala/NoPackage.scala
         |class NoPackage extends munit.FunSuite {
         |  test("noPackage") {}
@@ -156,7 +142,7 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
       "app/src/main/scala/NoPackage.scala",
       "app/src/main/scala/foo/Foo.scala",
       "app/src/main/scala/foo/bar/FooBar.scala",
-      "app/src/main/scala/another/AnotherPackage.scala"
+      "app/src/main/scala/another/AnotherPackage.scala",
     ),
     () => {
       List(
@@ -170,9 +156,9 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "foo/bar/FooBar#",
               QuickLocation(
                 classUriFor("app/src/main/scala/foo/bar/FooBar.scala"),
-                (2, 6, 2, 12)
+                (2, 6, 2, 12),
               ).toLsp,
-              true
+              true,
             ),
             AddTestSuite(
               "foo.Foo",
@@ -180,9 +166,9 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "foo/Foo#",
               QuickLocation(
                 classUriFor("app/src/main/scala/foo/Foo.scala"),
-                (2, 6, 2, 9)
+                (2, 6, 2, 9),
               ).toLsp,
-              true
+              true,
             ),
             AddTestSuite(
               "another.AnotherPackage",
@@ -190,9 +176,9 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "another/AnotherPackage#",
               QuickLocation(
                 classUriFor("app/src/main/scala/another/AnotherPackage.scala"),
-                (2, 6, 2, 20)
+                (2, 6, 2, 20),
               ).toLsp,
-              true
+              true,
             ),
             AddTestSuite(
               "NoPackage",
@@ -200,26 +186,20 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               "_empty_/NoPackage#",
               QuickLocation(
                 classUriFor("app/src/main/scala/NoPackage.scala"),
-                (0, 6, 0, 15)
+                (0, 6, 0, 15),
               ).toLsp,
-              true
-            )
-          ).asJava
+              true,
+            ),
+          ).asJava,
         )
       )
-    }
+    },
   )
 
   testDiscover(
-    "discover-test-cases-junit",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : [ "junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "test-cases-junit",
+    List("junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3"),
+    s"""|
         |/app/src/main/scala/JunitTestSuite.scala
         |import org.junit.Test
         |class JunitTestSuite {
@@ -242,28 +222,22 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                   "test1",
                   QuickLocation(
                     classUriFor("app/src/main/scala/JunitTestSuite.scala"),
-                    (3, 6, 3, 11)
-                  ).toLsp
+                    (3, 6, 3, 11),
+                  ).toLsp,
                 )
-              ).asJava
+              ).asJava,
             )
-          ).asJava
+          ).asJava,
         )
       )
     },
-    () => Some(classUriFor("app/src/main/scala/JunitTestSuite.scala"))
+    () => Some(classUriFor("app/src/main/scala/JunitTestSuite.scala")),
   )
 
   testDiscover(
-    "discover-test-cases-munit",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : ["org.scalameta::munit:1.0.0-M4" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "test-cases-munit",
+    List("org.scalameta::munit:1.0.0-M4"),
+    s"""|
         |/app/src/main/scala/a/b/c/MunitTestSuite.scala
         |package a.b
         |package c
@@ -319,8 +293,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (4, 2, 4, 6)
-                  ).toLsp
+                    (4, 2, 4, 6),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "test2",
@@ -328,8 +302,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (5, 2, 5, 6)
-                  ).toLsp
+                    (5, 2, 5, 6),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "test3",
@@ -337,8 +311,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (6, 2, 6, 6)
-                  ).toLsp
+                    (6, 2, 6, 6),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "check-test",
@@ -346,8 +320,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (8, 2, 8, 7)
-                  ).toLsp
+                    (8, 2, 8, 7),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "check-braceless",
@@ -355,8 +329,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (10, 2, 10, 16)
-                  ).toLsp
+                    (10, 2, 10, 16),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "check-curried",
@@ -364,8 +338,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (12, 2, 12, 14)
-                  ).toLsp
+                    (12, 2, 12, 14),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "tagged",
@@ -373,28 +347,22 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/a/b/c/MunitTestSuite.scala"
                     ),
-                    (14, 2, 14, 6)
-                  ).toLsp
-                )
-              ).asJava
+                    (14, 2, 14, 6),
+                  ).toLsp,
+                ),
+              ).asJava,
             )
-          ).asJava
+          ).asJava,
         )
       )
     },
-    () => Some(classUriFor("app/src/main/scala/a/b/c/MunitTestSuite.scala"))
+    () => Some(classUriFor("app/src/main/scala/a/b/c/MunitTestSuite.scala")),
   )
 
   testDiscover(
     "munit-no-package",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : ["org.scalameta::munit:1.0.0-M4" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    List("org.scalameta::munit:1.0.0-M4"),
+    s"""|
         |/app/src/main/scala/MunitTestSuite.scala
         |
         |class MunitTestSuite extends munit.FunSuite {
@@ -418,28 +386,22 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/MunitTestSuite.scala"
                     ),
-                    (2, 2, 2, 6)
-                  ).toLsp
+                    (2, 2, 2, 6),
+                  ).toLsp,
                 )
-              ).asJava
+              ).asJava,
             )
-          ).asJava
+          ).asJava,
         )
       )
     },
-    () => Some(classUriFor("app/src/main/scala/MunitTestSuite.scala"))
+    () => Some(classUriFor("app/src/main/scala/MunitTestSuite.scala")),
   )
 
   testDiscover(
     "munit-from-parent",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : ["org.scalameta::munit:1.0.0-M4" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    List("org.scalameta::munit:1.0.0-M4"),
+    s"""|
         |/app/src/main/scala/a/BaseMunitSuite.scala
         |package a
         |trait BaseMunitSuite extends munit.FunSuite {
@@ -481,8 +443,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/MunitTestSuite.scala"
                     ),
-                    (5, 2, 5, 6)
-                  ).toLsp
+                    (5, 2, 5, 6),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "test-base",
@@ -490,8 +452,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/MunitTestSuite.scala"
                     ),
-                    (6, 2, 6, 17)
-                  ).toLsp
+                    (6, 2, 6, 17),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "test-parent-1",
@@ -499,8 +461,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/MunitTestSuite.scala"
                     ),
-                    (7, 2, 7, 18)
-                  ).toLsp
+                    (7, 2, 7, 18),
+                  ).toLsp,
                 ),
                 TestCaseEntry(
                   "test-parent-2",
@@ -508,28 +470,22 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
                     classUriFor(
                       "app/src/main/scala/MunitTestSuite.scala"
                     ),
-                    (8, 2, 8, 19)
-                  ).toLsp
-                )
-              ).asJava
+                    (8, 2, 8, 19),
+                  ).toLsp,
+                ),
+              ).asJava,
             )
-          ).asJava
+          ).asJava,
         )
       )
     },
-    () => Some(classUriFor("app/src/main/scala/MunitTestSuite.scala"))
+    () => Some(classUriFor("app/src/main/scala/MunitTestSuite.scala")),
   )
 
   checkEvents(
-    "check-events",
-    s"""|/metals.json
-        |{
-        |  "app": {
-        |    "libraryDependencies" : [ "junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3" ],
-        |    "scalaVersion": "${BuildInfo.scalaVersion}"
-        |  }
-        |}
-        |
+    "check-basic-events",
+    List("junit:junit:4.13.2", "com.github.sbt:junit-interface:0.13.3"),
+    s"""|
         |/app/src/main/scala/JunitTestSuite.scala
         |import org.junit.Test
         |class JunitTestSuite {
@@ -537,8 +493,8 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
         |  def test1 = ()
         |}
         |""".stripMargin,
-    "app/src/main/scala/JunitTestSuite.scala",
-    () => {
+    file = "app/src/main/scala/JunitTestSuite.scala",
+    expected = () => {
       val fcqn = "JunitTestSuite"
       val className = "JunitTestSuite"
       val symbol = "_empty_/JunitTestSuite#"
@@ -553,7 +509,7 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               className,
               symbol,
               QuickLocation(classUriFor(file), (1, 6, 1, 20)).toLsp,
-              canResolveChildren = true
+              canResolveChildren = true,
             ),
             AddTestCases(
               fcqn,
@@ -561,29 +517,366 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
               List(
                 TestCaseEntry(
                   "test1",
-                  QuickLocation(classUriFor(file), (3, 6, 3, 11)).toLsp
+                  QuickLocation(classUriFor(file), (3, 6, 3, 11)).toLsp,
                 )
-              ).asJava
-            )
-          ).asJava
+              ).asJava,
+            ),
+          ).asJava,
         )
       )
-    }
+    },
   )
 
+  checkEvents(
+    "scalatest-any-fun-suite",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/a/FunSuite.scala
+        |package a
+        |import org.scalatest.funsuite.AnyFunSuite
+        |import org.scalatest.Tag
+        |
+        |class FunSuite extends AnyFunSuite {
+        |  test("An empty Set should have size 0", Tag.apply("tag")) {
+        |    assert(Set.empty.size == 0)
+        |  }
+        |}
+        |""".stripMargin,
+    file = "app/src/main/scala/a/FunSuite.scala",
+    expected = () => {
+      val fcqn = "a.FunSuite"
+      val className = "FunSuite"
+      val symbol = "a/FunSuite#"
+      val file = "app/src/main/scala/a/FunSuite.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (4, 6, 4, 14),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "An empty Set should have size 0",
+                  QuickLocation(classUriFor(file), (5, 2, 5, 59)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  checkEvents(
+    "scalatest-any-word-spec",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/a/b/WordSpec.scala
+        |package a.b
+        |import org.scalatest.wordspec.AnyWordSpec
+        |
+        |class WordSpec extends AnyWordSpec {
+        |  "A Set" when {
+        |    "empty" should {
+        |      "have size 0" in {
+        |        assert(Set.empty.size == 0)
+        |      }
+        |    }
+        |  }
+        |}
+        |""".stripMargin,
+    file = "app/src/main/scala/a/b/WordSpec.scala",
+    expected = () => {
+      val fcqn = "a.b.WordSpec"
+      val className = "WordSpec"
+      val symbol = "a/b/WordSpec#"
+      val file = "app/src/main/scala/a/b/WordSpec.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (3, 6, 3, 14),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "A Set when empty should have size 0",
+                  QuickLocation(classUriFor(file), (6, 6, 6, 19)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  checkEvents(
+    "scalatest-any-flat-spec",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/FlatSpec.scala
+        |import org.scalatest.flatspec.AnyFlatSpec
+        |
+        |class FlatSpec extends AnyFlatSpec {
+        |
+        |  "An empty Set" should "have size 0" in {
+        |    assert(Set.empty.size == 0)
+        |  }
+        |}
+        |""".stripMargin,
+    file = "app/src/main/scala/FlatSpec.scala",
+    expected = () => {
+      val fcqn = "FlatSpec"
+      val className = "FlatSpec"
+      val symbol = "_empty_/FlatSpec#"
+      val file = "app/src/main/scala/FlatSpec.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (2, 6, 2, 14),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "An empty Set should have size 0",
+                  QuickLocation(classUriFor(file), (4, 2, 4, 37)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  checkEvents(
+    "scalatest-any-fun-spec",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/FunSpec.scala
+        |import org.scalatest.funspec.AnyFunSpec
+        |
+        |class FunSpec extends AnyFunSpec {
+        |  describe("A Set") {
+        |    describe("when empty") {
+        |      it("should have size 0") {
+        |        assert(Set.empty.size == 0)
+        |      }
+        |    }
+        |  }
+        |}
+        |""".stripMargin,
+    file = "app/src/main/scala/FunSpec.scala",
+    expected = () => {
+      val fcqn = "FunSpec"
+      val className = "FunSpec"
+      val symbol = "_empty_/FunSpec#"
+      val file = "app/src/main/scala/FunSpec.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (2, 6, 2, 13),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "A Set when empty should have size 0",
+                  QuickLocation(classUriFor(file), (5, 6, 5, 30)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  checkEvents(
+    "scalatest-any-free-spec",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/FreeSpec.scala
+        |import org.scalatest.freespec.AnyFreeSpec
+        |
+        |class FreeSpec extends AnyFreeSpec {
+        |  "A Set" - {
+        |    "when empty" - {
+        |      "should have size 0" in {
+        |        assert(Set.empty.size == 0)
+        |      }
+        |    }
+        |  }
+        |}
+        |""".stripMargin,
+    file = "app/src/main/scala/FreeSpec.scala",
+    expected = () => {
+      val fcqn = "FreeSpec"
+      val className = "FreeSpec"
+      val symbol = "_empty_/FreeSpec#"
+      val file = "app/src/main/scala/FreeSpec.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (2, 6, 2, 14),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "A Set when empty should have size 0",
+                  QuickLocation(classUriFor(file), (5, 6, 5, 26)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  checkEvents(
+    "scalatest-any-prop-spec",
+    List("org.scalatest::scalatest:3.2.13"),
+    s"""|
+        |/app/src/main/scala/PropSpec.scala
+        |import org.scalatest.propspec.AnyPropSpec
+        |
+        |class PropSpec extends AnyPropSpec {
+        |
+        |  property("an empty Set should have size 0") {
+        |    assert(Set.empty.size == 0)
+        |  }
+        |}
+        |
+        |""".stripMargin,
+    file = "app/src/main/scala/PropSpec.scala",
+    expected = () => {
+      val fcqn = "PropSpec"
+      val className = "PropSpec"
+      val symbol = "_empty_/PropSpec#"
+      val file = "app/src/main/scala/PropSpec.scala"
+      List(
+        BuildTargetUpdate(
+          "app",
+          targetUri,
+          List[TestExplorerEvent](
+            AddTestSuite(
+              fcqn,
+              className,
+              symbol,
+              QuickLocation(
+                classUriFor(file),
+                (2, 6, 2, 14),
+              ).toLsp,
+              canResolveChildren = true,
+            ),
+            AddTestCases(
+              fcqn,
+              className,
+              List(
+                TestCaseEntry(
+                  "an empty Set should have size 0",
+                  QuickLocation(classUriFor(file), (4, 2, 4, 45)).toLsp,
+                )
+              ).asJava,
+            ),
+          ).asJava,
+        )
+      )
+    },
+  )
+
+  /**
+   * Discovers all tests in project or test cases in file
+   *
+   * @param dependencies list of dependencies, e.g. "org.scalameta::munit:0.7.29"
+   * @param files list of files for which compilation will be triggered. It's
+   * @param expected list of expected build target updates
+   * @param uri URI of file for which test cases should be discovered
+   */
   def testDiscover(
       name: TestOptions,
+      dependencies: List[String],
       layout: String,
       files: List[String],
       expected: () => List[BuildTargetUpdate],
-      uri: () => Option[String] = () => None
+      uri: () => Option[String] = () => None,
   )(implicit
       loc: munit.Location
   ): Unit = {
+    val layoutWithDependencies =
+      s"""|/metals.json
+          |{
+          |  "app": {
+          |    "libraryDependencies" : ${getDependenciesArray(dependencies)},
+          |    "scalaVersion": "${BuildInfo.scalaVersion}"
+          |  }
+          |}
+          |$layout
+          |""".stripMargin
     test(name) {
       for {
         _ <- Future.successful(cleanWorkspace())
-        _ <- initialize(layout)
+        _ <- initialize(layoutWithDependencies)
         discovered <- server.discoverTestSuites(files, uri())
       } yield {
         assertEquals(discovered, expected())
@@ -591,18 +884,36 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
     }
   }
 
+  /**
+   * Check if Test Explorer returns particular events.
+   *
+   * @param dependencies list of dependencies, e.g. "org.scalameta::munit:0.7.29"
+   * @param file which should be compiled
+   * @param expected list of expected build target updates
+   */
   def checkEvents(
       name: TestOptions,
+      dependencies: List[String],
       layout: String,
       file: String,
-      expected: () => List[BuildTargetUpdate]
+      expected: () => List[BuildTargetUpdate],
   )(implicit
       loc: munit.Location
   ): Unit = {
+    val layoutWithDependencies =
+      s"""|/metals.json
+          |{
+          |  "app": {
+          |    "libraryDependencies" : ${getDependenciesArray(dependencies)},
+          |    "scalaVersion": "${BuildInfo.scalaVersion}"
+          |  }
+          |}
+          |$layout
+          |""".stripMargin
     test(name) {
       for {
         _ <- Future.successful(cleanWorkspace())
-        _ <- initialize(layout)
+        _ <- initialize(layoutWithDependencies)
         _ <- server.didOpen(file)
         _ <- server.executeCommand(ServerCommands.CascadeCompile)
         jsonObjects <- server.client.testExplorerUpdates.future
@@ -613,6 +924,11 @@ class TestSuitesProviderSuite extends BaseLspSuite("testSuitesFinderSuite") {
         assertEquals(prettyPrinted, prettyPrintedExpected)
       }
     }
+  }
+
+  private def getDependenciesArray(dependencies: List[String]): String = {
+    val commaSeparated = dependencies.map(d => s"\"$d\"").mkString(", ")
+    s"[ $commaSeparated ]"
   }
 
   private def targetUri: String =

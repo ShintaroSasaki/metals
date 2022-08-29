@@ -32,12 +32,12 @@ sealed trait TokenEditDistance {
   def toRevised(originalOffset: Int): Either[EmptyResult, Position]
   def toRevised(
       originalLine: Int,
-      originalColumn: Int
+      originalColumn: Int,
   ): Either[EmptyResult, Position]
 
   def toOriginal(
       revisedLine: Int,
-      revisedColumn: Int
+      revisedColumn: Int,
   ): Either[EmptyResult, Position]
 
   def toOriginal(revisedOffset: Int): Either[EmptyResult, Position]
@@ -51,7 +51,7 @@ sealed trait TokenEditDistance {
       case _ =>
         (
           toRevised(range.startLine, range.startCharacter),
-          toRevised(range.endLine, range.endCharacter)
+          toRevised(range.endLine, range.endCharacter),
         ) match {
           case (Right(start), Right(end)) =>
             Some(
@@ -59,7 +59,7 @@ sealed trait TokenEditDistance {
                 start.startLine,
                 start.startColumn,
                 end.startLine,
-                end.startColumn
+                end.startColumn,
               )
             )
           case _ => None
@@ -73,7 +73,7 @@ sealed trait TokenEditDistance {
       case _ =>
         (
           toOriginal(range.startLine, range.startCharacter),
-          toOriginal(range.endLine, range.endCharacter)
+          toOriginal(range.endLine, range.endCharacter),
         ) match {
           case (Right(start), Right(end)) =>
             Some(
@@ -81,7 +81,7 @@ sealed trait TokenEditDistance {
                 start.startLine,
                 start.startColumn,
                 end.endLine,
-                end.endColumn
+                end.endColumn,
               )
             )
           case _ => None
@@ -99,13 +99,13 @@ object TokenEditDistance {
       EmptyResult.unchanged
     def toRevised(
         originalLine: Int,
-        originalColumn: Int
+        originalColumn: Int,
     ): Either[EmptyResult, Position] =
       EmptyResult.unchanged
 
     def toOriginal(
         revisedLine: Int,
-        revisedColumn: Int
+        revisedColumn: Int,
     ): Either[EmptyResult, Position] =
       EmptyResult.unchanged
 
@@ -121,13 +121,13 @@ object TokenEditDistance {
       EmptyResult.noMatch
     def toRevised(
         originalLine: Int,
-        originalColumn: Int
+        originalColumn: Int,
     ): Either[EmptyResult, Position] =
       EmptyResult.noMatch
 
     def toOriginal(
         revisedLine: Int,
-        revisedColumn: Int
+        revisedColumn: Int,
     ): Either[EmptyResult, Position] =
       EmptyResult.noMatch
 
@@ -140,102 +140,102 @@ object TokenEditDistance {
   final class Diff[A](
       matching: Array[MatchingToken[A]],
       originalInput: Input.VirtualFile,
-      revisedInput: Input.VirtualFile
+      revisedInput: Input.VirtualFile,
   )(implicit ops: TokenOps[A])
       extends TokenEditDistance {
 
     private val logger: Logger = Logger.getLogger(this.getClass.getName)
     def toRevised(range: l.Range): Option[l.Range] = {
-      val pos = range.toMeta(originalInput)
-      val matchingTokens = matching.lift
+      range.toMeta(originalInput).flatMap { pos =>
+        val matchingTokens = matching.lift
 
-      // Perform two binary searches to find the revised start/end positions.
-      // NOTE. I tried abstracting over the two searches since they are so similar
-      // but it resulted in less maintainable code.
+        // Perform two binary searches to find the revised start/end positions.
+        // NOTE. I tried abstracting over the two searches since they are so similar
+        // but it resulted in less maintainable code.
 
-      var startFallback = false
-      val startMatch = BinarySearch.array(
-        matching,
-        (mt: MatchingToken[A], i) => {
-          val result = compare(mt.original.pos, pos.start)
-          result match {
-            case BinarySearch.Smaller =>
-              matchingTokens(i + 1) match {
-                case Some(next) =>
-                  compare(next.original.pos, pos.start) match {
-                    case BinarySearch.Greater =>
-                      startFallback = true
-                      // The original token is not available in the revised document
-                      // so we use the nearest token instead.
-                      BinarySearch.Equal
-                    case _ =>
-                      result
-                  }
-                case None =>
-                  startFallback = true
-                  BinarySearch.Equal
-              }
-            case _ =>
-              result
-          }
-        }
-      )
-
-      var endFallback = false
-      val endMatch = BinarySearch.array(
-        matching,
-        (mt: MatchingToken[A], i) => {
-          // End offsets are non-inclusive so we decrement by one.
-          val offset = math.max(pos.start, pos.end - 1)
-          val result = compare(mt.original.pos, offset)
-          result match {
-            case BinarySearch.Greater =>
-              matchingTokens(i - 1) match {
-                case Some(next) =>
-                  compare(next.original.pos, offset) match {
-                    case BinarySearch.Smaller =>
-                      endFallback = true
-                      BinarySearch.Equal
-                    case _ =>
-                      result
-                  }
-                case None =>
-                  endFallback = true
-                  BinarySearch.Equal
-              }
-            case _ =>
-              result
-          }
-        }
-      )
-
-      (startMatch, endMatch) match {
-        case (Some(start), Some(end)) =>
-          val revised =
-            if (startFallback && endFallback) {
-              val offset = end.revised.start
-              Position.Range(revisedInput, offset - 1, offset)
-            } else if (start.revised == end.revised) {
-              start.revised.pos
-            } else {
-              val endOffset = end.revised match {
-                case t if t.isLF => t.start
-                case t => t.end
-              }
-              Position.Range(revisedInput, start.revised.start, endOffset)
+        var startFallback = false
+        val startMatch = BinarySearch.array(
+          matching,
+          (mt: MatchingToken[A], i) => {
+            val result = compare(mt.original.pos, pos.start)
+            result match {
+              case BinarySearch.Smaller =>
+                matchingTokens(i + 1) match {
+                  case Some(next) =>
+                    compare(next.original.pos, pos.start) match {
+                      case BinarySearch.Greater =>
+                        startFallback = true
+                        // The original token is not available in the revised document
+                        // so we use the nearest token instead.
+                        BinarySearch.Equal
+                      case _ =>
+                        result
+                    }
+                  case None =>
+                    startFallback = true
+                    BinarySearch.Equal
+                }
+              case _ =>
+                result
             }
-          Some(revised.toLSP)
-        case (start, end) =>
-          logger.warning(
-            s"stale range: ${start.map(_.show)} ${end.map(_.show)}"
-          )
-          None
+          },
+        )
+
+        var endFallback = false
+        val endMatch = BinarySearch.array(
+          matching,
+          (mt: MatchingToken[A], i) => {
+            // End offsets are non-inclusive so we decrement by one.
+            val offset = math.max(pos.start, pos.end - 1)
+            val result = compare(mt.original.pos, offset)
+            result match {
+              case BinarySearch.Greater =>
+                matchingTokens(i - 1) match {
+                  case Some(next) =>
+                    compare(next.original.pos, offset) match {
+                      case BinarySearch.Smaller =>
+                        endFallback = true
+                        BinarySearch.Equal
+                      case _ =>
+                        result
+                    }
+                  case None =>
+                    endFallback = true
+                    BinarySearch.Equal
+                }
+              case _ =>
+                result
+            }
+          },
+        )
+
+        (startMatch, endMatch) match {
+          case (Some(start), Some(end)) =>
+            val revised =
+              if (startFallback && endFallback) {
+                val offset = end.revised.start
+                Position.Range(revisedInput, offset - 1, offset)
+              } else if (start.revised == end.revised) {
+                start.revised.pos
+              } else {
+                val endOffset = end.revised match {
+                  case t if t.isLF => t.start
+                  case t => t.end
+                }
+                Position.Range(revisedInput, start.revised.start, endOffset)
+              }
+            Some(revised.toLSP)
+          case (start, end) =>
+            logger.warning(
+              s"stale range: ${start.map(_.show)} ${end.map(_.show)}"
+            )
+            None
+        }
       }
     }
-
     def toRevised(
         originalLine: Int,
-        originalColumn: Int
+        originalColumn: Int,
     ): Either[EmptyResult, Position] = {
       toRevised(originalInput.toOffset(originalLine, originalColumn))
     }
@@ -244,14 +244,14 @@ object TokenEditDistance {
       BinarySearch
         .array[MatchingToken[A]](
           matching,
-          (mt, _) => compare(mt.original.pos, originalOffset)
+          (mt, _) => compare(mt.original.pos, originalOffset),
         )
         .fold(EmptyResult.noMatch)(m => Right(m.revised.pos))
     }
 
     def toOriginal(
         revisedLine: Int,
-        revisedColumn: Int
+        revisedColumn: Int,
     ): Either[EmptyResult, Position] =
       toOriginal(revisedInput.toOffset(revisedLine, revisedColumn))
 
@@ -259,13 +259,13 @@ object TokenEditDistance {
       BinarySearch
         .array[MatchingToken[A]](
           matching,
-          (mt, _) => compare(mt.revised.pos, revisedOffset)
+          (mt, _) => compare(mt.revised.pos, revisedOffset),
         )
         .fold(EmptyResult.noMatch)(m => Right(m.original.pos))
 
     private def compare(
         pos: Position,
-        offset: Int
+        offset: Int,
     ): BinarySearch.ComparisonResult =
       if (pos.contains(offset)) BinarySearch.Equal
       else if (pos.end <= offset) BinarySearch.Smaller
@@ -295,7 +295,7 @@ object TokenEditDistance {
       originalInput: Input.VirtualFile,
       original: Array[A],
       revisedInput: Input.VirtualFile,
-      revised: Array[A]
+      revised: Array[A],
   )(implicit ops: TokenOps[A]) = {
     val buffer = Array.newBuilder[MatchingToken[A]]
     buffer.sizeHint(math.max(original.length, revised.length))
@@ -303,7 +303,7 @@ object TokenEditDistance {
     def loop(
         i: Int,
         j: Int,
-        ds: List[Delta[A]]
+        ds: List[Delta[A]],
     ): Unit = {
       val isDone: Boolean =
         i >= original.length ||
@@ -323,7 +323,7 @@ object TokenEditDistance {
               loop(
                 i + delta.getOriginal.size(),
                 j + delta.getRevised.size(),
-                tail
+                tail,
               )
           }
         }
@@ -334,7 +334,7 @@ object TokenEditDistance {
         .diff(
           ArraySeq(original: _*).asJava,
           ArraySeq(revised: _*).asJava,
-          ops.equalizer
+          ops.equalizer,
         )
         .getDeltas
         .iterator()
@@ -349,7 +349,7 @@ object TokenEditDistance {
       originalInput: Input.VirtualFile,
       revisedInput: Input.VirtualFile,
       trees: Trees,
-      doNothingWhenUnchanged: Boolean = true
+      doNothingWhenUnchanged: Boolean = true,
   ): TokenEditDistance = {
     val isScala =
       originalInput.path.isScalaFilename &&
@@ -374,7 +374,7 @@ object TokenEditDistance {
           originalInput,
           original,
           revisedInput,
-          revised
+          revised,
         )
       }
       result.getOrElse(NoMatch)
@@ -387,7 +387,7 @@ object TokenEditDistance {
           originalInput,
           original.tokens,
           revisedInput,
-          revised.tokens
+          revised.tokens,
         )
       }
       result.getOrElse(NoMatch)

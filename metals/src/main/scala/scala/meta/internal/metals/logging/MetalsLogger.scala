@@ -1,9 +1,10 @@
-package scala.meta.internal.metals
+package scala.meta.internal.metals.logging
 
 import java.io.PrintStream
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 
+import scala.meta.internal.metals.MetalsServerConfig
 import scala.meta.io.AbsolutePath
 import scala.meta.io.RelativePath
 
@@ -19,6 +20,17 @@ import scribe.modify.LogModifier
 
 object MetalsLogger {
 
+  private val level =
+    MetalsServerConfig.default.loglevel match {
+      case "debug" => Level.Debug
+      case "info" => Level.Info
+      case "warn" => Level.Warn
+      case "error" => Level.Error
+      case "fatal" => Level.Fatal
+      case "trace" => Level.Trace
+      case _ => Level.Info
+    }
+
   private val workspaceLogPath: RelativePath =
     RelativePath(".metals").resolve("metals.log")
 
@@ -27,8 +39,8 @@ object MetalsLogger {
       .clearHandlers()
       .withHandler(
         formatter = defaultFormat,
-        minimumLevel = Some(scribe.Level.Info),
-        modifiers = List(MetalsFilter())
+        minimumLevel = Some(level),
+        modifiers = List(MetalsFilter()),
       )
       .replace()
   }
@@ -38,7 +50,7 @@ object MetalsLogger {
     val logStream = Files.newOutputStream(
       logfile.toNIO,
       StandardOpenOption.APPEND,
-      StandardOpenOption.CREATE
+      StandardOpenOption.CREATE,
     )
     val out = new PrintStream(logStream)
     System.setOut(out)
@@ -53,14 +65,14 @@ object MetalsLogger {
       .withHandler(
         writer = newFileWriter(logfile),
         formatter = defaultFormat,
-        minimumLevel = Some(Level.Info),
-        modifiers = List(MetalsFilter())
+        minimumLevel = Some(level),
+        modifiers = List(MetalsFilter()),
       )
       .withHandler(
         writer = LanguageClientLogger,
         formatter = MetalsLogger.defaultFormat,
-        minimumLevel = Some(Level.Info),
-        modifiers = List(MetalsFilter())
+        minimumLevel = Some(level),
+        modifiers = List(MetalsFilter()),
       )
       .replace()
   }
@@ -84,7 +96,7 @@ object MetalsLogger {
 
   def setupLspLogger(
       workspace: AbsolutePath,
-      redirectSystemStreams: Boolean
+      redirectSystemStreams: Boolean,
   ): Unit = {
     val newLogFile = workspace.resolve(workspaceLogPath)
     scribe.info(s"logging to file $newLogFile")

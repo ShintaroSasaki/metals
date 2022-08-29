@@ -5,12 +5,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Properties
 import scala.util.Try
 import scala.util.control.NonFatal
 
+import scala.meta.internal.builds.ShellRunner
 import scala.meta.internal.io.FileIO
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.mtags.MD5
@@ -27,8 +28,8 @@ class JavaInteractiveSemanticdb(
     jdkVersion: JdkVersion,
     pluginJars: List[Path],
     workspace: AbsolutePath,
-    buildTargets: BuildTargets
-) {
+    buildTargets: BuildTargets,
+)(implicit ec: ExecutionContext) {
 
   private val readonly = workspace.resolve(Directories.readonly)
 
@@ -65,7 +66,7 @@ class JavaInteractiveSemanticdb(
         "-cp",
         (pluginJars ++ targetClasspath).mkString(File.pathSeparator),
         "-d",
-        targetRoot.toString
+        targetRoot.toString,
       )
     val pluginOption =
       s"-Xplugin:semanticdb -sourceroot:${sourceRoot} -targetroot:${targetRoot}"
@@ -79,7 +80,7 @@ class JavaInteractiveSemanticdb(
       false,
       Map.empty,
       Some(outLine => stdout += outLine),
-      Some(errLine => stdout += errLine)
+      Some(errLine => stdout += errLine),
     )
 
     val future = ps.complete.recover { case NonFatal(e) =>
@@ -111,7 +112,7 @@ class JavaInteractiveSemanticdb(
     val out = doc.copy(
       uri = source.toURI.toString(),
       text = text,
-      md5 = MD5.compute(text)
+      md5 = MD5.compute(text),
     )
 
     workDir.deleteRecursively()
@@ -121,7 +122,7 @@ class JavaInteractiveSemanticdb(
   private def patchModuleFlags(
       source: AbsolutePath,
       sourceRoot: AbsolutePath,
-      originalSource: AbsolutePath
+      originalSource: AbsolutePath,
   ): List[String] = {
     // Jigsaw doesn't allow compiling source with package
     // that is declared in some existing module.
@@ -165,7 +166,7 @@ class JavaInteractiveSemanticdb(
       val compilerPackages = List(
         "com.sun.tools.javac.api", "com.sun.tools.javac.code",
         "com.sun.tools.javac.model", "com.sun.tools.javac.tree",
-        "com.sun.tools.javac.util"
+        "com.sun.tools.javac.util",
       )
       compilerPackages.flatMap(pkg =>
         List(s"-J--add-exports", s"-Jjdk.compiler/$pkg=ALL-UNNAMED")
@@ -180,8 +181,9 @@ object JavaInteractiveSemanticdb {
   def create(
       javaHome: AbsolutePath,
       workspace: AbsolutePath,
-      buildTargets: BuildTargets
-  ): Option[JavaInteractiveSemanticdb] = {
+      buildTargets: BuildTargets,
+      jdkVersion: JdkVersion,
+  )(implicit ec: ExecutionContext): Option[JavaInteractiveSemanticdb] = {
 
     def pathToJavac(p: AbsolutePath): AbsolutePath = {
       val binaryName = if (Properties.isWin) "javac.exe" else "javac"
@@ -197,22 +199,21 @@ object JavaInteractiveSemanticdb {
 
     val javac = pathToJavac(jdkHome)
 
-    JdkVersion.getJavaVersionFromJavaHome(jdkHome) match {
-      case Some(version) if javac.exists =>
-        val pluginJars = Embedded.downloadSemanticdbJavac
-        val instance = new JavaInteractiveSemanticdb(
-          javac,
-          version,
-          pluginJars,
-          workspace,
-          buildTargets
-        )
-        Some(instance)
-      case value =>
-        scribe.warn(
-          s"Can't instantiate JavaInteractiveSemanticdb (version: ${value}, jdkHome: ${jdkHome}, javac exists: ${javac.exists})"
-        )
-        None
+    if (javac.exists) {
+      val pluginJars = Embedded.downloadSemanticdbJavac
+      val instance = new JavaInteractiveSemanticdb(
+        javac,
+        jdkVersion,
+        pluginJars,
+        workspace,
+        buildTargets,
+      )
+      Some(instance)
+    } else {
+      scribe.warn(
+        s"Can't instantiate JavaInteractiveSemanticdb (version: ${jdkVersion}, jdkHome: ${jdkHome}, javac exists: ${javac.exists})"
+      )
+      None
     }
   }
 
@@ -227,38 +228,53 @@ case class JdkVersion(
 
 object JdkVersion {
 
-  def getJavaVersionFromJavaHome(
+  def maybeJdkVersionFromJavaHome(
+      maybeJavaHome: Option[AbsolutePath]
+  )(implicit ec: ExecutionContext): Option[JdkVersion] = {
+    maybeJavaHome.flatMap { javaHome =>
+      fromReleaseFile(javaHome).orElse {
+        fromShell(javaHome)
+      }
+    }
+  }
+
+  def fromShell(
       javaHome: AbsolutePath
-  ): Option[JdkVersion] = {
+  )(implicit ec: ExecutionContext): Option[JdkVersion] = {
+    ShellRunner
+      .runSync(
+        List(javaHome.resolve("bin/java").toString, "-version"),
+        javaHome,
+        redirectErrorOutput = true,
+        maybeJavaHome = Some(javaHome.toString()),
+      )
+      .flatMap { javaVersionResponse =>
+        "\\d+\\.\\d+\\.\\d+".r
+          .findFirstIn(javaVersionResponse)
+          .flatMap(JdkVersion.parse)
+      }
+  }
 
-    def fromReleaseFile: Option[JdkVersion] = {
-      val releaseFile = javaHome.resolve("release")
-      if (releaseFile.exists) {
-        val properties = ConfigFactory.parseFile(
-          releaseFile.toFile,
-          ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES)
-        )
-        try {
-          val version = properties
-            .getString("JAVA_VERSION")
-            .stripPrefix("\"")
-            .stripSuffix("\"")
-          JdkVersion.parse(version)
-        } catch {
-          case NonFatal(e) =>
-            scribe.error("Failed to read jdk version from `release` file", e)
-            None
-        }
-      } else None
-    }
+  def fromReleaseFile(javaHome: AbsolutePath): Option[JdkVersion] = {
+    val releaseFile = javaHome.resolve("release")
+    if (releaseFile.exists) {
+      val properties = ConfigFactory.parseFile(
+        releaseFile.toFile,
+        ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES),
+      )
+      try {
+        val version = properties
+          .getString("JAVA_VERSION")
+          .stripPrefix("\"")
+          .stripSuffix("\"")
+        JdkVersion.parse(version)
+      } catch {
+        case NonFatal(e) =>
+          scribe.error("Failed to read jdk version from `release` file", e)
+          None
+      }
+    } else None
 
-    def jdk8Fallback: Option[JdkVersion] = {
-      val rtJar = javaHome.resolve("jre").resolve("lib").resolve("rt.jar")
-      if (rtJar.exists) Some(JdkVersion(8))
-      else None
-    }
-
-    fromReleaseFile.orElse(jdk8Fallback)
   }
 
   def parse(v: String): Option[JdkVersion] = {

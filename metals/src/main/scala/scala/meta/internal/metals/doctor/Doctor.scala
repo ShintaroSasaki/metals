@@ -22,6 +22,7 @@ import scala.meta.internal.metals.FileDecoderProvider
 import scala.meta.internal.metals.HtmlBuilder
 import scala.meta.internal.metals.Icons
 import scala.meta.internal.metals.JavaTarget
+import scala.meta.internal.metals.JdkVersion
 import scala.meta.internal.metals.Messages.CheckDoctor
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals.MetalsHttpServer
@@ -54,7 +55,8 @@ final class Doctor(
     tables: Tables,
     clientConfig: ClientConfiguration,
     mtagsResolver: MtagsResolver,
-    javaHome: () => Option[String]
+    javaHome: () => Option[String],
+    maybeJDKVersion: Option[JdkVersion],
 )(implicit ec: ExecutionContext) {
   private val isVisible = new AtomicBoolean(false)
   private val hasProblems = new AtomicBoolean(false)
@@ -64,7 +66,8 @@ final class Doctor(
       mtagsResolver,
       currentBuildServer,
       javaHome,
-      () => clientConfig.isTestExplorerProvider()
+      () => clientConfig.isTestExplorerProvider(),
+      maybeJDKVersion,
     )
 
   def onVisibilityDidChange(newState: Boolean): Unit = {
@@ -80,7 +83,7 @@ final class Doctor(
       .page(
         doctorTitle,
         List(livereload, HtmlBuilder.htmlCSS),
-        HtmlBuilder.bodyStyle
+        HtmlBuilder.bodyStyle,
       ) { html =>
         html.section("Build targets", buildTargetsTable)
       }
@@ -95,7 +98,7 @@ final class Doctor(
       clientCommand = ClientCommands.RunDoctor,
       onServer = server => {
         Urls.openBrowser(server.address + "/doctor")
-      }
+      },
     )
   }
 
@@ -119,7 +122,7 @@ final class Doctor(
       clientCommand = ClientCommands.ReloadDoctor,
       onServer = server => {
         server.reload()
-      }
+      },
     )
   }
 
@@ -129,7 +132,7 @@ final class Doctor(
    */
   private def executeDoctor(
       clientCommand: ParametrizedCommand[String],
-      onServer: MetalsHttpServer => Unit
+      onServer: MetalsHttpServer => Unit,
   ): Unit = {
     val isVisibilityProvider = clientConfig.isDoctorVisibilityProvider()
     val shouldDisplay = isVisibilityProvider && isVisible.get()
@@ -227,19 +230,19 @@ final class Doctor(
           case ResolvedNone =>
             (
               "No build server found. Try to run the generate-bsp-config command.",
-              false
+              false,
             )
           case ResolvedBloop =>
             ("Build server currently being used is Bloop.", false)
           case ResolvedBspOne(details) =>
             (
               s"Build server currently being used is ${details.getName()}.",
-              false
+              false,
             )
           case ResolvedMultiple(_, _) =>
             (
               "Multiple build servers found for your workspace. Attempt to connect to choose your desired server.",
-              false
+              false,
             )
         }
     }
@@ -274,7 +277,7 @@ final class Doctor(
         importBuildHeading,
         jdkInfo,
         serverInfo,
-        buildTargetDescription
+        buildTargetDescription,
       )
     val results = if (targetIds.isEmpty) {
       DoctorResults(
@@ -284,12 +287,12 @@ final class Doctor(
           List(
             DoctorMessage(
               noBuildTargetsTitle,
-              List(noBuildTargetRecOne, noBuildTargetRecTwo)
+              List(noBuildTargetRecOne, noBuildTargetRecTwo),
             )
           )
         ),
         None,
-        List.empty
+        List.empty,
       ).toJson
     } else {
       val allTargetsInfo = targetIds
@@ -302,7 +305,7 @@ final class Doctor(
         DoctorExplanation.Interactive.toJson(allTargetsInfo),
         DoctorExplanation.SemanticDB.toJson(allTargetsInfo),
         DoctorExplanation.Debugging.toJson(allTargetsInfo),
-        DoctorExplanation.JavaSupport.toJson(allTargetsInfo)
+        DoctorExplanation.JavaSupport.toJson(allTargetsInfo),
       )
 
       DoctorResults(
@@ -310,7 +313,7 @@ final class Doctor(
         header,
         None,
         Some(allTargetsInfo),
-        explanations
+        explanations,
       ).toJson
     }
     ujson.write(results)
@@ -318,7 +321,7 @@ final class Doctor(
 
   private def gotoBuildTargetCommand(
       workspace: AbsolutePath,
-      buildTargetName: String
+      buildTargetName: String,
   ): String = {
     val uriAsStr = FileDecoderProvider
       .createBuildTargetURI(workspace, buildTargetName)
@@ -328,7 +331,7 @@ final class Doctor(
       .map(format => {
         val range = new l.Range(
           new l.Position(0, 0),
-          new l.Position(0, 0)
+          new l.Position(0, 0),
         )
         val location = ClientCommands.WindowLocation(uriAsStr, range)
         ClientCommands.GotoLocation.toCommandLink(location, format)
@@ -444,7 +447,7 @@ final class Doctor(
 
   private def buildTargetRows(
       html: HtmlBuilder,
-      infos: Seq[DoctorTargetInfo]
+      infos: Seq[DoctorTargetInfo],
   ): Unit = {
     infos
       .sortBy(f => (f.baseDirectory, f.name, f.dataKind))
@@ -508,7 +511,7 @@ final class Doctor(
       else
         (
           DoctorStatus.alert,
-          problemResolver.recommendation(javaTarget, scalaTarget = None)
+          problemResolver.recommendation(javaTarget, scalaTarget = None),
         )
 
     val canRun = javaTarget.info.getCapabilities().getCanRun()
@@ -529,13 +532,13 @@ final class Doctor(
       debugging,
       javaSupport,
       javaRecommendation
-        .getOrElse("")
+        .getOrElse(""),
     )
   }
 
   private def extractScalaTargetInfo(
       scalaTarget: ScalaTarget,
-      javaTarget: Option[JavaTarget]
+      javaTarget: Option[JavaTarget],
   ): DoctorTargetInfo = {
     val scalaVersion = scalaTarget.scalaVersion
     val interactive =
@@ -570,7 +573,7 @@ final class Doctor(
       case Some(target) =>
         (
           DoctorStatus.alert,
-          problemResolver.recommendation(target, Some(scalaTarget))
+          problemResolver.recommendation(target, Some(scalaTarget)),
         )
       case None => (DoctorStatus.alert, None)
     }
@@ -599,7 +602,7 @@ final class Doctor(
       recommendedFix
         .orElse(javaRecommendation)
         .orElse(sbtRecommendation)
-        .getOrElse("")
+        .getOrElse(""),
     )
   }
 

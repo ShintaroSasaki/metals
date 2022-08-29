@@ -10,6 +10,7 @@ import scala.util.control.NonFatal
 import scala.meta.internal.jdk.CollectionConverters._
 import scala.meta.internal.mtags.MtagsEnrichments._
 import scala.meta.internal.pc.IdentifierComparator
+import scala.meta.internal.pc.InterpolationSplice
 import scala.meta.internal.pc.MemberOrdering
 import scala.meta.internal.pc.MetalsGlobal
 import scala.meta.internal.semanticdb.Scala._
@@ -29,7 +30,20 @@ trait Completions { this: MetalsGlobal =>
    * A member for symbols on the classpath that are not in scope, produced via workspace/symbol.
    */
   class WorkspaceMember(sym: Symbol)
-      extends ScopeMember(sym, NoType, true, EmptyTree)
+      extends ScopeMember(sym, NoType, true, EmptyTree) {
+    def additionalTextEdits: List[l.TextEdit] = Nil
+
+    def wrap: String => String = identity
+
+    def editRange: Option[l.Range] = None
+  }
+
+  class WorkspaceInterpolationMember(
+      sym: Symbol,
+      override val additionalTextEdits: List[l.TextEdit],
+      override val wrap: String => String,
+      override val editRange: Option[l.Range]
+  ) extends WorkspaceMember(sym)
 
   class NamedArgMember(sym: Symbol)
       extends ScopeMember(sym, NoType, true, EmptyTree)
@@ -456,7 +470,7 @@ trait Completions { this: MetalsGlobal =>
       case Ident(_) :: Typed(_, _) :: PatternMatch(c, m) =>
         CasePatternCompletion(isTyped = true, c, m)
       case (lit @ Literal(Constant(_: String))) :: head :: _ =>
-        isPossibleInterpolatorSplice(pos, text) match {
+        InterpolationSplice(pos.point, pos.source.content, text) match {
           case Some(i) =>
             InterpolatorScopeCompletion(lit, pos, i, text)
           case _ =>

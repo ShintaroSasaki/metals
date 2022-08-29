@@ -12,11 +12,13 @@ import scala.meta.pc.SymbolDocumentation
 import scala.meta.pc.SymbolSearch
 
 import dotty.tools.dotc.ast.tpd.*
+import dotty.tools.dotc.core.Constants.*
 import dotty.tools.dotc.core.Contexts.*
 import dotty.tools.dotc.core.Flags.*
 import dotty.tools.dotc.core.NameKinds.*
 import dotty.tools.dotc.core.NameOps.*
 import dotty.tools.dotc.core.Names.*
+import dotty.tools.dotc.core.StdNames.*
 import dotty.tools.dotc.core.SymDenotations.*
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
@@ -32,7 +34,7 @@ object HoverProvider:
   def hover(
       params: OffsetParams,
       driver: InteractiveDriver,
-      search: SymbolSearch
+      search: SymbolSearch,
   ): ju.Optional[Hover] =
     val uri = params.uri
     val sourceFile = CompilerInterfaces.toSource(params.uri, params.text)
@@ -58,28 +60,29 @@ object HoverProvider:
     else
       val skipCheckOnName =
         !pos.isPoint // don't check isHoveringOnName for RangeHover
+
+      val printerContext =
+        driver.compilationUnits.get(uri) match
+          case Some(unit) =>
+            val newctx =
+              ctx.fresh.setCompilationUnit(unit)
+            MetalsInteractive.contextOfPath(enclosing)(using newctx)
+          case None => ctx
+      val printer = MetalsPrinter.standard(
+        IndexedContext(printerContext),
+        search,
+        includeDefaultParam = MetalsPrinter.IncludeDefaultParam.Include,
+      )
       MetalsInteractive.enclosingSymbolsWithExpressionType(
         enclosing,
         pos,
         indexedContext,
-        skipCheckOnName
+        skipCheckOnName,
       ) match
         case Nil =>
-          ju.Optional.empty()
+          fallbackToDynamics(path, printer)
         case symbolTpes @ ((symbol, tpe) :: _) =>
           val exprTpw = tpe.widenTermRefExpr.dealias
-          val printerContext =
-            driver.compilationUnits.get(uri) match
-              case Some(unit) =>
-                val newctx =
-                  ctx.fresh.setCompilationUnit(unit)
-                MetalsInteractive.contextOfPath(enclosing)(using newctx)
-              case None => ctx
-          val printer = MetalsPrinter.standard(
-            IndexedContext(printerContext),
-            search,
-            includeDefaultParam = MetalsPrinter.IncludeDefaultParam.Include
-          )
 
           val hoverString =
             tpw match
@@ -116,7 +119,7 @@ object HoverProvider:
                 expressionType,
                 hoverString,
                 docString,
-                forceExpressionType
+                forceExpressionType,
               )
               ju.Optional.of(new Hover(content.toMarkupContent))
             case _ =>
@@ -129,9 +132,38 @@ object HoverProvider:
   extension (pos: SourcePosition)
     private def isPoint: Boolean = pos.start == pos.end
 
+  private def fallbackToDynamics(
+      path: List[Tree],
+      printer: MetalsPrinter,
+  )(using Context): ju.Optional[Hover] = path match
+    case Apply(
+          Select(sel, n),
+          List(Literal(Constant(name: String))),
+        ) :: _ if n == nme.selectDynamic || n == nme.applyDynamic =>
+      def findRefinement(tp: Type): ju.Optional[Hover] =
+        tp match
+          case RefinedType(info, refName, tpe) if name == refName.toString() =>
+            val tpeString =
+              if n == nme.selectDynamic then s": ${printer.tpe(tpe.resultType)}"
+              else printer.tpe(tpe)
+            val content = HoverMarkup(
+              tpeString,
+              s"def $name$tpeString",
+              "",
+            )
+            ju.Optional.of(new Hover(content.toMarkupContent))
+
+          case RefinedType(info, _, _) =>
+            findRefinement(info)
+          case _ => ju.Optional.empty()
+
+      findRefinement(sel.tpe.termSymbol.info)
+    case _ =>
+      ju.Optional.empty()
+
   private def expandRangeToEnclosingApply(
       path: List[Tree],
-      pos: SourcePosition
+      pos: SourcePosition,
   )(using Context): List[Tree] =
     def tryTail(enclosing: List[Tree]): Option[List[Tree]] =
       enclosing match

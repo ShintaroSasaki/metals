@@ -10,6 +10,9 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
+import scala.build.bsp.WrappedSourcesItem
+import scala.build.bsp.WrappedSourcesParams
+import scala.build.bsp.WrappedSourcesResult
 import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContextExecutorService
 import scala.concurrent.Future
@@ -20,6 +23,8 @@ import scala.util.Try
 import scala.meta.internal.builds.MillBuildTool
 import scala.meta.internal.builds.SbtBuildTool
 import scala.meta.internal.metals.MetalsEnrichments._
+import scala.meta.internal.metals.ammonite.Ammonite
+import scala.meta.internal.metals.scalacli.ScalaCli
 import scala.meta.internal.pc.InterruptException
 import scala.meta.internal.semver.SemVer
 import scala.meta.io.AbsolutePath
@@ -41,7 +46,8 @@ class BuildServerConnection private (
     languageClient: LanguageClient,
     reconnectNotification: DismissedNotifications#Notification,
     config: MetalsServerConfig,
-    workspace: AbsolutePath
+    workspace: AbsolutePath,
+    supportsWrappedSources: Boolean,
 )(implicit ec: ExecutionContextExecutorService)
     extends Cancelable {
 
@@ -70,10 +76,14 @@ class BuildServerConnection private (
 
   def isMill: Boolean = name == MillBuildTool.name
 
-  // although hasDebug is already available in BSP capabilities
-  // see https://github.com/build-server-protocol/build-server-protocol/pull/161
-  // most of the bsp servers such as bloop and sbt don't support it.
-  def isBloopOrSbt: Boolean = isBloop || isSbt
+  def isScalaCLI: Boolean = name == ScalaCli.name
+
+  def isAmmonite: Boolean = name == Ammonite.name
+
+  /* Currently only Bloop and sbt support running single test cases
+   * and ScalaCLI uses Bloop underneath.
+   */
+  def supportsTestSelection: Boolean = isBloop || isSbt || isScalaCLI
 
   /* Some users may still use an old version of Bloop that relies on scala-debug-adapter 1.x.
    * This method is used to do the switch between MetalsDebugAdapter1x and MetalsDebugAdapter2x.
@@ -83,7 +93,7 @@ class BuildServerConnection private (
   def usesScalaDebugAdapter2x: Boolean = {
     def supportNewDebugAdapter = SemVer.isCompatibleVersion(
       "1.4.10",
-      version
+      version,
     )
     isSbt || (isBloop && supportNewDebugAdapter)
   }
@@ -118,7 +128,7 @@ class BuildServerConnection private (
         case e: Throwable =>
           scribe.error(
             s"build shutdown: ${conn.displayName}",
-            e
+            e,
           )
       }
     }
@@ -169,12 +179,12 @@ class BuildServerConnection private (
     val resultOnJavacOptionsUnsupported = new JavacOptionsResult(
       List.empty[JavacOptionsItem].asJava
     )
-    if (isSbt) Future.successful(resultOnJavacOptionsUnsupported)
+    if (isSbt || isAmmonite) Future.successful(resultOnJavacOptionsUnsupported)
     else {
       val onFail = Some(
         (
           resultOnJavacOptionsUnsupported,
-          "Java targets not supported by server"
+          "Java targets not supported by server",
         )
       )
       register(server => server.buildTargetJavacOptions(params), onFail).asScala
@@ -215,6 +225,18 @@ class BuildServerConnection private (
       val empty = new InverseSourcesResult(Collections.emptyList)
       Future.successful(empty)
     }
+  }
+
+  def buildTargetWrappedSources(
+      params: WrappedSourcesParams
+  ): Future[WrappedSourcesResult] = {
+    if (supportsWrappedSources)
+      // this calls https://github.com/VirtusLab/scala-cli/blob/6efbefb1d864c0ee36156f9ac8489d0e14ee54c4/modules/scala-cli-bsp/src/main/java/scala/build/bsp/ScalaScriptBuildServer.java#L7-L12
+      register(server => server.buildTargetWrappedSources(params)).asScala
+    else
+      Future.successful(
+        new WrappedSourcesResult(List.empty[WrappedSourcesItem].asJava)
+      )
   }
 
   private val cancelled = new AtomicBoolean(false)
@@ -270,7 +292,7 @@ class BuildServerConnection private (
   }
   private def register[T: ClassTag](
       action: MetalsBuildServer => CompletableFuture[T],
-      onFail: => Option[(T, String)] = None
+      onFail: => Option[(T, String)] = None,
   ): CompletableFuture[T] = {
     val original = connection
     val actionFuture = original
@@ -292,12 +314,12 @@ class BuildServerConnection private (
             if implicitly[ClassTag[T]].runtimeClass.getSimpleName != "Object" =>
           onFail
             .map { case (defaultResult, message) =>
-              scribe.info(message)
+              scribe.info(message, t)
               Future.successful(defaultResult)
             }
             .getOrElse({
               val name = implicitly[ClassTag[T]].runtimeClass.getSimpleName
-              Future.failed(MetalsBspException(name, t.getMessage))
+              Future.failed(new MetalsBspException(name, t))
             })
       }
     CancelTokens.future(_ => actionFuture)
@@ -322,7 +344,8 @@ object BuildServerConnection {
       reconnectNotification: DismissedNotifications#Notification,
       config: MetalsServerConfig,
       serverName: String,
-      retry: Int = 5
+      retry: Int = 5,
+      supportsWrappedSources: Option[Boolean] = None,
   )(implicit
       ec: ExecutionContextExecutorService
   ): Future[BuildServerConnection] = {
@@ -358,7 +381,7 @@ object BuildServerConnection {
           result.getDisplayName(),
           stopListening,
           result.getVersion(),
-          result.getCapabilities()
+          result.getCapabilities(),
         )
       }
     }
@@ -371,7 +394,8 @@ object BuildServerConnection {
           languageClient,
           reconnectNotification,
           config,
-          workspace
+          workspace,
+          supportsWrappedSources.getOrElse(connection.supportsWrappedSources),
         )
       }
       .recoverWith { case e: TimeoutException =>
@@ -385,7 +409,7 @@ object BuildServerConnection {
             reconnectNotification,
             config,
             serverName,
-            retry - 1
+            retry - 1,
           )
         } else {
           Future.failed(e)
@@ -396,7 +420,7 @@ object BuildServerConnection {
   final case class BspExtraBuildParams(
       javaSemanticdbVersion: String,
       semanticdbVersion: String,
-      supportedScalaVersions: java.util.List[String]
+      supportedScalaVersions: java.util.List[String],
   )
 
   /**
@@ -405,12 +429,12 @@ object BuildServerConnection {
   private def initialize(
       workspace: AbsolutePath,
       server: MetalsBuildServer,
-      serverName: String
+      serverName: String,
   ): InitializeBuildResult = {
     val extraParams = BspExtraBuildParams(
       BuildInfo.javaSemanticdbVersion,
       BuildInfo.scalametaVersion,
-      BuildInfo.supportedScala2Versions.asJava
+      BuildInfo.supportedScala2Versions.asJava,
     )
 
     val initializeResult = server.buildInitialize {
@@ -421,7 +445,7 @@ object BuildServerConnection {
         workspace.toURI.toString,
         new BuildClientCapabilities(
           List("scala", "java").asJava
-        )
+        ),
       )
       val gson = new Gson
       val data = gson.toJsonTree(extraParams)
@@ -447,7 +471,7 @@ object BuildServerConnection {
       displayName: String,
       cancelServer: Cancelable,
       version: String,
-      capabilities: BuildServerCapabilities
+      capabilities: BuildServerCapabilities,
   ) {
 
     def cancelables: List[Cancelable] =
@@ -458,6 +482,24 @@ object BuildServerConnection {
     )(implicit ec: ExecutionContext): Unit = {
       socketConnection.finishedPromise.future.foreach(_ => f())
     }
+
+    /**
+     * Whether we can call buildTargetWrappedSources through the BSP connection.
+     *
+     * As much as possible, we try to call buildTargetWrappedSources through BSP only when we know
+     * the build server supports it. Theoretically, we could try to call it, and catch the JSONRPC
+     * error saying that endpoint isn't supported, but some build servers (sbt) don't respond
+     * with an error in such a case, but rather… don't answer, and let the client timeout. Which
+     * makes sbt BSP support unusable here.
+     * We could also add a dedicated field for it in BuildServerCapabilities, but that requires
+     * updating the build server protocol itself, which I'd rather avoid at this point, as this
+     * feature is somewhat experimental.
+     * The only "dynamic" way I could find to advertize that capability is via a language ids
+     * field, so that's what we use here, with that "scala-sc" language.
+     */
+    def supportsWrappedSources: Boolean =
+      capabilities.getCompileProvider.getLanguageIds.asScala
+        .contains("scala-sc")
   }
 }
 
@@ -466,5 +508,5 @@ case class SocketConnection(
     output: ClosableOutputStream,
     input: InputStream,
     cancelables: List[Cancelable],
-    finishedPromise: Promise[Unit]
+    finishedPromise: Promise[Unit],
 )
