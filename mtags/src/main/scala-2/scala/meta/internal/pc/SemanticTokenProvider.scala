@@ -212,19 +212,9 @@ class SemanticTokenProvider  (
   def getIdentNode(t:cp.Tree, tk:scala.meta.tokens.Token):cp.Tree={
 
     def doRecursion():cp.Tree ={
-      var logFlg=false 
-      if (tk.pos.start == 47 && tk.pos.end == 50
-      ){
-        logFlg=true
-      }
-
       if (t.children.size == 0) null
       else {
-        val result = t.children
-          .map(getIdentNode(_,tk))
-          .filterNot(_==null)
-
-        if (logFlg)logger.info("\n\n recursive:" + result.size)
+        val result = t.children.map(getIdentNode(_,tk)).filter(_!=null)
         if (result.size == 0) null else result(0)
       }
     }
@@ -232,33 +222,11 @@ class SemanticTokenProvider  (
     try {
       val wkNamePos = namePos(t)
 
-      if (wkNamePos.start==47 && wkNamePos.end == 50
-        && tk.pos.start == 47 && tk.pos.end == 50
-      ){
-        logger.info("\n\n ******Got It 1 ************ " +
-          t.symbol.name + strSep +  tk.text +
-          // tk.pos.start.toString + "," + tk.pos.end.toString + 
-          "\n\n")
-      }
-
       if (
         wkNamePos.start == tk.pos.start
         && wkNamePos.end == tk.pos.end
         && t.symbol.name.toString == tk.text
-      ) {
-        if (wkNamePos.start==47 && wkNamePos.end == 50
-          && tk.pos.start == 47 && tk.pos.end == 50
-        ){
-          logger.info("\n\n ******Got It 2 ************ " +
-            t.symbol.name + strSep +  tk.text +
-            // tk.pos.start.toString + "," + tk.pos.end.toString + 
-            "\n\n")
-        }
-
-        return t
-      }  /* return */ 
-      
-      else doRecursion()
+      ) t /* return */ else doRecursion()
     }catch{
       // e.g. hasSymbol==false, NoPosition==ture, and so on
       case _:Exception => doRecursion()
@@ -281,8 +249,8 @@ class SemanticTokenProvider  (
          return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident") 
     }
     
-    logString += linSep + linSep  + "Start:Ident Part getSemanticTypeAndMod" 
-    logString += linSep + tk.name
+    logString += linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod" 
+    logString += linSep + "  " + tk.name
     
     //get node from semantic tree
     val node = getIdentNode(root, tk)
@@ -313,6 +281,7 @@ class SemanticTokenProvider  (
     }
 
     if (node.symbol.isAbstract) addPwrToMod(getMid(SemanticTokenModifiers.Abstract))
+    if (keyword(node)==kind.kVal) addPwrToMod(getMid(SemanticTokenModifiers.Readonly))
     //case _: Token.KwFinal =>getMid(SemanticTokenModifiers.Modification)
 
 
@@ -417,23 +386,7 @@ class SemanticTokenProvider  (
 
       } catch { case _ => }
 
-      val keyword = try{
-        import cp._
-        import scala.reflect.internal.ModifierFlags._
-        t match {
-          case TypeDef(_, _, _, _)      => "type"
-          case ClassDef(mods, _, _, _)  => if (mods hasFlag TRAIT) "trait"
-                                              else "class"
-          case DefDef(_, _, _, _, _, _) => "def"
-          case ModuleDef(_, _, _)       => "object"
-          case PackageDef(_, _)         => "package"
-          case ValDef(mods, _, _, _)    => if (mods hasFlag MUTABLE)  "var"
-                                              else "val"
-        }
-      } catch {
-        case e:Exception => e.toString()
-      }
-      ret += strSep + "\n   -> keyword:"+ keyword
+      ret += strSep + "\n   -> keyword:"+ keyword(t).toString()
 
       // recursive
       ret += t.children.map(treeDescriber(_)).mkString("\n")

@@ -9,70 +9,38 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-  // check(
-  //   "sample",
-  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
-  //       |    <<a>>/*parameter*/ + 1
-  //       |   }
-  //       |}""".stripMargin
-  // )
-
+  check(
+    "sample",
+    // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+    s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
+        |    <<a>>/*parameter*/ + 1
+        |   }
+        |}""".stripMargin
+  )
 
   check(
     "Modifiers",
-    s"""|package scala.meta.internal.pc
+    s"""|<<package>>/*keyword*/ scala.meta.internal.pc
         |
-        |abstract class Pet (name: String) {
-        |    def speak: Unit = println(s"My name is $$name")
+        |<<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Pet>>/*class,abstract*/ (<<name>>/*variable,readonly*/<<:>>/*operator*/ String) {
+        |    <<def>>/*keyword*/ <<speak>>/*method*/<<:>>/*operator*/ <<Unit>>/*abstract*/ <<=>>/*operator*/ println(s"My name is $$name")
         |}
         |
-        |final class Dog(name: String) extends Pet(name)
-        |final abstract class Cat(name: String) extends Pet(name)
+        |<<final>>/*keyword*/ <<class>>/*keyword*/ <<Dog>>/*class*/(<<name>>/*variable,readonly*/<<:>>/*operator*/ String) <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
+        |<<final>>/*keyword*/ <<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Cat>>/*class,abstract*/(<<name>>/*variable,readonly*/<<:>>/*operator*/ String) 
+        | <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
         |
-        |object Main{
-        |  val d = new Dog("Fido") // Declaration
-        |  d.speak
-        |  val c = new Dog("Mike") // Declaration
+        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |  <<val>>/*keyword*/ <<d>>/*variable,readonly*/ <<=>>/*operator*/ <<new>>/*keyword*/ Dog("Fido") // Declaration
+        |  <<d>>/*variable,readonly*/.<<speak>>/*method*/
+        |  <<val>>/*keyword*/ <<c>>/*variable*/ <<=>>/*operator*/ <<new>>/*keyword*/ Dog("Mike") // Declaration
+        |}
+        |
         |}
         |
         |}""".stripMargin
   )
-
-
-  // check(
-  //   "sample2",
-  //   s"""|
-  //       |package scala.meta.internal.pc
-  //       |
-  //       |/**
-  //       |  * Test of Abstract
-  //       |  * @param name
-  //       |  */
-  //       |abstract class Pet (name: String) {
-  //       |    def speak: Unit = println(s"My name is $$name")
-  //       |}
-  //       |
-  //       |class Dog(name: String) extends Pet(name)
-  //       |
-  //       |object Main{
-  //       |  val d = new Dog("Fido") // Declaration
-  //       |  d.speak
-  //       |}
-  //       |
-  //       |}""".stripMargin
-  // )
-
-  // check(
-  //   ".sbt file",
-  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/
-  //       |
-  //       |    (<<a>>/*parameter*/ : <<Int>>/*type*/) = <<i>>/*variable*/
-  //       |}""".stripMargin
-  // )
 
   def check(
       name: TestOptions,
