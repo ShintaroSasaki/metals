@@ -1235,9 +1235,9 @@ final class TestingServer(
       for {
         obtainedTokens <- server.semanticTokensFull(params).asScala
       } yield {
-        scribe.info(
-          "\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",")
-        )
+        // scribe.info(
+        //   "\n\n obtainedToken:   " + obtainedTokens.getData.asScala.mkString(",")
+        // )
         val all = obtainedTokens
           .getData()
           .asScala
@@ -1293,9 +1293,9 @@ final class TestingServer(
         val obtained = TextEdits.applyEdits(fileContent, edits)
 
         var strlog = ""
-        strlog += "\n fileContent: \n" + fileContent
-        strlog += "\n obtained: \n" + obtained
-        strlog += "\n expected: \n" + expected
+        strlog += "\n\n ***fileContent*** \n" + fileContent
+        strlog += "\n\n ***obtained*** \n" + obtained
+        strlog += "\n\n ***expected*** \n" + expected
         scribe.info(strlog)
 
         Assertions.assertNoDiff(

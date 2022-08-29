@@ -23,21 +23,21 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
     "Modifiers",
     s"""|<<package>>/*keyword*/ scala.meta.internal.pc
         |
-        |<<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Pet>>/*class,abstract*/ (<<name>>/*variable,readonly*/<<:>>/*operator*/ String) {
-        |    <<def>>/*keyword*/ <<speak>>/*method*/<<:>>/*operator*/ <<Unit>>/*abstract*/ <<=>>/*operator*/ println(s"My name is $$name")
+        |<<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Pet>>/*class,abstract*/ (<<name>>/*variable,readonly*/: String) {
+        |    <<def>>/*keyword*/ <<speak>>/*method*/: <<Unit>>/*abstract*/ = println(s"My name is $$name")
         |}
         |
-        |<<final>>/*keyword*/ <<class>>/*keyword*/ <<Dog>>/*class*/(<<name>>/*variable,readonly*/<<:>>/*operator*/ String) <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
-        |<<final>>/*keyword*/ <<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Cat>>/*class,abstract*/(<<name>>/*variable,readonly*/<<:>>/*operator*/ String) 
+        |<<final>>/*keyword*/ <<class>>/*keyword*/ <<Dog>>/*class*/(<<name>>/*variable,readonly*/: <<String>>>>/*class*/) <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
+        |<<final>>/*keyword*/ <<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Cat>>/*class,abstract*/(<<name>>/*variable,readonly*/: <<String>>>>/*class*/) 
         | <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
         |
         |<<object>>/*keyword*/ <<Main>>/*class*/{
-        |  <<val>>/*keyword*/ <<d>>/*variable,readonly*/ <<=>>/*operator*/ <<new>>/*keyword*/ Dog("Fido") // Declaration
+        |  <<val>>/*keyword*/ <<d>>/*variable,readonly*/ = <<new>>/*keyword*/ Dog("Fido") // Declaration
         |  <<d>>/*variable,readonly*/.<<speak>>/*method*/
-        |  <<val>>/*keyword*/ <<c>>/*variable*/ <<=>>/*operator*/ <<new>>/*keyword*/ Dog("Mike") // Declaration
+        |  <<val>>/*keyword*/ <<c>>/*variable,readonly*/ = <<new>>/*keyword*/ Dog("Mike") // Declaration
         |}
         |
-        |}
+        |
         |
         |}""".stripMargin
   )
@@ -47,7 +47,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
       expected: String
   ) = {
     val fileContent =
-      expected.replaceAll(raw"/\*\w+\*/", "").replaceAll(raw"\<\<|\>\>", "")
+      expected.replaceAll(raw"/\*[\w,]+\*/", "").replaceAll(raw"\<\<|\>\>", "")
     test(name) {
       for {
         // potentially we could derive input from

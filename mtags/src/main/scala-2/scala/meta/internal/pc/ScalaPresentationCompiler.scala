@@ -36,6 +36,13 @@ import org.eclipse.lsp4j.Hover
 import org.eclipse.lsp4j.SelectionRange
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextEdit
+import org.eclipse.lsp4j.SignatureHelpTriggerKind
+import com.google.protobuf.struct.NullValue
+import scala.annotation.tailrec
+import scala.meta.pc.SymbolDocumentation
+import org.eclipse.lsp4j.SemanticTokenTypes
+
+import scala.meta._
 
 case class ScalaPresentationCompiler(
     buildTargetIdentifier: String = "",

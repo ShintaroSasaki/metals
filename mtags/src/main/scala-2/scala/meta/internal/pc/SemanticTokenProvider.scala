@@ -174,15 +174,15 @@ class SemanticTokenProvider  (
 
       // extends Symbolic keywords
       case _: Token.Hash => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.Colon => getTid(SemanticTokenTypes.Operator)
+      // case _: Token.Colon => getTid(SemanticTokenTypes.Operator)
       case _: Token.Viewbound =>getTid(SemanticTokenTypes.Operator)
       case _: Token.LeftArrow =>getTid(SemanticTokenTypes.Operator)
       case _: Token.Subtype => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.Equals => getTid(SemanticTokenTypes.Operator)
+      // case _: Token.Equals => getTid(SemanticTokenTypes.Operator)
       case _: Token.RightArrow =>getTid(SemanticTokenTypes.Operator)
       case _: Token.Supertype =>getTid(SemanticTokenTypes.Keyword)
       case _: Token.At => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.Underscore =>getTid(SemanticTokenTypes.Keyword)
+      // case _: Token.Underscore =>getTid(SemanticTokenTypes.Keyword)
       case _: Token.TypeLambdaArrow =>getTid(SemanticTokenTypes.Operator)
       case _: Token.ContextArrow =>getTid(SemanticTokenTypes.Operator)
       // case _ :Token.MacroQuote =>
@@ -234,7 +234,6 @@ class SemanticTokenProvider  (
 
   }
 
-  /** This function returns 0 when capableModifier is nothing. */
   /**
     * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
     */
@@ -282,8 +281,6 @@ class SemanticTokenProvider  (
 
     if (node.symbol.isAbstract) addPwrToMod(getMid(SemanticTokenModifiers.Abstract))
     if (keyword(node)==kind.kVal) addPwrToMod(getMid(SemanticTokenModifiers.Readonly))
-    //case _: Token.KwFinal =>getMid(SemanticTokenModifiers.Modification)
-
 
     //return
     return (typ,mod,logString) 
