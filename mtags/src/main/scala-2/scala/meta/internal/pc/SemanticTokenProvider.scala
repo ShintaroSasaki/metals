@@ -10,6 +10,8 @@ import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
 import org.scalameta.adt.none
+import scala.meta.internal.semanticdb.SymbolInformation
+import com.sourcegraph.semanticdb_javac.Semanticdb.Tree
 
 
 /**
@@ -45,6 +47,9 @@ class SemanticTokenProvider  (
   /** main method  */
   def provide(): ju.List[Integer] =  {
 
+    logger.info(linSep + linSep + params.text() + linSep)
+    pprint.log(root)
+
     var logString = linSep + params.text()
     logger.info(treeDescriber(root) + linSep)
 
@@ -58,8 +63,10 @@ class SemanticTokenProvider  (
 
     for (tk <- params.text().tokenize.toOption.get) yield {
 
-      if (tk.getClass.toString.substring(29)!="$Space"){
-        logString += tokenDescrier(tk)
+      if (tk.getClass.toString.substring(29)!="$Space"
+      && tk.getClass.toString.substring(29)!="$LF"
+      ){
+        logString += tokenDescriber(tk)
       }
 
       tk match {
@@ -75,9 +82,9 @@ class SemanticTokenProvider  (
           // val tokeModifier = getTokenModifier(tk)
           val (tokenType, tokeModifier,wkLog) = getSemanticTypeAndMod(tk)
 
-          logString ++= strSep + "tokenType : " + tokenType.toString()
-          logString ++= strSep + "tokMeodifier : " + tokeModifier.toString()
-          logString ++= wkLog
+          // logString ++= strSep + "tokenType : " + tokenType.toString()
+          // logString ++= strSep + "tokMeodifier : " + tokeModifier.toString()
+          // logString ++= wkLog
 
           //Building Semantic Token
           if (tokenType == -1 && tokeModifier == 0) {
@@ -205,6 +212,8 @@ class SemanticTokenProvider  (
 
   }
 
+
+  
   /**
     * get node which corresponds to @param tk from @param t 
     * # @param tk is assumed as Identifier
@@ -234,6 +243,135 @@ class SemanticTokenProvider  (
 
   }
 
+  def getIdentNodeList(t:cp.Tree, tk:scala.meta.tokens.Token):List[cp.Tree]={
+
+    def doRecursion():List[cp.Tree] ={
+      if (t.children.size == 0) null
+      else {
+        t.children.map(getIdentNodeList(_,tk))
+        .filter(_!=null)
+        .flatten
+        // if (result.size == 0) null else result
+      }
+    }
+
+    try {
+      val wkNamePos = namePos(t)
+
+      if (
+        wkNamePos.start == tk.pos.start
+        && wkNamePos.end == tk.pos.end
+        && t.symbol.name.toString == tk.text
+      ) List(t) /* return */ else doRecursion()
+    }catch{
+      // e.g. hasSymbol==false, NoPosition==ture, and so on
+      case _:Exception => doRecursion()
+    }
+
+  }
+        def traverse(
+            highlights: Set[cp.Tree],
+            tree: Tree
+        ): Set[cp.Tree] = {
+          tree match {
+            /**
+             * All indentifiers such as:
+             * val a = <<b>>
+             */
+            case ident: cp.Ident if sought(ident.symbol) && ident.pos.isRange =>
+              highlights + new DocumentHighlight(
+                ident.pos.toLSP,
+                DocumentHighlightKind.Read
+              )
+            /**
+             * Needed for type trees such as:
+             * type A = [<<b>>]
+             */
+            case tpe: TypeTree
+                if tpe.original != null && sought(tpe.original.symbol) &&
+                  tpe.pos.isRange =>
+              highlights + new DocumentHighlight(
+                typePos(tpe).toLSP,
+                DocumentHighlightKind.Read
+              )
+            /**
+             * All select statements such as:
+             * val a = hello.<<b>>
+             */
+            case sel: Select if sought(sel.symbol) && sel.pos.isRange =>
+              traverse(
+                highlights + new DocumentHighlight(
+                  sel.namePos.toLSP,
+                  DocumentHighlightKind.Read
+                ),
+                sel.qualifier
+              )
+            /* all definitions:
+             * def <<foo>> = ???
+             * class <<Foo>> = ???
+             * etc.
+             */
+            case df: Tree.MemberDef
+                if sought(
+                  df.symbol
+                ) && df.pos.isRange =>
+              (annotationChildren(df) ++ df.children).foldLeft(
+                highlights + new DocumentHighlight(
+                  df.namePos.toLSP,
+                  DocumentHighlightKind.Write
+                )
+              )(traverse(_, _))
+            /* Named parameters, since they don't show up in typed tree:
+             * foo(<<name>> = "abc")
+             * User(<<name>> = "abc")
+             * etc.
+             */
+            case appl: Apply
+                if owners(appl.symbol) || owners(appl.symbol.owner) =>
+              val named = appl.args
+                .flatMap { arg =>
+                  namedArgCache.get(arg.pos.start)
+                }
+                .collectFirst {
+                  case AssignOrNamedArg(i @ Ident(name), _)
+                      if (sought.exists(sym => sym.name == name)) =>
+                    new DocumentHighlight(
+                      i.pos.toLSP,
+                      DocumentHighlightKind.Read
+                    )
+                }
+              tree.children.foldLeft(highlights ++ named)(traverse(_, _))
+
+            /**
+             * We don't automatically traverser types like:
+             * val opt: Option[<<String>>] =
+             */
+            case tpe: TypeTree if tpe.original != null =>
+              tpe.original.children.foldLeft(highlights)(traverse(_, _))
+            /**
+             * Some type trees don't have symbols attached such as:
+             * type A = List[_ <: <<Iterable>>[Int]]
+             */
+            case id: Ident
+                if id.symbol == NoSymbol && soughtNames.exists(_ == id.name) =>
+              fallbackSymbol(id.name, id.pos) match {
+                case Some(sym) if sought(sym) =>
+                  highlights + new DocumentHighlight(
+                    id.pos.toLSP,
+                    DocumentHighlightKind.Read
+                  )
+                case _ => highlights
+              }
+
+            case df: MemberDef =>
+              (tree.children ++ annotationChildren(df))
+                .foldLeft(highlights)(traverse(_, _))
+            case _ =>
+              tree.children.foldLeft(highlights)(traverse(_, _))
+          }
+        }
+        val all = traverse(Set.empty[cp.Tree], unit.lastBody)
+
   /**
     * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
     */
@@ -259,19 +397,36 @@ class SemanticTokenProvider  (
     logString += linSep + "  ** Keyword:" +keyword(node)
 
     //get type
-    val typ = 
-      if (node.symbol.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
-      else keyword(node) match {
-          case kind.kType => getTid(SemanticTokenTypes.Type)
-          case kind.KClass => getTid(SemanticTokenTypes.Class)
-          case kind.kTrait => getTid(SemanticTokenTypes.Interface)
-          case kind.kObject =>  getTid(SemanticTokenTypes.Class)
-          case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
+    val sym = node.symbol
+    val typ =  if (sym.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
+      // else if  (node.symbol.isMethod ) getTid(SemanticTokenTypes.Method)
+      else node.symbol.keyString match {
+          case kind.kDef => getTid(SemanticTokenTypes.Method)
+              // if (sym.isGetter || sym.isSetter ) getTid(SemanticTokenTypes.Variable)
+              // else getTid(SemanticTokenTypes.Method)
+
           case kind.kVal => getTid(SemanticTokenTypes.Variable)
           case kind.kVar => getTid(SemanticTokenTypes.Variable)
-          case kind.kDef => getTid(SemanticTokenTypes.Method)
+          case kind.KClass => getTid(SemanticTokenTypes.Class)
+          case kind.kType => getTid(SemanticTokenTypes.Type)
+          case kind.kTrait => getTid(SemanticTokenTypes.Interface)
+          case kind.kObject =>  getTid(SemanticTokenTypes.Class) // treat object as class
+          case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
           case _ => -1
       }         
+
+      // if (node.symbol.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
+      // else keyword(node) match {
+      //     case kind.kType => getTid(SemanticTokenTypes.Type)
+      //     case kind.KClass => getTid(SemanticTokenTypes.Class)
+      //     case kind.kTrait => getTid(SemanticTokenTypes.Interface)
+      //     case kind.kObject =>  getTid(SemanticTokenTypes.Class)
+      //     case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
+      //     case kind.kVal => getTid(SemanticTokenTypes.Variable)
+      //     case kind.kVar => getTid(SemanticTokenTypes.Variable)
+      //     case kind.kDef => getTid(SemanticTokenTypes.Method)
+      //     case _ => -1
+      // }         
 
     //get moodifier
     var mod:Int = 0
@@ -280,7 +435,8 @@ class SemanticTokenProvider  (
     }
 
     if (node.symbol.isAbstract) addPwrToMod(getMid(SemanticTokenModifiers.Abstract))
-    if (keyword(node)==kind.kVal) addPwrToMod(getMid(SemanticTokenModifiers.Readonly))
+    if (node.symbol.keyString==kind.kVal) addPwrToMod(
+          getMid(SemanticTokenModifiers.Readonly))
 
     //return
     return (typ,mod,logString) 
@@ -311,13 +467,18 @@ class SemanticTokenProvider  (
   }
 
   import cp._
-  import scala.reflect.internal.ModifierFlags._
+  // import scala.reflect.internal.ModifierFlags._
+  import scala.reflect.internal.Flags._
   private def keyword(t:cp.Tree):String = {
     t match {
       case TypeDef(_, _, _, _)      => kind.kType
       case ClassDef(mods, _, _, _)  => if (mods hasFlag TRAIT) kind.kTrait
                                           else kind.KClass
-      case DefDef(_, _, _, _, _, _) => kind.kDef
+      case DefDef(mods, _, _, _, _, _) => 
+            if (mods hasFlag METHOD) kind.kDef
+            else if  (mods hasFlag MUTABLE)  kind.kVar
+            else  kind.kVal
+            
       case ModuleDef(_, _, _)       => kind.kObject
       case PackageDef(_, _)         => kind.kPackage
       case ValDef(mods, _, _, _)    => if (mods hasFlag MUTABLE)  kind.kVar
@@ -331,69 +492,115 @@ class SemanticTokenProvider  (
 
   var counter = 0
   /** makes string to logging tree construction. */
-  def treeDescriber(t: cp.Tree): String = {
+  def treeDescriber(t: cp.Tree, doRecurse:Boolean=true): String = {
+      if (t == null)return  "  " + "Null Tree"
+    //  t match {
+    //   case _:Ident|_:Select|_:MemberDef|_:DefTree => //continue 
+    //   case _ => return ""
+    //  }
+
+      // if(!t.hasSymbolField)return "" 
+
       var ret = ""
-      if (counter == 0) ret += "\nNodesNum: " + t.id.toString
+      if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
 
       counter += 1
-      ret += linSep + ("000" + counter.toString()).takeRight(3) + "  "
+      ret += linSep +linSep + "  " + ("000" + counter.toString()).takeRight(3) + "  "
 
       //Position
       try {
-          ret += "pos(stt,end,point):(" + t.pos.start.toString() + strSep + t.pos.end.toString()
-          ret += strSep + t.pos.point.toString()
-          ret += ")"
+          // ret += "pos(stt,end,point):(" + t.pos.start.toString() + strSep + t.pos.end.toString()
+          // ret += strSep + t.pos.point.toString()
+          // ret += ")"
           val wkNamePos= namePos(t)
-          ret += strSep + "namePos:(" + wkNamePos.start.toString()
+          // ret += strSep
+          ret += "namePos:(" + wkNamePos.start.toString()
           // ret += "," + t.symbol.fullName.length()
           ret += "," + wkNamePos.end.toString() +")"
       } catch { case _ => }
-      ret += strSep + "Childs:" + t.children.size.toString()
+      // ret += strSep + "Childs:" + t.children.size.toString()
+      // ret += strSep + "smry:" + t.summaryString.toString()
 
-      ret += strSep + "smry:" + t.summaryString.toString()
+      // val wkStr = t match {
+      //   case cp.Literal(const)     => "Liter"
+      //   case cp.Ident(name)        => "Ident"
+      //   case cp.Select(qual, name) => "Select(%s, %s)".format(qual.summaryString, name.decode)
+      //   case t: cp.NameTree        => "NameTree"
+      //   case t                  => "ShrtClass " +
+      //     t.shortClass + (
+      //       if (t.symbol != null && t.symbol != cp.NoSymbol)
+      //         "(" + t.symbol + ")"
+      //       else ""
+      //     )
 
-      val wkStr = t match {
-        case cp.Literal(const)     => "Liter"
-        case cp.Ident(name)        => "Ident"
-        case cp.Select(qual, name) => "Select(%s, %s)".format(qual.summaryString, name.decode)
-        case t: cp.NameTree        => "NameTree"
-        case t                  => "ShrtClass " +
-          t.shortClass + (
-            if (t.symbol != null && t.symbol != cp.NoSymbol)
-              "(" + t.symbol + ")"
-            else ""
-          )
+      //   }
+      // ret += strSep + "Extracted:" + wkStr
+      ret += strSep + "\n   -> TreeCls : " + t.getClass.getName.substring(29)
 
-        }
-      ret += strSep + "Extracted:" + wkStr
-      ret += strSep + "\n   -> TreeCls : " + t.getClass.getName
 
       //symbol
       try {
         val sym = t.symbol
-        ret += strSep + "sym:" + sym.toString()
-        ret += strSep + "isClass:" + sym.isClass.toString()
+
+        def SymtoStrtype: String = {
+          import sym._
+          val simplifyNames = !settings.isDebug
+          if (isPackageObjectOrClass && simplifyNames) "1 - " // s"package object ${owner.decodedName}"
+          else {
+            val kind = kindString
+            val _name: String =
+              if (hasMeaninglessName) "2 - " //owner.decodedName + idString
+              else if (simplifyNames && (kind == "variable" || kind == "value")) 
+                "3 - " // unexpandedName.getterName.decode.toString // TODO: make condition less gross?
+              else "4 - " // nameString
+
+            //kind + " " + _name
+            _name
+          }
+        }
+        ret += strSep + " -> symtoStr:" + SymtoStrtype + sym.toString
+        ret += strSep + "  keyStr:" + sym.keyString
+
+        // symKd = sym.symbolKind match {
+        //   case  kd :SymbolKind(accurate, _, _)  => accurate
+        //   case _=>""
+        // }
+        ret += strSep + " SymKnd:" + sym.accurateKindString
         if (sym.isClass){
-          ret += strSep + "\n   -> fullnm:" + sym.fullName
+          // ret += strSep + "\n   -> fullnm:" + sym.fullName
           ret += strSep + "\n   -> name : " + sym.nameString
           // ret += strSep + "keyStr:" + sym.keyString
           // ret += strSep + "isTerm:" + t.isTerm.toString()
-          ret += strSep + "\n   -> SymCls : " + sym.getClass.getName
+          ret += strSep + "\n   -> SymCls : " + sym.getClass.getName.substring(31)
           }
 
-      } catch { case _ => }
+      } catch { case _ => return ""}
 
-      ret += strSep + "\n   -> keyword:"+ keyword(t).toString()
+
+     val wkTreeType  = t match {
+            case _:Ident => "Ident"
+            case _:Select => "Select"
+            case _:MemberDef => "MemberDef " + keyword(t).toString()
+            case _:DefTree => "DefTree" //continue 
+            case _:ValDef => "ValDef" //continue 
+            case _:Assign => "Assign" //continue 
+            case appl: Apply => "Assign" //continue 
+            case _ => ""
+          }
+      ret += strSep + ", TreeType:" + wkTreeType
+      // ret += strSep + "\n   -> keyword:"+ keyword(t).toString()
 
       // recursive
-      ret += t.children.map(treeDescriber(_)).mkString("\n")
+      if (doRecurse) ret += t.children
+        .map(treeDescriber(_,true)).mkString("\n")
 
       // end
-      ret
+      ret + linSep
 
   }
 
-  def tokenDescrier(tk:scala.meta.tokens.Token): String={
+  def tokenDescriber(tk:scala.meta.tokens.Token): String={
+    
     var logString = ""
     logString += linSep
 
@@ -401,8 +608,12 @@ class SemanticTokenProvider  (
     logString += strSep + "text: " + tk.text.toString()
     logString += strSep + "stt,end:(" + tk.pos.start.toString
     logString += strSep  + tk.pos.end.toString + ")"
-    logString += strSep + "sttLn: " + tk.pos.startLine.toString
-    logString += strSep + "endLn: " + tk.pos.endLine.toString
+    logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
+    logString += "," + tk.pos.endLine.toString +")"
+
+    counter=0
+    logString +=getIdentNodeList(root,tk).map(treeDescriber(_,false)).mkString("")
+    // logString +=treeDescriber(getIdentNode(root,tk))
 
     logString
   }
