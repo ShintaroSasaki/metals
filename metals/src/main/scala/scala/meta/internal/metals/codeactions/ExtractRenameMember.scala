@@ -16,6 +16,7 @@ import scala.meta.Tree
 import scala.meta.Type
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals._
+import scala.meta.internal.metals.codeactions.CodeAction
 import scala.meta.internal.metals.codeactions.ExtractRenameMember.CodeActionCommandNotFoundException
 import scala.meta.internal.metals.codeactions.ExtractRenameMember.getMemberType
 import scala.meta.internal.parsing.Trees
@@ -47,7 +48,7 @@ class ExtractRenameMember(
         val definitions = membersDefinitions(tree)
         val sealedNames: List[String] = getSealedNames(tree)
         val defnAtCursor =
-          definitions.find(_.member.name.pos.toLSP.overlapsWith(range))
+          definitions.find(_.member.name.pos.toLsp.overlapsWith(range))
 
         def canRenameDefn(defn: Member): Boolean = {
           val differentNames = defn.name.value != fileName
@@ -195,7 +196,7 @@ class ExtractRenameMember(
     // Using a custom traverser to avoid hitting inner classes by stopping the recursion on the chosen members
     object traverser extends SimpleTraverser {
       override def apply(tree: Tree): Unit = tree match {
-        case p: Pkg if p.pos.toLSP.overlapsWith(range) =>
+        case p: Pkg if p.pos.toLsp.overlapsWith(range) =>
           packages += Pkg(ref = p.ref, stats = Nil)
           super.apply(p)
         case i: Import =>
@@ -290,16 +291,11 @@ class ExtractRenameMember(
       Right(new l.RenameFile(uri, newUri))
     )
 
-    val codeAction = new l.CodeAction()
-    codeAction.setTitle(
-      ExtractRenameMember.renameFileAsClassTitle(fileName, className)
+    CodeActionBuilder.build(
+      title = ExtractRenameMember.renameFileAsClassTitle(fileName, className),
+      kind = l.CodeActionKind.Refactor,
+      documentChanges = edits,
     )
-    codeAction.setKind(l.CodeActionKind.Refactor)
-    codeAction.setEdit(
-      new l.WorkspaceEdit(edits.map(_.asJava).asJava)
-    )
-
-    codeAction
   }
 
   private def extractClassAction(
@@ -307,22 +303,21 @@ class ExtractRenameMember(
       member: Member,
       title: String,
   ): l.CodeAction = {
+    val range = member.name.pos.toLsp
 
-    val range = member.name.pos.toLSP
-
-    val codeAction = new l.CodeAction()
-    codeAction.setTitle(title)
-    codeAction.setKind(l.CodeActionKind.RefactorExtract)
-    codeAction.setCommand(
-      ServerCommands.ExtractMemberDefinition.toLSP(
+    val command =
+      ServerCommands.ExtractMemberDefinition.toLsp(
         new l.TextDocumentPositionParams(
           new l.TextDocumentIdentifier(uri),
           range.getStart(),
         )
       )
-    )
 
-    codeAction
+    CodeActionBuilder.build(
+      title,
+      kind = l.CodeActionKind.RefactorExtract,
+      command = Some(command),
+    )
   }
 
   def executeCommand(
@@ -353,7 +348,7 @@ class ExtractRenameMember(
       tree <- trees.get(path)
       definitions = membersDefinitions(tree)
       memberDefn <- definitions.find(
-        _.member.name.pos.toLSP.overlapsWith(range)
+        _.member.name.pos.toLsp.overlapsWith(range)
       )
       companion = definitions.find(isCompanion(memberDefn.member))
       (fileContent, defnLine) = newFileContent(
@@ -410,7 +405,7 @@ class ExtractRenameMember(
     newPath.writeText(content)
 
     def removeTreeEdits(t: Tree): List[l.TextEdit] =
-      List(new l.TextEdit(t.pos.toLSP, ""))
+      List(new l.TextEdit(t.pos.toLsp, ""))
 
     val packageEdit = endableMember.member.parent
       .flatMap {

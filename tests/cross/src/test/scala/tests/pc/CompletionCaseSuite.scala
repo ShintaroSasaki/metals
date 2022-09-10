@@ -7,9 +7,6 @@ import tests.BaseCompletionSuite
 
 class CompletionCaseSuite extends BaseCompletionSuite {
 
-  override def ignoreScalaVersion: Option[IgnoreScalaVersion] =
-    Some(IgnoreScala3)
-
   def paramHint: Option[String] = Some("param-hint")
 
   override def config: PresentationCompilerConfig =
@@ -66,6 +63,18 @@ class CompletionCaseSuite extends BaseCompletionSuite {
        |case HasWings(e) => pkg
        |case Seal => pkg
        |""".stripMargin,
+    compat = Map(
+      "3" -> """|case _: Animal => pkg
+                |case Bird(name) => pkg
+                |case _: Cat => pkg
+                |case _: Dog => pkg
+                |case Elephant => pkg
+                |case _: HasFeet[_, _] => pkg
+                |case _: HasMouth[_] => pkg
+                |case HasWings(e) => pkg
+                |case Seal => pkg
+                |""".stripMargin
+    ),
   )
 
   check(
@@ -155,10 +164,12 @@ class CompletionCaseSuite extends BaseCompletionSuite {
        |""".stripMargin,
     compat = Map(
       // known-direct subclasses doesn't work well in 2.11 apparently.
-      "2.11" -> ""
+      "2.11" -> "",
+      "3" -> "case Cls(a, b) => sealed-two.Outer",
     ),
   )
 
+  // TODO: `Left` has conflicting name in Scope, we should fix it so the result is the same as for scala 2
   check(
     "sealed-conflict",
     """
@@ -172,6 +183,12 @@ class CompletionCaseSuite extends BaseCompletionSuite {
     """|case scala.util.Left(value) =>
        |case Right(value) => scala.util
        |""".stripMargin,
+    compat = Map(
+      "3" ->
+        """|case Left(value) => scala.util
+           |case Right(value) => scala.util
+           |""".stripMargin
+    ),
   )
 
   checkEdit(
@@ -365,12 +382,12 @@ class CompletionCaseSuite extends BaseCompletionSuite {
       |    cas@@
       |  }
       |}""".stripMargin,
-    """|case head :: tl => scala.collection.immutable
+    """|case head :: next => scala.collection.immutable
        |case Nil => scala.collection.immutable
        |""".stripMargin,
     compat = Map(
-      "2.13" ->
-        """|case head :: next => scala.collection.immutable
+      "2.12" ->
+        """|case head :: tl => scala.collection.immutable
            |case Nil => scala.collection.immutable
            |""".stripMargin
     ),
@@ -410,6 +427,9 @@ class CompletionCaseSuite extends BaseCompletionSuite {
       |""".stripMargin,
     "f = : ((Int, Int)) => B",
     topLines = Some(1),
+    compat = Map(
+      "3" -> "f = : A => B"
+    ),
   )
 
   checkEditLine(
@@ -462,6 +482,56 @@ class CompletionCaseSuite extends BaseCompletionSuite {
     "cas@@",
     // Assert we don't use infix syntax because `::` resolves to conflicting symbol in scope.
     "case Outer.::(a, b) => $0",
+  )
+  check(
+    "scala-enum".tag(IgnoreScala2),
+    """
+      |package example
+      |enum Color:
+      |  case Red, Blue, Green
+      |
+      |object Main {
+      |  val x: Color = ???
+      |  x match
+      |    case@@
+      |}""".stripMargin,
+    """|case Blue =>Color
+       |case Green =>Color
+       |case Red =>Color
+       |""".stripMargin,
+  )
+
+  check(
+    "scala-enum-with-param".tag(IgnoreScala2),
+    """
+      |package example
+      |enum Foo:
+      |  case Bla, Bar
+      |  case Buzz(arg1: Int, arg2: Int)
+      |
+      |object Main {
+      |  val x: Foo = ???
+      |  x match
+      |    case@@
+      |}""".stripMargin,
+    """|case Bar =>Foo
+       |case Bla =>Foo
+       |case Buzz(arg1, arg2) => example.Foo
+       |""".stripMargin,
+  )
+
+  check(
+    "single-case-class".tag(IgnoreScala2),
+    """
+      |package example
+      |case class Foo(a: Int, b: Int)
+      |
+      |object A {
+      |  
+      |  List(Foo(1,2)).map{ cas@@ }
+      |}""".stripMargin,
+    """|case Foo(a, b) => example
+       |""".stripMargin,
   )
 
 }

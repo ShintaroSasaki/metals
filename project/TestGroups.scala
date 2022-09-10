@@ -43,7 +43,9 @@ object TestGroups {
       "tests.codeactions.CompanionObjectSuite",
       "tests.codeactions.FlatMapToForComprehensionSuite",
       "tests.MtagsScala2Suite", "tests.UriEncoderDecoderSuite",
-      "tests.DidFocusWhileCompilingLspSuite", "tests.BloopJavaHomeLspSuite"),
+      "tests.DidFocusWhileCompilingLspSuite", "tests.BloopJavaHomeLspSuite",
+      "tests.testProvider.ScalatestFinderSuite", "tests.ScalaCliSuite",
+      "tests.FoldingRangeScala3LineFolingOnlySuite"),
     Set("tests.AmmoniteSuite", "tests.debug.BreakpointDapSuite",
       "tests.OnTypeFormattingSuite", "tests.ReferenceLspSuite",
       "tests.SuperMethodLspSuite", "tests.SyntaxErrorLspSuite",
@@ -96,10 +98,12 @@ object TestGroups {
       "tests.classFinder.ClassNameResolverSuite", "tests.JavaDefinitionSuite",
       "tests.IdentifierComparatorSuite", "tests.parsing.JavaEditDistanceSuite",
       "tests.PathTrieSuite", "tests.scalafix.ScalafixProviderLspSuite",
+      "tests.SemanticHighlightLspSuite",
       "tests.MtagsScala3Suite",
       "tests.codeactions.ConvertToNamedArgumentsLspSuite",
-      "tests.testProvider.TestSuitesProviderSuite", "tests.MillVersionSuite"),
-    Set("tests.SemanticHighlightLspSuite")
+      "tests.testProvider.TestSuitesProviderSuite", "tests.MillVersionSuite",
+      "tests.FingerprintsLspSuite", "tests.JdkVersionSuite"),
+
   )
 
 }

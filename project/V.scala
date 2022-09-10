@@ -5,14 +5,14 @@ object V {
   val scala211 = "2.11.12"
   val scala212 = "2.12.16"
   val scala213 = "2.13.8"
-  val scala3 = "3.1.3"
-  val nextScala3RC = "3.2.0-RC4"
+  val scala3 = "3.2.0"
+  val nextScala3RC = "3.2.1-RC1"
   val sbtScala = "2.12.14"
   val ammonite212Version = "2.12.16"
   val ammonite213Version = "2.13.8"
   val ammonite3Version = "3.1.3"
 
-  val ammonite = "2.5.4-13-1ebd00a6"
+  val ammonite = "2.5.4-22-4a9e6989"
   val betterMonadicFor = "0.3.1"
   val bloop = "1.5.3-28-373a64c9"
   val bloopNightly = bloop
@@ -24,24 +24,24 @@ object V {
   val gradleBloop = bloop
   val java8Compat = "1.0.2"
   val javaSemanticdb = "0.7.4"
-  val jsoup = "1.15.2"
+  val jsoup = "1.15.3"
   val kindProjector = "0.13.2"
   val lsp4jV = "0.15.0"
   val mavenBloop = bloop
-  val mill = "0.10.5"
+  val mill = "0.10.7"
   val mdoc = "2.3.3"
   val munit = "1.0.0-M6"
   val organizeImportRule = "0.6.0"
   val pprint = "0.7.3"
   val sbtBloop = bloop
   val sbtJdiTools = "1.1.1"
-  val scalaCli = "0.1.11"
+  val scalaCli = "0.1.12"
   val scalafix = "0.10.1"
   val scalafmt = "3.5.3"
-  val scalameta = "4.5.11"
-  val scribe = "3.10.2"
+  val scalameta = "4.5.13"
+  val scribe = "3.10.3"
   val semanticdb = scalameta
-  val qdox = "2.0.1"
+  val qdox = "2.0.2"
 
   val guava = "com.google.guava" % "guava" % "31.1-jre"
   val lsp4j = "org.eclipse.lsp4j" % "org.eclipse.lsp4j" % lsp4jV
@@ -94,9 +94,9 @@ object V {
 
   // Scala 3
   def nonDeprecatedScala3Versions =
-    Seq(nextScala3RC, scala3, "3.1.2", "3.1.1", "3.1.0")
+    Seq(nextScala3RC, scala3, "3.1.3", "3.1.2", "3.1.1")
   def deprecatedScala3Versions =
-    Seq("3.2.0-RC3", "3.2.0-RC2", "3.2.0-RC1", "3.0.2", "3.0.1", "3.0.0")
+    Seq("3.2.0-RC4", "3.2.0-RC3", "3.1.0", "3.0.2", "3.0.1", "3.0.0")
   def scala3Versions = nonDeprecatedScala3Versions ++ deprecatedScala3Versions
 
   lazy val nightlyScala3DottyVersions = {
@@ -123,7 +123,6 @@ object V {
       scala213,
       ammonite213Version,
       scala3,
-      nextScala3RC,
       ammonite3Version,
     ).toList
 }
