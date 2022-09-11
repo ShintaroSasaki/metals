@@ -9,11 +9,7 @@ import scala.meta.internal.jdk.CollectionConverters._
 import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
-import org.scalameta.adt.none
-import scala.meta.internal.semanticdb.SymbolInformation
-// import com.sourcegraph.semanticdb_javac.Semanticdb.Tree
 import scala.reflect.internal.util.SourceFile
-// import javax.swing.text.Position
 
 
 /**
@@ -26,16 +22,14 @@ class SemanticTokenProvider  (
   , val capableModifiers: util.List[String]
 )  {
 
-  // logging parameter
   val logger = Logger.getLogger(classOf[This].getName)
   val strSep = ", "
   val linSep = "\n"
 
-
   import cp._
 
   // initialize semantic tree
-  val (root:cp.Tree, source:SourceFile )={   
+  val (root:cp.Tree, source:SourceFile )={
       val unit = cp.addCompilationUnit(
         params.text(),
         params.uri().toString(),
@@ -45,16 +39,16 @@ class SemanticTokenProvider  (
 
       ( unit.lastBody,
         unit.source
-        
       )
   }
 
-      // val all = 
-  // val  nodes:Set[NodeInfo] = //traverser.traverse(Set.empty[NodeInfo], root)
+  //     // val all =
+  var nodes:Set[NodeInfo]=null //=traverser.traverse(
+  //   Set.empty[NodeInfo], root)
 
   // alias for long notation
-  def getTid(p:String):Int = capableTypes.indexOf(p) 
-  def getMid(p:String):Int = capableModifiers.indexOf(p) 
+  def getTid(p:String):Int = capableTypes.indexOf(p)
+  def getMid(p:String):Int = capableModifiers.indexOf(p)
 
 
   /** main method  */
@@ -65,6 +59,10 @@ class SemanticTokenProvider  (
 
     var logString = linSep + params.text()
     logger.info(treeDescriber(root) + linSep)
+
+    nodes=traverser.traverse(
+    Set.empty[NodeInfo], root)
+
 
     // Loop by token
     import scala.meta._
@@ -130,6 +128,10 @@ class SemanticTokenProvider  (
         } // end match
 
       } // end for
+      logString += "\n\n nodes:" + nodes.size.toString()
+      logString += nodes.toArray.sortBy(_.pos.start)
+                    .map(n=>treeDescriber(n.tree,false))
+                    .mkString("")
 
       this.logger.info(logString)
 
@@ -142,7 +144,7 @@ class SemanticTokenProvider  (
       tk: scala.meta.tokens.Token
   ): Integer = {
     tk match {
-      // case _: Token.Ident => // tk shouldn't be Ident 
+      // case _: Token.Ident => // tk shouldn't be Ident
 
       // Alphanumeric keywords)
       case _: Token.KwAbstract => getTid(SemanticTokenTypes.Keyword)
@@ -224,9 +226,9 @@ class SemanticTokenProvider  (
   }
 
 
-  
+
   /**
-    * get node which corresponds to @param tk from @param t 
+    * get node which corresponds to @param tk from @param t
     * @param tk is assumed as Identifier
     */
   def getIdentNode(t:cp.Tree, tk:scala.meta.tokens.Token):cp.Tree={
@@ -281,155 +283,151 @@ class SemanticTokenProvider  (
 
   }
 
-  // //alias for result per node of traverse
-  // class NodeInfo (val tree: cp.Tree,val pos : scala.reflect.internal.util.Position)
+  class NodeInfo (
+    val tree: cp.Tree,
+    val pos : scala.reflect.internal.util.Position
+  )
 
 
-  // /**
-  //   *   
-  //   * reffering PcDocumentHighlightProvider
-  //   */
-  // object traverser {
+  /**
+    *
+    * was written in reference to PcDocumentHighlightProvider.
+    */
+  object traverser {
 
-  //   //main function
-  //   def traverse(
-  //       nodes:Set[NodeInfo],
-  //       tree: cp.Tree
-  //   ): Set[NodeInfo] = {
+    /**
+      * gathers all nodes inside given tree.
+      * The nodes have symbol.
+      */
+    def traverse(
+        nodes:Set[NodeInfo],
+        tree: cp.Tree
+    ): Set[NodeInfo] = {
 
-  //     // def isTarget(sym:cp.Symbol):Boolean = {
-  //     //   val wkNamePos = namePos(tree)
-  //     //   if (
-  //     //     wkNamePos.start == tk.pos.start
-  //     //     && wkNamePos.end == tk.pos.end
-  //     //     && sym.name.toString == tk.text
-  //     //   ) true else false 
-  //     // }
+     tree match {
+        /**
+         * All indentifiers such as:
+         * val a = <<b>>
+         */
+        case ident: cp.Ident if ident.pos.isRange
+          =>
+            nodes + new NodeInfo(ident, ident.pos)
+        /**
+         * Needed for type trees such as:
+         * type A = [<<b>>]
+         */
+        case tpe: cp.TypeTree 
+        if tpe.original != null && tpe.pos.isRange
+          =>
+            nodes + new NodeInfo(tpe.original, typePos(tpe))
 
-  //     // def isTargetName(name:String):Boolean = {
-  //     //   if(name == tk.text) true else false
-  //     // }
-  //     tree match {
-  //       /**
-  //        * All indentifiers such as:
-  //        * val a = <<b>>
-  //        */
-  //       case ident: cp.Ident if ident.pos.isRange
-  //         =>
-  //           nodes + new NodeInfo(ident, ident.pos)
-  //       /**
-  //        * Needed for type trees such as:
-  //        * type A = [<<b>>]
-  //        */
-  //       case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange 
-  //         =>
-  //           nodes + new NodeInfo(tpe.original, typePos(tpe))
+        /**
+         * All select statements such as:
+         * val a = hello.<<b>>
+         */
+        case sel: cp.Select if sel.pos.isRange =>
+          traverse(
+            nodes + new NodeInfo(sel, sel.namePos),
+            sel.qualifier
+          )
+        /* all definitions:
+          * def <<foo>> = ???
+          * class <<Foo>> = ???
+          * etc.
+          */
+        case df: cp.MemberDef if df.pos.isRange =>
+          (annotationChildren(df) ++ df.children)
+          .foldLeft(
+            nodes + new NodeInfo(df, df.namePos)
+          )(traverse(_, _))
+        /* Named parameters, since they don't show up in typed tree:
+          * foo(<<name>> = "abc")
+          * User(<<name>> = "abc")
+          * etc.
+          */
+        case appl: cp.Apply =>
+          val named = appl.args
+            .flatMap { arg =>
+              namedArgCache.get(arg.pos.start)
+            }
+            .collectFirst {
+              case cp.AssignOrNamedArg(i @ cp.Ident(name), _)
+              =>
+                new NodeInfo(i,i.pos)
+            }
 
-  //       /**
-  //        * All select statements such as:
-  //        * val a = hello.<<b>>
-  //        */
-  //       case sel: cp.Select if sel.pos.isRange =>
-  //         traverse(
-  //           nodes + new NodeInfo(sel, sel.namePos),
-  //           sel.qualifier
-  //         )
-  //       /* all definitions:
-  //         * def <<foo>> = ???
-  //         * class <<Foo>> = ???
-  //         * etc.
-  //         */
-  //       case df: cp.MemberDef if df.pos.isRange =>
-  //         (annotationChildren(df) ++ df.children)
-  //         .foldLeft(
-  //           nodes + new NodeInfo(df, df.namePos)
-  //         )(traverse(_, _))
-  //       /* Named parameters, since they don't show up in typed tree:
-  //         * foo(<<name>> = "abc")
-  //         * User(<<name>> = "abc")
-  //         * etc.
-  //         */
-  //       case appl: cp.Apply =>
-  //         val named = appl.args
-  //           .flatMap { arg =>
-  //             namedArgCache.get(arg.pos.start)
-  //           }
-  //           .collectFirst {
-  //             case cp.AssignOrNamedArg(i @ cp.Ident(name), _)
-  //             =>
-  //               new NodeInfo(i,i.pos)
-  //           }
+          tree.children.foldLeft(nodes ++ named)(traverse(_, _))
 
-  //         tree.children.foldLeft(nodes ++ named)(traverse(_, _))
+        /**
+         * We don't automatically traverser types like:
+         * val opt: Option[<<String>>] =
+         */
+        case tpe: cp.TypeTree if tpe.original != null =>
+          tpe.original.children.foldLeft(nodes)(traverse(_, _))
+        /**
+         * Some type trees don't have symbols attached such as:
+         * type A = List[_ <: <<Iterable>>[Int]]
+         */
+        case id: cp.Ident if id.symbol == NoSymbol =>
+          fallbackSymbol(id.name, id.pos) match {
+            case Some(sym) => nodes + new NodeInfo(id, id.pos)
+            case _ => nodes
+          }
 
-  //       /**
-  //        * We don't automatically traverser types like:
-  //        * val opt: Option[<<String>>] =
-  //        */
-  //       case tpe: cp.TypeTree if tpe.original != null =>
-  //         tpe.original.children.foldLeft(nodes)(traverse(_, _))
-  //       /**
-  //        * Some type trees don't have symbols attached such as:
-  //        * type A = List[_ <: <<Iterable>>[Int]]
-  //        */
-  //       case id: cp.Ident if id.symbol == NoSymbol =>
-  //         fallbackSymbol(id.name, id.pos) match {
-  //           case Some(sym) => nodes + new NodeInfo(id, id.pos)
-  //           case _ => nodes
-  //         }
+        case df: cp.MemberDef =>
+          (tree.children ++ annotationChildren(df))
+            .foldLeft(nodes)(traverse(_, _))
+        case _ =>
+          if (tree==null)null
+          else tree.children.foldLeft(nodes)(traverse(_, _))
+      }
+    }
 
-  //       case df: cp.MemberDef =>
-  //         (tree.children ++ annotationChildren(df))
-  //           .foldLeft(nodes)(traverse(_, _))
-  //       case _ =>
-  //         if (tree==null)null
-  //         else tree.children.foldLeft(nodes)(traverse(_, _))
-  //     }
-  //   }
+    def fallbackSymbol(name: Name, pos: Position) = {
+      val context = cp.doLocateImportContext(pos)
+      context.lookupSymbol(name, sym => sym.isType) match {
+        case LookupSucceeded(_, symbol) =>
+          Some(symbol)
+        case _ => None
+      }
+    }
+    private def annotationChildren(mdef: cp.MemberDef): List[cp.Tree] = {
+      mdef.mods.annotations match {
+        case Nil if mdef.symbol != null =>
+          // After typechecking, annotations are moved from the modifiers
+          // to the annotation on the symbol of the annotatee.
+          mdef.symbol.annotations.map(_.original)
+        case anns => anns
+      }
+    }
+
+    private def typePos(tpe: cp.TypeTree) = {
+      tpe.original match {
+        case cp.AppliedTypeTree(tpt, _) => tpt.pos
+        case sel: cp.Select => sel.namePos
+        case _ => tpe.pos
+      }
+    }
+    // We need to collect named params since they will not show on fully typed tree
+    lazy val namedArgCache = {
+      val parsedTree = cp.parseTree(source)
+      parsedTree.collect { case arg @ cp.AssignOrNamedArg(_, rhs) =>
+        rhs.pos.start -> arg
+      }.toMap
+    }
+  }
+
+  def pickFromTraversed(tk:scala.meta.tokens.Token):List[cp.Tree] ={
+      val buffer = ListBuffer.empty[cp.Tree]
         
-  //   def fallbackSymbol(name: Name, pos: Position) = {
-  //     val context = cp.doLocateImportContext(pos)
-  //     context.lookupSymbol(name, sym => sym.isType) match {
-  //       case LookupSucceeded(_, symbol) =>
-  //         Some(symbol)
-  //       case _ => None
-  //     }
-  //   }
-  //   private def annotationChildren(mdef: cp.MemberDef): List[cp.Tree] = {
-  //     mdef.mods.annotations match {
-  //       case Nil if mdef.symbol != null =>
-  //         // After typechecking, annotations are moved from the modifiers
-  //         // to the annotation on the symbol of the annotatee.
-  //         mdef.symbol.annotations.map(_.original)
-  //       case anns => anns
-  //     }
-  //   }
+      for (node <- nodes){
+        if( node.pos.start ==tk.pos.start &&
+           node.pos.end ==tk.pos.end 
+        ) buffer.addAll(List(node.tree))
+      }
 
-  //   private def typePos(tpe: cp.TypeTree) = {
-  //     tpe.original match {
-  //       case cp.AppliedTypeTree(tpt, _) => tpt.pos
-  //       case sel: cp.Select => sel.namePos
-  //       case _ => tpe.pos
-  //     }
-  //   }
-  //   // We need to collect named params since they will not show on fully typed tree
-  //   lazy val namedArgCache = {
-  //     val parsedTree = cp.parseTree(source)
-  //     parsedTree.collect { case arg @ cp.AssignOrNamedArg(_, rhs) =>
-  //       rhs.pos.start -> arg
-  //     }.toMap
-  //   }
-  // }
-
-  // def pickFromTraversed(tk:scala.meta.tokens.Token):Set[cp.Tree] ={
-  //   nodes.map(n=>
-  //     if (n.pos.start ==tk.pos.start &&
-  //           n.pos.end == tk.pos.end  &&
-  //           n.tree.symbol.name == tk.text
-  //     ) n.tree else  null
-
-  //   ).filter(_ !=null)
-  // }
+      buffer.toList
+  }
 
 
   /**
@@ -440,20 +438,20 @@ class SemanticTokenProvider  (
     var logString = ""
     // whether token is identifier or not
     tk match {
-      case _: Token.Ident => // continue this method 
-      case _ => 
+      case _: Token.Ident => // continue this method
+      case _ =>
          //Non-Ident has no modifier.
-         return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident") 
+         return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident")
     }
-    
-    logString += linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod" 
+
+    logString += linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod"
     logString += linSep + "  " + tk.name
-    
+
     //get node from semantic tree
     val node = getIdentNode(root, tk)
     if( node == null) return (-1,0,strSep + "Node-Nothing") // break
 
-    logString += linSep + "  ** Got node" 
+    logString += linSep + "  ** Got node"
     logString += linSep + "  ** Keyword:" +keyword(node)
 
     //get type
@@ -473,7 +471,7 @@ class SemanticTokenProvider  (
           case kind.kObject =>  getTid(SemanticTokenTypes.Class) // treat object as class
           case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
           case _ => -1
-      }         
+      }
 
       // if (node.symbol.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
       // else keyword(node) match {
@@ -486,12 +484,12 @@ class SemanticTokenProvider  (
       //     case kind.kVar => getTid(SemanticTokenTypes.Variable)
       //     case kind.kDef => getTid(SemanticTokenTypes.Method)
       //     case _ => -1
-      // }         
+      // }
 
     //get moodifier
     var mod:Int = 0
     def addPwrToMod(place:Int)={
-      if (place != -1) mod += scala.math.pow(2, place).toInt 
+      if (place != -1) mod += scala.math.pow(2, place).toInt
     }
 
     if (node.symbol.isAbstract) addPwrToMod(getMid(SemanticTokenModifiers.Abstract))
@@ -499,7 +497,7 @@ class SemanticTokenProvider  (
           getMid(SemanticTokenModifiers.Readonly))
 
     //return
-    return (typ,mod,logString) 
+    return (typ,mod,logString)
   }
 
 
@@ -533,11 +531,11 @@ class SemanticTokenProvider  (
       case TypeDef(_, _, _, _)      => kind.kType
       case ClassDef(mods, _, _, _)  => if (mods hasFlag TRAIT) kind.kTrait
                                           else kind.KClass
-      case DefDef(mods, _, _, _, _, _) => 
+      case DefDef(mods, _, _, _, _, _) =>
             if (mods hasFlag METHOD) kind.kDef
             else if  (mods hasFlag MUTABLE)  kind.kVar
             else  kind.kVal
-            
+
       case ModuleDef(_, _, _)       => kind.kObject
       case PackageDef(_, _)         => kind.kPackage
       case ValDef(mods, _, _, _)    => if (mods hasFlag MUTABLE)  kind.kVar
@@ -546,25 +544,20 @@ class SemanticTokenProvider  (
     }
   }
 
-  
+
 
 
   var counter = 0
   /** makes string to logging tree construction. */
   def treeDescriber(t: cp.Tree, doRecurse:Boolean=true): String = {
       if (t == null)return  "  " + "Null Tree"
-    //  t match {
-    //   case _:Ident|_:Select|_:MemberDef|_:DefTree => //continue 
-    //   case _ => return ""
-    //  }
-
-      // if(!t.hasSymbolField)return "" 
 
       var ret = ""
       if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
 
       counter += 1
-      ret += linSep +linSep + "  " + ("000" + counter.toString()).takeRight(3) + "  "
+      ret += linSep// +linSep
+      ret +=  "  " + ("000" + counter.toString()).takeRight(3) + "  "
 
       //Position
       try {
@@ -594,7 +587,7 @@ class SemanticTokenProvider  (
 
       //   }
       // ret += strSep + "Extracted:" + wkStr
-      ret += strSep + "\n   -> TreeCls : " + t.getClass.getName.substring(29)
+      ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
 
 
       //symbol
@@ -604,33 +597,33 @@ class SemanticTokenProvider  (
         def SymtoStrtype: String = {
           import sym._
           val simplifyNames = !settings.isDebug
-          if (isPackageObjectOrClass && simplifyNames) "1 - " // s"package object ${owner.decodedName}"
+          if (isPackageObjectOrClass && simplifyNames) "1-" // s"package object ${owner.decodedName}"
           else {
             val kind = kindString
             val _name: String =
-              if (hasMeaninglessName) "2 - " //owner.decodedName + idString
-              else if (simplifyNames && (kind == "variable" || kind == "value")) 
-                "3 - " // unexpandedName.getterName.decode.toString // TODO: make condition less gross?
-              else "4 - " // nameString
+              if (hasMeaninglessName) "2-" //owner.decodedName + idString
+              else if (simplifyNames && (kind == "variable" || kind == "value"))
+                "3-" // unexpandedName.getterName.decode.toString // TODO: make condition less gross?
+              else "4-" // nameString
 
             //kind + " " + _name
             _name
           }
         }
-        ret += strSep + " -> symtoStr:" + SymtoStrtype + sym.toString
-        ret += strSep + "  keyStr:" + sym.keyString
+        ret += strSep + "sym:" + SymtoStrtype + sym.toString
+        ret += strSep + "keyStr:" + sym.keyString
+        ret += strSep + "\n  name:" + sym.nameString
+        ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
+        ret += strSep + "SymKnd:" + sym.accurateKindString
 
         // symKd = sym.symbolKind match {
         //   case  kd :SymbolKind(accurate, _, _)  => accurate
         //   case _=>""
         // }
-        ret += strSep + " SymKnd:" + sym.accurateKindString
         if (sym.isClass){
           // ret += strSep + "\n   -> fullnm:" + sym.fullName
-          ret += strSep + "\n   -> name : " + sym.nameString
           // ret += strSep + "keyStr:" + sym.keyString
           // ret += strSep + "isTerm:" + t.isTerm.toString()
-          ret += strSep + "\n   -> SymCls : " + sym.getClass.getName.substring(31)
           }
 
       } catch { case _ => return ""}
@@ -640,13 +633,13 @@ class SemanticTokenProvider  (
             case _:Ident => "Ident"
             case _:Select => "Select"
             case _:MemberDef => "MemberDef " + keyword(t).toString()
-            case _:DefTree => "DefTree" //continue 
-            case _:ValDef => "ValDef" //continue 
-            case _:Assign => "Assign" //continue 
-            case appl: Apply => "Assign" //continue 
+            case _:DefTree => "DefTree" //continue
+            case _:ValDef => "ValDef" //continue
+            case _:Assign => "Assign" //continue
+            case appl: Apply => "Assign" //continue
             case _ => ""
           }
-      ret += strSep + ", TreeType:" + wkTreeType
+      ret += strSep + "TreeTyp:" + wkTreeType
       // ret += strSep + "\n   -> keyword:"+ keyword(t).toString()
 
       // recursive
@@ -659,7 +652,7 @@ class SemanticTokenProvider  (
   }
 
   def tokenDescriber(tk:scala.meta.tokens.Token): String={
-    
+
     var logString = ""
     logString += linSep
 
@@ -671,8 +664,10 @@ class SemanticTokenProvider  (
     logString += "," + tk.pos.endLine.toString +")"
 
     counter=0
-    val wkList =getIdentNodeList(root,tk)
-    // val wkList = pickFromTraversed(tk)
+    // val wkList =getIdentNodeList(root,tk)
+    val wkList = pickFromTraversed(tk)
+
+    // logString += "\n\n   wkList:" + wkList.size.toString()
     logString +=wkList.map(treeDescriber(_,false)).mkString("")
     // logString +=treeDescriber(getIdentNode(root,tk))
 
