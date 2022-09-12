@@ -12,22 +12,28 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   check(
     "Basic",
     s"""|
-        |class  Test{
-        | var wkStr = "Dog-"
-        | val nameStr = "Jack"
-        | def Main={
-        |  val titleStr= "I am "
-        |  wkStr="Cat-"
-        |  testC.bc(titleStr + wkStr)
+        |<<class>>/*keyword*/  <<Test>>/*class*/{
+        |
+        | <<var>>/*keyword*/ <<wkStr>>/*variable*/ = "Dog-"
+        | <<val>>/*keyword*/ <<nameStr>>/*variable,readonly*/ = "Jack"
+        |
+        | <<def>>/*keyword*/ <<Main>>/*method*/={
+        |
+        |  <<val>>/*keyword*/ <<preStr>>/*variable,readonly*/= "I am "
+        |  <<var>>/*keyword*/ <<postStr>>/*variable*/= "in a house. "
+        |  <<wkStr>>/*variable*/="Cat-"
+        |
+        |  <<testC>>/*class*/.<<bc>>/*method*/(<<preStr>>/*variable,readonly*/ <<+>>/*method*/ <<wkStr>>/*variable*/ <<+>>/*method*/ <<preStr>>/*variable,readonly*/)
         | }
         |}
         |
-        |object  testC{
+        |<<object>>/*keyword*/  <<testC>>/*class*/{
         | // Single Line Comment
-        | def bc(msg:String)={
-        |   println(msg)
+        | <<def>>/*keyword*/ <<bc>>/*method*/(<<msg>>/*parameter*/:<<String>>/*type*/)={
+        |   <<println>>/*method*/(<<msg>>/*parameter*/)
         | }
         |}
+        |
         |""".stripMargin
   )
 

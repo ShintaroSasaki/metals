@@ -22,33 +22,36 @@ class SemanticTokenProvider  (
   , val capableModifiers: util.List[String]
 )  {
 
+  // alias for long notation
+  def getTid(p:String):Int = capableTypes.indexOf(p)
+  def getMid(p:String):Int = capableModifiers.indexOf(p)
+
   val logger = Logger.getLogger(classOf[This].getName)
   val strSep = ", "
   val linSep = "\n"
 
+
   import cp._
 
   // initialize semantic tree
-  val (root:cp.Tree, source:SourceFile )={
-      val unit = cp.addCompilationUnit(
-        params.text(),
-        params.uri().toString(),
-        None
-      )
-      cp.typeCheck(unit) // initializing unit
+  val ( root:cp.Tree, 
+        source:SourceFile
+      )={
+        val unit = cp.addCompilationUnit(
+          params.text(),
+          params.uri().toString(),
+          None
+        )
+        cp.typeCheck(unit) // initializing unit
 
-      ( unit.lastBody,
-        unit.source
-      )
-  }
+        ( unit.lastBody,
+          unit.source
+        )
+      }
 
-  //     // val all =
-  var nodes:Set[NodeInfo]=null //=traverser.traverse(
-  //   Set.empty[NodeInfo], root)
+  val nodes:Set[NodeInfo]=traverser.traverse(Set.empty[NodeInfo], root) 
 
-  // alias for long notation
-  def getTid(p:String):Int = capableTypes.indexOf(p)
-  def getMid(p:String):Int = capableModifiers.indexOf(p)
+  
 
 
   /** main method  */
@@ -60,18 +63,19 @@ class SemanticTokenProvider  (
     var logString = linSep + params.text()
     logger.info(treeDescriber(root) + linSep)
 
-    nodes=traverser.traverse(
-    Set.empty[NodeInfo], root)
+    logString += "\n\n nodes:" + nodes.size.toString()
+    logString += nodes.toArray.sortBy(_.pos.start)
+                  .map(n=>treeDescriber(n.tree,false))
+                  .mkString("")
 
-
-    // Loop by token
-    import scala.meta._
     val buffer = ListBuffer.empty[Integer]
     var currentLine = 0
     var lastLine = 0
     var lastNewlineOffset = 0
     var lastCharStartOffset = 0
 
+    // Loop by token
+    import scala.meta._
     for (tk <- params.text().tokenize.toOption.get) yield {
 
       if (tk.getClass.toString.substring(29)!="$Space"
@@ -128,10 +132,6 @@ class SemanticTokenProvider  (
         } // end match
 
       } // end for
-      logString += "\n\n nodes:" + nodes.size.toString()
-      logString += nodes.toArray.sortBy(_.pos.start)
-                    .map(n=>treeDescriber(n.tree,false))
-                    .mkString("")
 
       this.logger.info(logString)
 
@@ -144,7 +144,7 @@ class SemanticTokenProvider  (
       tk: scala.meta.tokens.Token
   ): Integer = {
     tk match {
-      // case _: Token.Ident => // tk shouldn't be Ident
+      // case _: Token.Ident => // in case of Ident is 
 
       // Alphanumeric keywords)
       case _: Token.KwAbstract => getTid(SemanticTokenTypes.Keyword)
@@ -226,63 +226,6 @@ class SemanticTokenProvider  (
   }
 
 
-
-  /**
-    * get node which corresponds to @param tk from @param t
-    * @param tk is assumed as Identifier
-    */
-  def getIdentNode(t:cp.Tree, tk:scala.meta.tokens.Token):cp.Tree={
-
-    def doRecursion():cp.Tree ={
-      if (t.children.size == 0) null
-      else {
-        val result = t.children.map(getIdentNode(_,tk)).filter(_!=null)
-        if (result.size == 0) null else result(0)
-      }
-    }
-
-    try {
-      val wkNamePos = namePos(t)
-
-      if (
-        wkNamePos.start == tk.pos.start
-        && wkNamePos.end == tk.pos.end
-        && t.symbol.name.toString == tk.text
-      ) t /* return */ else doRecursion()
-    }catch{
-      // e.g. hasSymbol==false, NoPosition==ture, and so on
-      case _:Exception => doRecursion()
-    }
-
-  }
-
-  def getIdentNodeList(t:cp.Tree, tk:scala.meta.tokens.Token):List[cp.Tree]={
-
-    def doRecursion():List[cp.Tree] ={
-      if (t.children.size == 0) null
-      else {
-        t.children.map(getIdentNodeList(_,tk))
-        .filter(_!=null)
-        .flatten
-        // if (result.size == 0) null else result
-      }
-    }
-
-    try {
-      val wkNamePos = namePos(t)
-
-      if (
-        wkNamePos.start == tk.pos.start
-        && wkNamePos.end == tk.pos.end
-        && t.symbol.name.toString == tk.text
-      ) List(t) /* return */ else doRecursion()
-    }catch{
-      // e.g. hasSymbol==false, NoPosition==ture, and so on
-      case _:Exception => doRecursion()
-    }
-
-  }
-
   class NodeInfo (
     val tree: cp.Tree,
     val pos : scala.reflect.internal.util.Position
@@ -290,7 +233,6 @@ class SemanticTokenProvider  (
 
 
   /**
-    *
     * was written in reference to PcDocumentHighlightProvider.
     */
   object traverser {
@@ -435,7 +377,6 @@ class SemanticTokenProvider  (
     */
   private def getTypeAndMod(tk:scala.meta.tokens.Token):(Int, Int,String) ={
 
-    var logString = ""
     // whether token is identifier or not
     tk match {
       case _: Token.Ident => // continue this method
@@ -444,29 +385,22 @@ class SemanticTokenProvider  (
          return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident")
     }
 
+    var logString = ""
     logString += linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod"
     logString += linSep + "  " + tk.name
 
-    //get node from semantic tree
-    // val node = getIdentNode(root, tk)
-    
     val nodeList = pickFromTraversed(tk)
     val node = if (nodeList.size ==0) null else nodeList(0)
     if( node == null) return (-1,0,strSep + "Node-Nothing") // break
 
-
     logString += linSep + "  ** Got node"
-    logString += linSep + "  ** Keyword:" +keyword(node)
-
     //get type
     val sym = node.symbol
     val typ =  if (sym.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
-      // else if  (node.symbol.isMethod ) getTid(SemanticTokenTypes.Method)
       else node.symbol.keyString match {
           case kind.kDef => 
               if (sym.isGetter || sym.isSetter ) getTid(SemanticTokenTypes.Variable)
               else getTid(SemanticTokenTypes.Method)
-
           case kind.kVal => getTid(SemanticTokenTypes.Variable)
           case kind.kVar => getTid(SemanticTokenTypes.Variable)
           case kind.KClass => getTid(SemanticTokenTypes.Class)
@@ -476,19 +410,6 @@ class SemanticTokenProvider  (
           case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
           case _ => -1
       }
-
-      // if (node.symbol.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
-      // else keyword(node) match {
-      //     case kind.kType => getTid(SemanticTokenTypes.Type)
-      //     case kind.KClass => getTid(SemanticTokenTypes.Class)
-      //     case kind.kTrait => getTid(SemanticTokenTypes.Interface)
-      //     case kind.kObject =>  getTid(SemanticTokenTypes.Class)
-      //     case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
-      //     case kind.kVal => getTid(SemanticTokenTypes.Variable)
-      //     case kind.kVar => getTid(SemanticTokenTypes.Variable)
-      //     case kind.kDef => getTid(SemanticTokenTypes.Method)
-      //     case _ => -1
-      // }
 
     //get moodifier
     var mod:Int = 0
@@ -528,29 +449,6 @@ class SemanticTokenProvider  (
     val kOther =""
   }
 
-  // import scala.reflect.internal.ModifierFlags._
-  import scala.reflect.internal.Flags._
-  private def keyword(t:cp.Tree):String = {
-    t match {
-      case TypeDef(_, _, _, _)      => kind.kType
-      case ClassDef(mods, _, _, _)  => if (mods hasFlag TRAIT) kind.kTrait
-                                          else kind.KClass
-      case DefDef(mods, _, _, _, _, _) =>
-            if (mods hasFlag METHOD) kind.kDef
-            else if  (mods hasFlag MUTABLE)  kind.kVar
-            else  kind.kVal
-
-      case ModuleDef(_, _, _)       => kind.kObject
-      case PackageDef(_, _)         => kind.kPackage
-      case ValDef(mods, _, _, _)    => if (mods hasFlag MUTABLE)  kind.kVar
-                                          else kind.kVal
-      case _ => kind.kOther
-    }
-  }
-
-
-
-
   var counter = 0
   /** makes string to logging tree construction. */
   def treeDescriber(t: cp.Tree, doRecurse:Boolean=true): String = {
@@ -560,7 +458,7 @@ class SemanticTokenProvider  (
       if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
 
       counter += 1
-      ret += linSep// +linSep
+      ret += linSep
       ret +=  "  " + ("000" + counter.toString()).takeRight(3) + "  "
 
       //Position
@@ -574,23 +472,6 @@ class SemanticTokenProvider  (
           // ret += "," + t.symbol.fullName.length()
           ret += "," + wkNamePos.end.toString() +")"
       } catch { case _ => }
-      // ret += strSep + "Childs:" + t.children.size.toString()
-      // ret += strSep + "smry:" + t.summaryString.toString()
-
-      // val wkStr = t match {
-      //   case cp.Literal(const)     => "Liter"
-      //   case cp.Ident(name)        => "Ident"
-      //   case cp.Select(qual, name) => "Select(%s, %s)".format(qual.summaryString, name.decode)
-      //   case t: cp.NameTree        => "NameTree"
-      //   case t                  => "ShrtClass " +
-      //     t.shortClass + (
-      //       if (t.symbol != null && t.symbol != cp.NoSymbol)
-      //         "(" + t.symbol + ")"
-      //       else ""
-      //     )
-
-      //   }
-      // ret += strSep + "Extracted:" + wkStr
       ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
 
 
@@ -620,23 +501,13 @@ class SemanticTokenProvider  (
         ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
         ret += strSep + "SymKnd:" + sym.accurateKindString
 
-        // symKd = sym.symbolKind match {
-        //   case  kd :SymbolKind(accurate, _, _)  => accurate
-        //   case _=>""
-        // }
-        if (sym.isClass){
-          // ret += strSep + "\n   -> fullnm:" + sym.fullName
-          // ret += strSep + "keyStr:" + sym.keyString
-          // ret += strSep + "isTerm:" + t.isTerm.toString()
-          }
-
       } catch { case _ => return ""}
 
 
      val wkTreeType  = t match {
             case _:Ident => "Ident"
             case _:Select => "Select"
-            case _:MemberDef => "MemberDef " + keyword(t).toString()
+            case mem:MemberDef => "MemberDef " + mem.keyword
             case _:DefTree => "DefTree" //continue
             case _:ValDef => "ValDef" //continue
             case _:Assign => "Assign" //continue
@@ -667,13 +538,9 @@ class SemanticTokenProvider  (
     logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
     logString += "," + tk.pos.endLine.toString +")"
 
-    counter=0
-    // val wkList =getIdentNodeList(root,tk)
     val wkList = pickFromTraversed(tk)
-
-    // logString += "\n\n   wkList:" + wkList.size.toString()
+    counter=0
     logString +=wkList.map(treeDescriber(_,false)).mkString("")
-    // logString +=treeDescriber(getIdentNode(root,tk))
 
     logString
   }
