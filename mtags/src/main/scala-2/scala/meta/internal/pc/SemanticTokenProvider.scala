@@ -89,7 +89,7 @@ class SemanticTokenProvider  (
           //pass
 
         case _ =>
-          val (tokenType, tokeModifier,wkLog) = getSemanticTypeAndMod(tk)
+          val (tokenType, tokeModifier,wkLog) = getTypeAndMod(tk)
 
           // logString ++= strSep + "tokenType : " + tokenType.toString()
           // logString ++= strSep + "tokMeodifier : " + tokeModifier.toString()
@@ -433,7 +433,7 @@ class SemanticTokenProvider  (
   /**
     * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
     */
-  private def getSemanticTypeAndMod(tk:scala.meta.tokens.Token):(Int, Int,String) ={
+  private def getTypeAndMod(tk:scala.meta.tokens.Token):(Int, Int,String) ={
 
     var logString = ""
     // whether token is identifier or not
@@ -448,8 +448,12 @@ class SemanticTokenProvider  (
     logString += linSep + "  " + tk.name
 
     //get node from semantic tree
-    val node = getIdentNode(root, tk)
+    // val node = getIdentNode(root, tk)
+    
+    val nodeList = pickFromTraversed(tk)
+    val node = if (nodeList.size ==0) null else nodeList(0)
     if( node == null) return (-1,0,strSep + "Node-Nothing") // break
+
 
     logString += linSep + "  ** Got node"
     logString += linSep + "  ** Keyword:" +keyword(node)
@@ -459,9 +463,9 @@ class SemanticTokenProvider  (
     val typ =  if (sym.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
       // else if  (node.symbol.isMethod ) getTid(SemanticTokenTypes.Method)
       else node.symbol.keyString match {
-          case kind.kDef => getTid(SemanticTokenTypes.Method)
-              // if (sym.isGetter || sym.isSetter ) getTid(SemanticTokenTypes.Variable)
-              // else getTid(SemanticTokenTypes.Method)
+          case kind.kDef => 
+              if (sym.isGetter || sym.isSetter ) getTid(SemanticTokenTypes.Variable)
+              else getTid(SemanticTokenTypes.Method)
 
           case kind.kVal => getTid(SemanticTokenTypes.Variable)
           case kind.kVar => getTid(SemanticTokenTypes.Variable)
