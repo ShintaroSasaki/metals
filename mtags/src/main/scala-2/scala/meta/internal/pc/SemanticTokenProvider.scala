@@ -93,8 +93,12 @@ class SemanticTokenProvider  (
           //pass
 
         case _: Token.Comment => 
-          currentLine += tk.text.split("\n").size -1 
-          lastNewlineOffset = tk.pos.end
+          val lineCount = tk.text.count(_ == '\n')
+          if (lineCount != 0) {
+            currentLine += lineCount
+            lastNewlineOffset = tk.pos.end -
+                     (tk.text.size - tk.text.lastIndexOf("\n") - 1) 
+          }
 
         case _ =>
           val (tokenType, tokeModifier,wkLog) = getTypeAndMod(tk)

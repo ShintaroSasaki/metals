@@ -10,7 +10,7 @@ import munit.TestOptions
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
   check(
-    "Basic",
+    "class, object, var, val, method",
     s"""|
         |<<class>>/*keyword*/  <<Test>>/*class*/{
         |
@@ -48,7 +48,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |
         |   /**
         |   * Test of Comment Block
-        |   */
+        |   */  val x = 1 
         |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
         |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1
         |   }
