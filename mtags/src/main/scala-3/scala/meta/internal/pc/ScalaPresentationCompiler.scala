@@ -88,11 +88,14 @@ case class ScalaPresentationCompiler(
       params: VirtualFileParams,
       capableTypes: java.util.List[String],
       capableModifiers: java.util.List[String]
-  ): CompletableFuture[ju.List[Integer]] = ???
+  ): CompletableFuture[ju.List[Integer]] =      
+    CompletableFuture.completedFuture{
+        new ju.ArrayList[Integer]()
+    }
 
   override def getTasty(
       targetUri: URI,
-      isHttpEnabled: Boolean,
+      isHttpEnabled: Boolean, 
   ): CompletableFuture[String] =
     CompletableFuture.completedFuture {
       TastyUtils.getTasty(targetUri, isHttpEnabled)
