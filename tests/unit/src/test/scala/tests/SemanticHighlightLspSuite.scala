@@ -37,15 +37,26 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin
   )
 
-  // check(
-  //   "Object,Method",
-  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-  //   s"""|<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*type*/) = {
-  //       |    <<a>>/*parameter*/ + 1
-  //       |   }
-  //       |}""".stripMargin
-  // )
+  /**
+    * Test of Comment Block
+    */
+  check(
+    "Multi-Line Comment",
+    // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+    s"""|
+        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |
+        |   /**
+        |   * Test of Comment Block
+        |   */
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1
+        |   }
+        |}
+        |
+        |
+        |""".stripMargin
+  )
 
   // check(
   //   "Modifiers",
