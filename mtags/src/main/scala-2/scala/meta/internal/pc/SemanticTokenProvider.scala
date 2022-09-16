@@ -23,8 +23,8 @@ class SemanticTokenProvider  (
 )  {
 
   // alias for long notation
-  def getTid(p:String):Int = capableTypes.indexOf(p)
-  def getMid(p:String):Int = capableModifiers.indexOf(p)
+  def getTypeId(p:String):Int = capableTypes.indexOf(p)
+  def getModifierId(p:String):Int = capableModifiers.indexOf(p)
 
   val logger = Logger.getLogger(classOf[This].getName)
   val strSep = ", "
@@ -155,77 +155,64 @@ class SemanticTokenProvider  (
       // case _: Token.Ident => // in case of Ident is 
 
       // Alphanumeric keywords)
-      case _: Token.KwAbstract => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwCase => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwCatch => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwClass => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwDef => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwDo => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwElse => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwEnum => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwExport => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwExtends =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwFalse => getTid(SemanticTokenTypes.Keyword)
-      case _ :Token.KwFinal => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwFinally =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwFor => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwForsome =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwGiven => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwIf => getTid(SemanticTokenTypes.Keyword)
-      case _ :Token.KwImplicit => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwImport => getTid(SemanticTokenTypes.Keyword)
-      case _ :Token.KwLazy => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwMatch => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwMacro => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwNew => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwNull => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwObject => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwOverride =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwPackage =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwPrivate =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwProtected =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwReturn => getTid(SemanticTokenTypes.Keyword)
-      case _ :Token.KwSealed => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwSuper => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwThen => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwThis => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwThrow => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwTrait => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwTrue => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwTry => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwType => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwVal => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwVar => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwWhile => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwWith => getTid(SemanticTokenTypes.Keyword)
-      case _: Token.KwYield => getTid(SemanticTokenTypes.Keyword)
+      case _: Token.KwAbstract => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwCase => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwCatch => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwClass => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwDef => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwDo => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwElse => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwEnum => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwExport => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwExtends =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwFalse => getTypeId(SemanticTokenTypes.Keyword)
+      case _ :Token.KwFinal => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwFinally =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwFor => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwForsome =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwGiven => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwIf => getTypeId(SemanticTokenTypes.Keyword)
+      case _ :Token.KwImplicit => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwImport => getTypeId(SemanticTokenTypes.Keyword)
+      case _ :Token.KwLazy => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwMatch => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwMacro => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwNew => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwNull => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwObject => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwOverride =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwPackage =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwPrivate =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwProtected =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwReturn => getTypeId(SemanticTokenTypes.Keyword)
+      case _ :Token.KwSealed => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwSuper => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwThen => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwThis => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwThrow => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwTrait => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwTrue => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwTry => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwType => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwVal => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwVar => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwWhile => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwWith => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwYield => getTypeId(SemanticTokenTypes.Keyword)
 
       // extends Symbolic keywords
-      case _: Token.Hash => getTid(SemanticTokenTypes.Keyword)
-      // case _: Token.Colon => getTid(SemanticTokenTypes.Operator)
-      case _: Token.Viewbound =>getTid(SemanticTokenTypes.Operator)
-      case _: Token.LeftArrow =>getTid(SemanticTokenTypes.Operator)
-      case _: Token.Subtype => getTid(SemanticTokenTypes.Keyword)
-      // case _: Token.Equals => getTid(SemanticTokenTypes.Operator)
-      case _: Token.RightArrow =>getTid(SemanticTokenTypes.Operator)
-      case _: Token.Supertype =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.At => getTid(SemanticTokenTypes.Keyword)
-      // case _: Token.Underscore =>getTid(SemanticTokenTypes.Keyword)
-      case _: Token.TypeLambdaArrow =>getTid(SemanticTokenTypes.Operator)
-      case _: Token.ContextArrow =>getTid(SemanticTokenTypes.Operator)
-      // case _ :Token.MacroQuote =>
-      // case _ :Token.MacroSplice =>
-
-      // // Delimiters
-      // case _ :Token.LeftParen =>
-      // case _ :Token.RightParen =>
-      // case _ :Token.Comma =>
-      // case _ :Token.Dot =>
-      // case _ :Token.Semicolon =>
-      // case _ :Token.LeftBracket =>
-      // case _ :Token.RightBracket =>
-      // case _ :Token.LeftBrace =>
-      // case _ :Token.RightBrace =>
+      case _: Token.Hash => getTypeId(SemanticTokenTypes.Keyword)
+      // case _: Token.Colon => getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.Viewbound =>getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.LeftArrow =>getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.Subtype => getTypeId(SemanticTokenTypes.Keyword)
+      // case _: Token.Equals => getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.RightArrow =>getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.Supertype =>getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.At => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.Underscore =>getTypeId(SemanticTokenTypes.Variable)
+      case _: Token.TypeLambdaArrow =>getTypeId(SemanticTokenTypes.Operator)
+      case _: Token.ContextArrow =>getTypeId(SemanticTokenTypes.Operator)
 
       // Default
       case _ => -1
@@ -334,7 +321,7 @@ class SemanticTokenProvider  (
     }
 
     def fallbackSymbol(name: Name, pos: Position) = {
-      val context = cp.doLocateImportContext(pos)
+      val context = doLocateImportContext(pos)
       context.lookupSymbol(name, sym => sym.isType) match {
         case LookupSucceeded(_, symbol) =>
           Some(symbol)
@@ -401,23 +388,35 @@ class SemanticTokenProvider  (
     val node = if (nodeList.size ==0) null else nodeList(0)
     if( node == null) return (-1,0,strSep + "Node-Nothing") // break
 
-    logString += linSep + "  ** Got node"
-    //get type
     val sym = node.symbol
-    val typ =  if (sym.isValueParameter ) getTid(SemanticTokenTypes.Parameter)
-      else node.symbol.keyString match {
-          case kind.kDef => 
-              if (sym.isGetter || sym.isSetter ) getTid(SemanticTokenTypes.Variable)
-              else getTid(SemanticTokenTypes.Method)
-          case kind.kVal => getTid(SemanticTokenTypes.Variable)
-          case kind.kVar => getTid(SemanticTokenTypes.Variable)
-          case kind.KClass => getTid(SemanticTokenTypes.Class)
-          case kind.kType => getTid(SemanticTokenTypes.Type)
-          case kind.kTrait => getTid(SemanticTokenTypes.Interface)
-          case kind.kObject =>  getTid(SemanticTokenTypes.Class) // treat object as class
-          case kind.kPackage => getTid(SemanticTokenTypes.Namespace)
-          case _ => -1
-      }
+    import sym._
+
+    // get type
+    // see symbol.keystring about following logic.
+    val typ = 
+        if (isValueParameter ) getTypeId(SemanticTokenTypes.Parameter)
+        // method
+        else if ( isSourceMethod ) {
+          if (isGetter || isSetter ) getTypeId(SemanticTokenTypes.Variable)
+          else getTypeId(SemanticTokenTypes.Method)
+        }
+        // var 
+        else if (isVariable)  getTypeId(SemanticTokenTypes.Variable)
+        // val
+        else if ((isTerm && (!isParameter || isParamAccessor))) 
+          getTypeId(SemanticTokenTypes.Variable)
+        // class
+        else if (isClass) getTypeId(SemanticTokenTypes.Class) 
+        // type
+        else if (isType && !isParameter) getTypeId(SemanticTokenTypes.Type) //type
+        // trait
+        else if (isTrait) getTypeId(SemanticTokenTypes.Interface)
+        // object (treat  as class)
+        else if (isModule) getTypeId(SemanticTokenTypes.Class) 
+        // package
+        else if (hasPackageFlag) getTypeId(SemanticTokenTypes.Namespace)
+        else  -1
+
 
     //get moodifier
     var mod:Int = 0
@@ -425,12 +424,15 @@ class SemanticTokenProvider  (
       if (place != -1) mod += scala.math.pow(2, place).toInt
     }
 
-    if (node.symbol.isAbstract) addPwrToMod(getMid(SemanticTokenModifiers.Abstract))
-    if (node.symbol.keyString==kind.kVal) addPwrToMod(
-          getMid(SemanticTokenModifiers.Readonly))
+    if (isAbstract)
+      addPwrToMod(getModifierId(SemanticTokenModifiers.Abstract))
+
+    // treat val as ReadOnly
+    if ((isTerm && (!isParameter || isParamAccessor))) 
+      addPwrToMod(getModifierId(SemanticTokenModifiers.Readonly))
 
     //return
-    return (typ,mod,logString)
+    (typ,mod,logString)
   }
 
 

@@ -26,7 +26,7 @@ final class AutoImportsProvider(
     typedTreeAt(pos)
 
     val importPosition = autoImportPosition(pos, params.text())
-    val context = compiler.doLocateImportContext(pos)
+    val context = doLocateImportContext(pos)
     val isSeen = mutable.Set.empty[String]
     val symbols = List.newBuilder[Symbol]
 
