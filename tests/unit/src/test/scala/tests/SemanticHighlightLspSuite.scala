@@ -58,6 +58,26 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin
   )
 
+
+  // check(
+  //   "Out of File",
+  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |
+  //       |   /**
+  //       |   * Test of Comment Block
+  //       |   */  val x = 1 
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1
+  //       |   }
+  //       |}
+  //       |
+  //       |
+  //       |""".stripMargin
+  // )
+
+
   // check(
   //   "Modifiers",
   //   s"""|<<package>>/*keyword*/ scala.meta.internal.pc

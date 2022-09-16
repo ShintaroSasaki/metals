@@ -68,11 +68,36 @@ class SemanticTokenProvider  (
                   .map(n=>treeDescriber(n.tree,false))
                   .mkString("")
 
+    // Tools used later
     val buffer = ListBuffer.empty[Integer]
     var currentLine = 0
     var lastLine = 0
     var lastNewlineOffset = 0
     var lastCharStartOffset = 0
+
+    def deltaLine():Int = currentLine - lastLine
+    def deltaStartChar(startPos:Int):Int={
+        if (deltaLine() == 0) startPos - lastCharStartOffset
+        else startPos - lastNewlineOffset
+    }
+    def addTokenToBuffer(
+      startPos:Int,charSize:Int,
+      tokenType:Int,tokeModifier:Int
+    ):Unit={
+      if (tokenType == -1 && tokeModifier == 0) return
+
+      buffer.addAll(
+        List(
+          deltaLine() , // 1
+          deltaStartChar(startPos), // 2
+          charSize, // 3
+          tokenType, // 4
+          tokeModifier // 5
+        )
+      )
+      lastLine = currentLine
+      lastCharStartOffset = startPos
+    }
 
     // Loop by token
     import scala.meta._
@@ -84,6 +109,7 @@ class SemanticTokenProvider  (
         logString += tokenDescriber(tk)
       }
 
+
       tk match {
         case _: Token.LF =>
           currentLine += 1
@@ -93,50 +119,36 @@ class SemanticTokenProvider  (
           //pass
 
         case _: Token.Comment => 
-          val lineCount = tk.text.count(_ == '\n')
-          if (lineCount != 0) {
-            currentLine += lineCount
-            lastNewlineOffset = tk.pos.end -
-                     (tk.text.size - tk.text.lastIndexOf("\n") - 1) 
+          var wkStartPos = tk.pos.start
+          var wkCurrentPos = tk.pos.start
+          val tokenType = getTypeId(SemanticTokenTypes.Comment)
+          val tokeModifier = 0
+          for (wkStr <- tk.text.toCharArray.toList.map(c=>c.toString)) {
+            wkCurrentPos += 1
+
+            // Add token to Buffer
+            if(wkStr=="\n" | wkCurrentPos == tk.pos.end){
+              val charSize = wkCurrentPos - wkStartPos + (if(wkStr=="\n") - 1 else 0)
+              addTokenToBuffer(
+                wkStartPos,charSize,
+                tokenType,tokeModifier
+              )
+              wkStartPos = wkCurrentPos
+            }
+
+            // Count such as Token.LF
+            if (wkStr=="\n"){
+              currentLine += 1
+              lastNewlineOffset = wkCurrentPos
+            }
+
           }
 
         case _ =>
-          val (tokenType, tokeModifier,wkLog) = getTypeAndMod(tk)
-
-          // logString ++= strSep + "tokenType : " + tokenType.toString()
-          // logString ++= strSep + "tokMeodifier : " + tokeModifier.toString()
-          // logString ++= wkLog
-
-          //Building Semantic Token
-          if (tokenType == -1 && tokeModifier == 0) {
-            /* I want to break from match-statement */
-          } else {
-
-            val characterSize = tk.text.size
-            val absStartChar = tk.pos.start - lastNewlineOffset
-
-            // convert currentline and StartChar into "relative"
-            val deltaLine = currentLine - lastLine
-            val deltaStartChar =
-              if (deltaLine == 0) tk.pos.start - lastCharStartOffset
-              else absStartChar
-
-            // update controller for next loop
-            lastLine = currentLine
-            lastCharStartOffset = tk.pos.start
-
-            // List to return
-            buffer.addAll(
-              List(
-                deltaLine, // 1
-                deltaStartChar, // 2
-                characterSize, // 3
-                tokenType, // 4
-                tokeModifier // 5
-              )
-            )
-          }
-
+          val (tokenType,tokeModifier,wkLog) = getTypeAndMod(tk)
+          addTokenToBuffer(
+            tk.pos.start, tk.text.size, tokenType, tokeModifier
+          )
         } // end match
 
       } // end for
@@ -392,30 +404,23 @@ class SemanticTokenProvider  (
     import sym._
 
     // get type
-    // see symbol.keystring about following logic.
+    // See symbol.keystring about following logic.
     val typ = 
         if (isValueParameter ) getTypeId(SemanticTokenTypes.Parameter)
-        // method
-        else if ( isSourceMethod ) {
-          if (isGetter || isSetter ) getTypeId(SemanticTokenTypes.Variable)
-          else getTypeId(SemanticTokenTypes.Method)
-        }
-        // var 
-        else if (isVariable)  getTypeId(SemanticTokenTypes.Variable)
-        // val
-        else if ((isTerm && (!isParameter || isParamAccessor))) 
-          getTypeId(SemanticTokenTypes.Variable)
-        // class
-        else if (isClass) getTypeId(SemanticTokenTypes.Class) 
-        // type
-        else if (isType && !isParameter) getTypeId(SemanticTokenTypes.Type) //type
-        // trait
-        else if (isTrait) getTypeId(SemanticTokenTypes.Interface)
-        // object (treat  as class)
-        else if (isModule) getTypeId(SemanticTokenTypes.Class) 
-        // package
-        else if (hasPackageFlag) getTypeId(SemanticTokenTypes.Namespace)
-        else  -1
+        else node.symbol.keyString match {
+          case "def" => 
+              if (sym.isGetter || sym.isSetter ) 
+                getTypeId(SemanticTokenTypes.Variable)
+              else getTypeId(SemanticTokenTypes.Method)
+          case "val" => getTypeId(SemanticTokenTypes.Variable)
+          case "var"=> getTypeId(SemanticTokenTypes.Variable)
+          case "class" => getTypeId(SemanticTokenTypes.Class)
+          case "type" => getTypeId(SemanticTokenTypes.Type)
+          case "trait" => getTypeId(SemanticTokenTypes.Interface)
+          case "object" =>  getTypeId(SemanticTokenTypes.Class)
+          case "package" => getTypeId(SemanticTokenTypes.Namespace)
+          case _ => -1
+      }
 
 
     //get moodifier
@@ -426,12 +431,9 @@ class SemanticTokenProvider  (
 
     if (isAbstract)
       addPwrToMod(getModifierId(SemanticTokenModifiers.Abstract))
-
-    // treat val as ReadOnly
-    if ((isTerm && (!isParameter || isParamAccessor))) 
+    if (sym.keyString=="val") 
       addPwrToMod(getModifierId(SemanticTokenModifiers.Readonly))
 
-    //return
     (typ,mod,logString)
   }
 
@@ -445,18 +447,6 @@ class SemanticTokenProvider  (
     }catch {
       case _ => null
     }
-  }
-
-  private object kind extends Enumeration {
-    val kType = "type"
-    val KClass = "class"
-    val kTrait = "trait"
-    val kObject = "object"
-    val kPackage = "package"
-    val kVal = "val"
-    val kVar = "var"
-    val kDef = "def"
-    val kOther =""
   }
 
   var counter = 0
