@@ -9,67 +9,49 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-  check(
-    "class, object, var, val, method",
-    s"""|
-        |<<class>>/*keyword*/  <<Test>>/*class*/{
-        |
-        | <<var>>/*keyword*/ <<wkStr>>/*variable*/ = "Dog-"
-        | <<val>>/*keyword*/ <<nameStr>>/*variable,readonly*/ = "Jack"
-        |
-        | <<def>>/*keyword*/ <<Main>>/*method*/={
-        |
-        |  <<val>>/*keyword*/ <<preStr>>/*variable,readonly*/= "I am "
-        |  <<var>>/*keyword*/ <<postStr>>/*variable*/= "in a house. "
-        |  <<wkStr>>/*variable*/="Cat-"
-        |
-        |  <<testC>>/*class*/.<<bc>>/*method*/(<<preStr>>/*variable,readonly*/ <<+>>/*method*/ <<wkStr>>/*variable*/ <<+>>/*method*/ <<preStr>>/*variable,readonly*/)
-        | }
-        |}
-        |
-        |<<object>>/*keyword*/  <<testC>>/*class*/{
-        | // Single Line Comment
-        | <<def>>/*keyword*/ <<bc>>/*method*/(<<msg>>/*parameter*/:<<String>>/*type*/)={
-        |   <<println>>/*method*/(<<msg>>/*parameter*/)
-        | }
-        |}
-        |
-        |""".stripMargin
-  )
-
-  /**
-    * Test of Comment Block
-    */
-  check(
-    "Multi-Line Comment",
-    // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
-    s"""|
-        |<<object>>/*keyword*/ <<Main>>/*class*/{
-        |
-        |   /**
-        |   * Test of Comment Block
-        |   */  val x = 1 
-        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1
-        |   }
-        |}
-        |
-        |
-        |""".stripMargin
-  )
-
+  // check(
+  //   "class, object, var, val, method, type, parameter,readonly",
+  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+  //   s"""|
+  //       |<<class>>/*keyword*/  <<Test>>/*class*/{
+  //       |
+  //       | <<var>>/*keyword*/ <<wkStr>>/*variable*/ = "Dog-"
+  //       | <<val>>/*keyword*/ <<nameStr>>/*variable,readonly*/ = "Jack"
+  //       |
+  //       | <<def>>/*keyword*/ <<Main>>/*method*/={
+  //       |
+  //       |  <<val>>/*keyword*/ <<preStr>>/*variable,readonly*/= "I am "
+  //       |  <<var>>/*keyword*/ <<postStr>>/*variable*/= "in a house. "
+  //       |  <<wkStr>>/*variable*/=<<nameStr>>/*variable,readonly*/ <<+>>/*method*/ "Cat-"
+  //       |
+  //       |  <<testC>>/*class*/.<<bc>>/*method*/(<<preStr>>/*variable,readonly*/
+  //       |    <<+>>/*method*/ <<wkStr>>/*variable*/
+  //       |    <<+>>/*method*/ <<preStr>>/*variable,readonly*/)
+  //       | }
+  //       |}
+  //       |
+  //       |<<object>>/*keyword*/  <<testC>>/*class*/{
+  //       |
+  //       | <<def>>/*keyword*/ <<bc>>/*method*/(<<msg>>/*parameter*/:<<String>>/*type*/)={
+  //       |   <<println>>/*method*/(<<msg>>/*parameter*/)
+  //       | }
+  //       |}
+  //       |
+  //       |""".stripMargin
+  // )
 
   // check(
-  //   "Out of File",
-  //   // note(@tgodzik) Looking at the token types it seems we don't need to include braces etc.
+  //   "Comment(Single-Line, Multi-Line)",
   //   s"""|
   //       |<<object>>/*keyword*/ <<Main>>/*class*/{
   //       |
-  //       |   /**
-  //       |   * Test of Comment Block
-  //       |   */  val x = 1 
+  //       |   <</**>>/*comment*/
+  //       |<<   * Test of Comment Block>>/*comment*/
+  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = 1
+  //       |
   //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1
+  //       |    <<// Single Line Comment>>/*comment*/
+  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1 <<// com = 1>>/*comment*/
   //       |   }
   //       |}
   //       |
@@ -77,27 +59,58 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin
   // )
 
+    check(
+    "import(Out of File)",
+    s"""|
+        |import scala.math.sqrt
+        |object sample3 {
+        |
+        |  def sqrtplus1(x: Int) 
+        |     = sqrt(x).toString()
+        |
+        |  def main(args: Array[String]) ={
+        |    println("Hello, world! : " + sqrtplus1(2))
+        |  }
+        |}
+        |
+        |""".stripMargin
+  )
 
-  // check(
-  //   "Modifiers",
-  //   s"""|<<package>>/*keyword*/ scala.meta.internal.pc
-  //       |
-  //       |<<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Pet>>/*class,abstract*/ (<<name>>/*variable,readonly*/: String) {
-  //       |    <<def>>/*keyword*/ <<speak>>/*method*/: <<Unit>>/*abstract*/ = println(s"My name is $$name")
-  //       |}
-  //       |
-  //       |<<final>>/*keyword*/ <<class>>/*keyword*/ <<Dog>>/*class*/(<<name>>/*variable,readonly*/: <<String>>>>/*class*/) <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
-  //       |<<final>>/*keyword*/ <<abstract>>/*keyword*/ <<class>>/*keyword*/ <<Cat>>/*class,abstract*/(<<name>>/*variable,readonly*/: <<String>>>>/*class*/) 
-  //       | <<extends>>/*keyword*/ <<Pet>>/*abstract*/(<<name>>/*parameter*/)
-  //       |
-  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |  <<val>>/*keyword*/ <<d>>/*variable,readonly*/ = <<new>>/*keyword*/ Dog("Fido") // Declaration
-  //       |  <<d>>/*variable,readonly*/.<<speak>>/*method*/
-  //       |  <<val>>/*keyword*/ <<c>>/*variable,readonly*/ = <<new>>/*keyword*/ Dog("Mike") // Declaration
-  //       |}
-  //       |
-  //       |""".stripMargin
-  // )
+  check(
+    "abstract, trait, type parameter",
+    s"""|
+        |package a.b
+        |object Sample5 {
+        |
+        |  def main(args: Array[String]) ={
+        |      val itr = new IntIterator(5)
+        |      var str = itr.next().toString + ","+itr.next().toString
+        |      println("count:"+str) 
+        |  }
+        |
+        |  trait Iterator[A] {
+        |    def next(): A
+        |  }
+        |
+        |  abstract class hasLogger {
+        |    def log(str:String) = {println(str)}
+        |  }
+        |
+        |  class IntIterator(to: Int) 
+        |  extends hasLogger with Iterator[Int]  {
+        |    private var current = 0
+        |    override def next(): Int = {
+        |      if (current < to) {
+        |        log("main")
+        |        val t = current
+        |        current = current + 1
+        |        t
+        |      } else 0
+        |    }
+        |  }
+        |}
+        |""".stripMargin
+  )
 
   def check(
       name: TestOptions,
@@ -105,18 +118,22 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   ) = {
     val fileContent =
       expected.replaceAll(raw"/\*[\w,]+\*/", "").replaceAll(raw"\<\<|\>\>", "")
+    
+    val fileName = "/a/src/main/scala/a/Main.scala"
+
     test(name) {
       for {
         // potentially we could derive input from
         _ <- initialize(
           s"""/metals.json
              |{"a":{}}
-             |/a/src/main/scala/a/Main.scala
+             |${fileName.trim()}
              |${fileContent}
              |""".stripMargin,
           expectError = true
         )
         _ <- server.didOpen("a/src/main/scala/a/Main.scala")
+        _ = assertEmpty(client.workspaceDiagnostics)
         _ <- server.assertSemanticHighlight(
           "a/src/main/scala/a/Main.scala",
           expected,

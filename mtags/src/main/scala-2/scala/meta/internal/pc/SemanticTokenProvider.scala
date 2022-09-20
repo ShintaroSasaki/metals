@@ -57,16 +57,17 @@ class SemanticTokenProvider  (
   /** main method  */
   def provide(): ju.List[Integer] =  {
 
-    logger.info(linSep + linSep + params.text() + linSep)
-    pprint.log(root)
+    // logger.info(linSep + linSep + params.text() + linSep)
+    // pprint.log(root)
+    //  Thread.sleep(3000)
 
     var logString = linSep + params.text()
-    logger.info(treeDescriber(root) + linSep)
+    // logger.info(treeDescriber(root) + linSep)
 
-    logString += "\n\n nodes:" + nodes.size.toString()
-    logString += nodes.toArray.sortBy(_.pos.start)
-                  .map(n=>treeDescriber(n.tree,false))
-                  .mkString("")
+    // logString += "\n\n nodes:" + nodes.size.toString()
+    // logString += nodes.toArray.sortBy(_.pos.start)
+    //               .map(n=>treeDescriber(n.tree,false))
+    //               .mkString("")
 
     // Tools used later
     val buffer = ListBuffer.empty[Integer]
@@ -153,7 +154,7 @@ class SemanticTokenProvider  (
 
       } // end for
 
-      this.logger.info(logString)
+      // this.logger.info(logString)
 
       buffer.toList.asJava
 
@@ -372,6 +373,7 @@ class SemanticTokenProvider  (
       for (node <- nodes){
         if( node.pos.start ==tk.pos.start &&
            node.pos.end ==tk.pos.end 
+          //  node.tree.symbol.name.toString==tk.text
         ) buffer.addAll(List(node.tree))
       }
 
@@ -407,6 +409,7 @@ class SemanticTokenProvider  (
     // See symbol.keystring about following logic.
     val typ = 
         if (isValueParameter ) getTypeId(SemanticTokenTypes.Parameter)
+        else if (isTypeParameter) getTypeId(SemanticTokenTypes.TypeParameter)
         else node.symbol.keyString match {
           case "def" => 
               if (sym.isGetter || sym.isSetter ) 
@@ -421,7 +424,6 @@ class SemanticTokenProvider  (
           case "package" => getTypeId(SemanticTokenTypes.Namespace)
           case _ => -1
       }
-
 
     //get moodifier
     var mod:Int = 0
