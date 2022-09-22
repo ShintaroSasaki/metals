@@ -76,41 +76,41 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin
   )
 
-  check(
-    "abstract, trait, type parameter",
-    s"""|
-        |package a.b
-        |object Sample5 {
-        |
-        |  def main(args: Array[String]) ={
-        |      val itr = new IntIterator(5)
-        |      var str = itr.next().toString + ","+itr.next().toString
-        |      println("count:"+str) 
-        |  }
-        |
-        |  trait Iterator[A] {
-        |    def next(): A
-        |  }
-        |
-        |  abstract class hasLogger {
-        |    def log(str:String) = {println(str)}
-        |  }
-        |
-        |  class IntIterator(to: Int) 
-        |  extends hasLogger with Iterator[Int]  {
-        |    private var current = 0
-        |    override def next(): Int = {
-        |      if (current < to) {
-        |        log("main")
-        |        val t = current
-        |        current = current + 1
-        |        t
-        |      } else 0
-        |    }
-        |  }
-        |}
-        |""".stripMargin
-  )
+  // check(
+  //   "abstract, trait, type parameter",
+  //   s"""|
+  //       |package a.b
+  //       |object Sample5 {
+  //       |
+  //       |  def main(args: Array[String]) ={
+  //       |      val itr = new IntIterator(5)
+  //       |      var str = itr.next().toString + ","+itr.next().toString
+  //       |      println("count:"+str) 
+  //       |  }
+  //       |
+  //       |  trait Iterator[A] {
+  //       |    def next(): A
+  //       |  }
+  //       |
+  //       |  abstract class hasLogger {
+  //       |    def log(str:String) = {println(str)}
+  //       |  }
+  //       |
+  //       |  class IntIterator(to: Int) 
+  //       |  extends hasLogger with Iterator[Int]  {
+  //       |    private var current = 0
+  //       |    override def next(): Int = {
+  //       |      if (current < to) {
+  //       |        log("main")
+  //       |        val t = current
+  //       |        current = current + 1
+  //       |        t
+  //       |      } else 0
+  //       |    }
+  //       |  }
+  //       |}
+  //       |""".stripMargin
+  // )
 
   def check(
       name: TestOptions,

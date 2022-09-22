@@ -384,17 +384,14 @@ class Compilers(
     // See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
 
-    // return empty list for inappropriate file
     if (path.isScalaScript || path.isSbt) {
-      return Future { new SemanticTokens() }
-    }
+      Future { new SemanticTokens() }
+    } else {
+      val uri = path.toNIO.toUri()
+      val input = path.toInputFromBuffers(buffers)
+      val vFile = CompilerVirtualFileParams(uri, input.value)
 
-    val uri = path.toNIO.toUri()
-    val input = path.toInputFromBuffers(buffers)
-    val vFile = CompilerVirtualFileParams(uri, input.value)
-
-    loadCompiler(path)
-      .map { pc =>
+      loadCompiler(path).map { pc =>
         pc.semanticTokens(vFile, capableTypes.asJava, capableModifiers.asJava)
           .asScala
           .map { plist =>
@@ -402,16 +399,8 @@ class Compilers(
             scribe.info("Result from token : " + plist.size().toString())
             new SemanticTokens(plist)
           }
-      }
-      .getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
-
-    // """|<<object>>/*14*/ <<Main>>/*1*/{
-    //    |  <<def>>/*14*/ <<add>>/*12*/
-    //    |    (<<a>>/*6*/ : <<Int>>/*0*/) = <<i>>/*7*/
-    //    |}""".stripMargin
-
-    // return value
-    // Future.successful(new SemanticTokens(strList))
+      }.getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
+    }
 
   }
 

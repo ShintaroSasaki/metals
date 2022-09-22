@@ -89,6 +89,7 @@ case class ScalaPresentationCompiler(
       capableTypes: java.util.List[String],
       capableModifiers: java.util.List[String]
   ): CompletableFuture[ju.List[Integer]] = ???
+     //scala.concurrent.Future{ju.ArrayList[Integer]()}()
 
   override def getTasty(
       targetUri: URI,

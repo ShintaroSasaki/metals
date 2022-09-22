@@ -1314,10 +1314,16 @@ final case class TestingServer(
         // Decorate fileContent with textEdits
         val obtained = TextEdits.applyEdits(fileContent, edits)
 
-        var strlog = ""
-        strlog += "\n\n ***fileContent*** \n" + fileContent
-        strlog += "\n\n ***obtained*** \n" + obtained
-        strlog += "\n\n ***expected*** \n" + expected
+        val strlog = s"""
+        |***fileContent***
+        |$fileContent
+        |
+        |***obtained***
+        |$obtained
+        |
+        |***expected***
+        |$expected
+        |""".stripMargin
         scribe.info(strlog)
 
         Assertions.assertNoDiff(
