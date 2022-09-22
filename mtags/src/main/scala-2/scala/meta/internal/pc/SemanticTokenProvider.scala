@@ -1,4 +1,5 @@
 package scala.meta.internal.pc
+
 import org.eclipse.lsp4j.SemanticTokenModifiers
 import org.checkerframework.common.returnsreceiver.qual.This
 import scala.collection.mutable.ListBuffer
@@ -15,7 +16,7 @@ import scala.reflect.internal.util.SourceFile
 /**
  * Corresponds to tests.SemanticHighlightLspSuite
  */
-class SemanticTokenProvider  (
+final class SemanticTokenProvider  (
     protected val cp:MetalsGlobal // compiler
   , val params: VirtualFileParams
   , val capableTypes: util.List[String]
@@ -238,6 +239,7 @@ class SemanticTokenProvider  (
   /**
     * was written in reference to PcDocumentHighlightProvider.
     */
+  import cp._
   object traverser {
     /**
       * gathers all nodes inside given tree.
@@ -314,7 +316,7 @@ class SemanticTokenProvider  (
          * Some type trees don't have symbols attached such as:
          * type A = List[_ <: <<Iterable>>[Int]]
          */
-        case id: cp.Ident if id.symbol == NoSymbol =>
+        case id: cp.Ident if id.symbol == cp.NoSymbol =>
           fallbackSymbol(id.name, id.pos) match {
             case Some(sym) => nodes + new NodeInfo(id, id.pos)
             case _ => nodes
@@ -500,22 +502,7 @@ class SemanticTokenProvider  (
       try {
         val sym = t.symbol
 
-        def SymtoStrtype: String = {
-          val simplifyNames = !sym.settings.isDebug
-          if (sym.isPackageObjectOrClass && simplifyNames) "1-" // s"package object ${owner.decodedName}"
-          else {
-            val kind = sym.kindString
-            val _name: String =
-              if (sym.hasMeaninglessName) "2-" //owner.decodedName + idString
-              else if (simplifyNames && (kind == "variable" || kind == "value"))
-                "3-" // unexpandedName.getterName.decode.toString // TODO: make condition less gross?
-              else "4-" // nameString
-
-            //kind + " " + _name
-            _name
-          }
-        }
-        ret += strSep + "sym:" + SymtoStrtype + sym.toString
+        ret += strSep + "sym:" +  sym.toString
         ret += strSep + "keyStr:" + sym.keyString
         ret += strSep + "\n  name:" + sym.nameString
         ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
