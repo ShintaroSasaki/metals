@@ -11,6 +11,8 @@ import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
 import scala.reflect.internal.util.SourceFile
+import scala.reflect.internal.util.Position
+import scala.tools.nsc.doc.model.Public
 
 
 /**
@@ -229,12 +231,20 @@ final class SemanticTokenProvider  (
 
   }
 
+  class NodeInfo(
+    var tree:cp.Tree,
+    var symbol:cp.Symbol,
+    var pos:scala.reflect.internal.util.Position
+  ) {
+    def this(tree:cp.Tree, pos:cp.Position)={
+      this(tree,tree.symbol,pos)
+    }
+    def this(imp:cp.Import)={
+      this(imp,null,null)
+    }
 
-  class NodeInfo (
-    val tree: cp.Tree,
-    val pos : scala.reflect.internal.util.Position
-  )
 
+  }
 
   /**
     * was written in reference to PcDocumentHighlightProvider.
@@ -325,26 +335,29 @@ final class SemanticTokenProvider  (
         case df: cp.MemberDef =>
           (tree.children ++ annotationChildren(df))
             .foldLeft(nodes)(traverse(_, _))
-        // /**
-        //  * For traversing import selectors:
-        //  * import scala.util.<<Try>>
-        //  */
-        // case imp: cp.Import =>
-        //   imp.selectors.foldLeft(traverse(nodes, imp.expr)) {
-        //     case (nodes, sel) =>
-        //       val positions =
-        //         if (!sel.rename.isEmpty)
-        //           Set(
-        //             sel.renamePosition(pos.source),
-        //             sel.namePosition(pos.source)
-        //           )
-        //         else Set(sel.namePosition(pos.source))
+        /**
+         * For traversing import selectors:
+         * import scala.util.<<Try>>
+         */
+        case imp: cp.Import =>
+          // for (sel <- imp.selectors
+          // ){
+          //   sym= imp.expr.symbol.info.member(sel.name)
+          //   nodes
+          
+            
+          // }
 
-        //       nodes ++ positions.map(pos =>
-        //         new NodeInfo(sel, pos)
-        //       )
-        //     case (nodes, _) => nodes
-        //   }
+          imp.selectors
+            // .map(sel=>imp.expr.symbol.info.member(sel.name))
+            .foldLeft(nodes)(
+              (acc,sel)=>acc + new NodeInfo(
+                imp.expr.symbol.info.member(sel.name), 
+                sel.namepos
+                Position.range(sel.pos.source,sel.namepos,sel.namepos)
+                // Position.range(imp.source,sel.namePos)
+                )
+            )
 
 
         case _ =>
@@ -387,17 +400,18 @@ final class SemanticTokenProvider  (
     }
   }
 
-  def pickFromTraversed(tk:scala.meta.tokens.Token):List[cp.Tree] ={
-      val buffer = ListBuffer.empty[cp.Tree]
+  def pickFromTraversed(tk:scala.meta.tokens.Token):NodeInfo ={
+      val buffer = ListBuffer.empty[NodeInfo]
         
       for (node <- nodes){
         if( node.pos.start ==tk.pos.start &&
            node.pos.end ==tk.pos.end 
           //  node.tree.symbol.name.toString==tk.text
-        ) buffer.addAll(List(node.tree))
+        ) buffer.addAll(List(node))
       }
 
-      buffer.toList
+      val nodeList = buffer.toList
+      if (nodeList.size ==0) null else nodeList(0)
   }
 
 
@@ -418,8 +432,7 @@ final class SemanticTokenProvider  (
     logString =logString+ linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod"
     logString =logString+ linSep + " txt: " + tk.text
 
-    val nodeList = pickFromTraversed(tk)
-    val node:cp.Tree = if (nodeList.size ==0) null else nodeList(0)
+    val node = pickFromTraversed(tk)
     
     if( node == null) {(-1,0,strSep + "Node-Nothing")}
     else {
@@ -499,18 +512,12 @@ final class SemanticTokenProvider  (
 
 
       //symbol
-      try {
-        val sym = t.symbol
+    try {
+      ret =ret +  SymDescriber(t.symbol)
 
-        ret += strSep + "sym:" +  sym.toString
-        ret += strSep + "keyStr:" + sym.keyString
-        ret += strSep + "\n  name:" + sym.nameString
-        ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
-        ret += strSep + "SymKnd:" + sym.accurateKindString
+    } catch { case _ => return ""}
 
-      } catch { case _ => return ""}
-
-
+      
     //  val wkTreeType  = t match {
     //         case _:Ident => "Ident"
     //         case _:Select => "Select"
@@ -532,6 +539,18 @@ final class SemanticTokenProvider  (
       ret + linSep
 
   }
+  def SymDescriber(sym:cp.Symbol): String = {
+    var ret = ""
+
+    ret += strSep + "sym:" +  sym.toString
+    ret += strSep + "keyStr:" + sym.keyString
+    ret += strSep + "\n  name:" + sym.nameString
+    ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
+    ret += strSep + "SymKnd:" + sym.accurateKindString
+
+    ret
+
+  }
 
   def tokenDescriber(tk:scala.meta.tokens.Token): String={
 
@@ -547,7 +566,8 @@ final class SemanticTokenProvider  (
 
     val wkList = pickFromTraversed(tk)
     counter=0
-    logString +=wkList.map(treeDescriber(_,false)).mkString("")
+    // logString +=wkList.map(treeDescriber(_,false)).mkString("")
+    logString +=SymDescriber(wkList.symbol)
 
     logString
   }
