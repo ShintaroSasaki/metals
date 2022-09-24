@@ -13,6 +13,7 @@ import scala.meta.tokens._
 import scala.reflect.internal.util.SourceFile
 import scala.reflect.internal.util.Position
 import scala.tools.nsc.doc.model.Public
+import org.jline.builtins.Completers.TreeCompleter.Node
 
 
 /**
@@ -28,13 +29,15 @@ final class SemanticTokenProvider  (
   def getTypeId(p:String):Int = capableTypes.indexOf(p)
   def getModifierId(p:String):Int = capableModifiers.indexOf(p)
 
+  // log tools
   val logger = Logger.getLogger(classOf[This].getName)
   val strSep = ", "
   val linSep = "\n"
 
   // initialize semantic tree
-  val ( root:cp.Tree, 
-        source:SourceFile
+  val ( unit,
+        root:cp.Tree, 
+        source:SourceFile,
       )={
         val unit = cp.addCompilationUnit(
           params.text(),
@@ -43,19 +46,21 @@ final class SemanticTokenProvider  (
         )
         cp.typeCheck(unit) // initializing unit
 
-        ( unit.lastBody,
+        ( unit,
+          unit.lastBody,
           unit.source
         )
       }
 
+  def unitPos(offset:Int)=unit.position(offset)
   val nodes:Set[NodeInfo]=traverser.traverse(Set.empty[NodeInfo], root) 
 
   /** main method  */
   def provide(): ju.List[Integer] =  {
 
     // logger.info(linSep + linSep + params.text() + linSep)
-    pprint.log(root)
-     Thread.sleep(3000)
+    // pprint.log(root)
+    //  Thread.sleep(3000)
 
     var logString = linSep + params.text()
     logger.info(treeDescriber(root) + linSep)
@@ -242,8 +247,11 @@ final class SemanticTokenProvider  (
     def this(imp:cp.Import)={
       this(imp,null,null)
     }
-
-
+  }
+  object NodeInfo {
+    def apply[T<:cp.Symbol](sym:T):NodeInfo={
+      new NodeInfo(null,sym,null)
+    } 
   }
 
   /**
@@ -340,25 +348,7 @@ final class SemanticTokenProvider  (
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          // for (sel <- imp.selectors
-          // ){
-          //   sym= imp.expr.symbol.info.member(sel.name)
-          //   nodes
-          
-            
-          // }
-
-          imp.selectors
-            // .map(sel=>imp.expr.symbol.info.member(sel.name))
-            .foldLeft(nodes)(
-              (acc,sel)=>acc + new NodeInfo(
-                imp.expr.symbol.info.member(sel.name), 
-                sel.namepos
-                Position.range(sel.pos.source,sel.namepos,sel.namepos)
-                // Position.range(imp.source,sel.namePos)
-                )
-            )
-
+          nodes + new NodeInfo(imp)
 
         case _ =>
           if (tree==null)null
@@ -400,14 +390,27 @@ final class SemanticTokenProvider  (
     }
   }
 
+  def selector(imp:cp.Import, startOffset:Int):Option[cp.Symbol] ={
+    for {sel <- imp.selectors.reverseIterator
+      .find(_.namePos <= startOffset)
+    } yield imp.expr.symbol.info.member(sel.name)
+  }
   def pickFromTraversed(tk:scala.meta.tokens.Token):NodeInfo ={
       val buffer = ListBuffer.empty[NodeInfo]
         
       for (node <- nodes){
-        if( node.pos.start ==tk.pos.start &&
-           node.pos.end ==tk.pos.end 
-          //  node.tree.symbol.name.toString==tk.text
-        ) buffer.addAll(List(node))
+        node.tree match {
+          case imp:cp.Import =>
+            selector(imp,tk.pos.start) match {
+              case Some(sym) =>buffer.addAll(List(NodeInfo(sym)))
+              case None => //pass
+            }
+          case _ =>
+            if( node.pos.start ==tk.pos.start &&
+              node.pos.end ==tk.pos.end 
+              //  node.tree.symbol.name.toString==tk.text
+            ) buffer.addAll(List(node))
+        }
       }
 
       val nodeList = buffer.toList
@@ -432,11 +435,11 @@ final class SemanticTokenProvider  (
     logString =logString+ linSep + linSep  + "  Start:Ident Part getSemanticTypeAndMod"
     logString =logString+ linSep + " txt: " + tk.text
 
-    val node = pickFromTraversed(tk)
+    val nodeInfo = pickFromTraversed(tk)
     
-    if( node == null) {(-1,0,strSep + "Node-Nothing")}
+    if( nodeInfo == null) {(-1,0,strSep + "Node-Nothing")}
     else {
-      val sym = node.symbol
+      val sym = nodeInfo.symbol
 
       //Moodifier to return
       var mod:Int = 0
@@ -564,10 +567,12 @@ final class SemanticTokenProvider  (
     logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
     logString += "," + tk.pos.endLine.toString +")"
 
-    val wkList = pickFromTraversed(tk)
+    val nodeInfo = pickFromTraversed(tk)
     counter=0
     // logString +=wkList.map(treeDescriber(_,false)).mkString("")
-    logString +=SymDescriber(wkList.symbol)
+    if (nodeInfo!= null && nodeInfo.symbol != null ){
+      logString =logString + SymDescriber(nodeInfo.symbol)
+    }
 
     logString
   }
