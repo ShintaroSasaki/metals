@@ -27,7 +27,6 @@ final class SemanticTokenProvider  (
 )  {
   // alias for long notation
   def getTypeId(p:String):Int = capableTypes.indexOf(p)
-  def getModifierId(p:String):Int = capableModifiers.indexOf(p)
 
   // log tools
   val logger = Logger.getLogger(classOf[This].getName)
@@ -118,19 +117,24 @@ final class SemanticTokenProvider  (
           lastNewlineOffset = tk.pos.end
 
         case _: Token.Space =>
-          //pass
 
-        case _: Token.Comment => 
+        // deals multi-line token
+        case _: Token.Comment|Token.Constant.String|Token.Constant.Char => 
           var wkStartPos = tk.pos.start
           var wkCurrentPos = tk.pos.start
-          val tokenType = getTypeId(SemanticTokenTypes.Comment)
+          val tokenType = tk match {
+              case _: Token.Comment =>getTypeId(SemanticTokenTypes.Comment)
+              case _ => getTypeId(SemanticTokenTypes.String)
+          }
           val tokeModifier = 0
+
           for (wkStr <- tk.text.toCharArray.toList.map(c=>c.toString)) {
             wkCurrentPos += 1
 
             // Add token to Buffer
             if(wkStr=="\n" | wkCurrentPos == tk.pos.end){
-              val charSize = wkCurrentPos - wkStartPos + (if(wkStr=="\n") - 1 else 0)
+              val charSize = wkCurrentPos + (if(wkStr=="\n") - 1 else 0)
+                              - wkStartPos 
               addTokenToBuffer(
                 wkStartPos,charSize,
                 tokenType,tokeModifier
@@ -162,59 +166,19 @@ final class SemanticTokenProvider  (
 
   }
 
-  /** This function returns 0 when capable Type is nothing. */
+  /** This function returns -1 when capable Type is nothing. 
+   *  TokenTypes that can be on multilines are handled in another func.
+   *  See Token.Comment in this file.
+  */
   private def typeOfNonIdentToken(
       tk: scala.meta.tokens.Token
   ): Integer = {
     tk match {
       // case _: Token.Ident => // in case of Ident is 
 
-      // Alphanumeric keywords)
+      // Alphanumeric keywords
+      case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
       case _: Token.Keyword => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwAbstract => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwCase => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwCatch => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwClass => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwDef => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwDo => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwElse => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwEnum => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwExport => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwExtends =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwFalse => getTypeId(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwFinal => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwFinally =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwFor => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwForsome =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwGiven => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwIf => getTypeId(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwImplicit => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwImport => getTypeId(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwLazy => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwMatch => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwMacro => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwNew => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwNull => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwObject => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwOverride =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwPackage =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwPrivate =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwProtected =>getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwReturn => getTypeId(SemanticTokenTypes.Keyword)
-      // case _ :Token.KwSealed => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwSuper => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwThen => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwThis => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwThrow => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwTrait => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwTrue => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwTry => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwType => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwVal => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwVar => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwWhile => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwWith => getTypeId(SemanticTokenTypes.Keyword)
-      // case _: Token.KwYield => getTypeId(SemanticTokenTypes.Keyword)
 
       // extends Symbolic keywords
       case _: Token.Hash => getTypeId(SemanticTokenTypes.Keyword)
@@ -229,6 +193,14 @@ final class SemanticTokenProvider  (
       case _: Token.Underscore =>getTypeId(SemanticTokenTypes.Variable)
       case _: Token.TypeLambdaArrow =>getTypeId(SemanticTokenTypes.Operator)
       case _: Token.ContextArrow =>getTypeId(SemanticTokenTypes.Operator)
+
+      //Constant
+      case _: Token.Constant.Int
+          |_: Token.Constant.Long
+          |_: Token.Constant.Float
+          |_: Token.Constant.Double 
+                =>getTypeId(SemanticTokenTypes.Number)
+
 
       // Default
       case _ => -1
@@ -425,7 +397,10 @@ final class SemanticTokenProvider  (
 
     // whether token is identifier or not
     tk match {
-      case _: Token.Ident => // continue this method
+      case _: Token.Ident|_: Token.Constant.Symbol => 
+          // continue this method.
+          // Constant.Symbol means literal symbol with backticks.
+          // which is `yield` of such as Thread.`yield`().
       case _ =>
          //Non-Ident has no modifier.
          return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident")
@@ -443,7 +418,8 @@ final class SemanticTokenProvider  (
 
       //Moodifier to return
       var mod:Int = 0
-      def addPwrToMod(place:Int)={
+      def addPwrToMod(tokenID:String)={
+        val place:Int = capableModifiers.indexOf(tokenID)
         if (place != -1) mod += scala.math.pow(2, place).toInt
       }
 
@@ -451,6 +427,7 @@ final class SemanticTokenProvider  (
       val typ = 
           if (sym.isValueParameter ) getTypeId(SemanticTokenTypes.Parameter)
           else if (sym.isTypeParameter) getTypeId(SemanticTokenTypes.TypeParameter)
+          else if (sym.isJavaEnum) getTypeId(SemanticTokenTypes.Enum)
           else 
             // See symbol.keystring about following conditions.
             if (sym.isJavaInterface) getTypeId(SemanticTokenTypes.Interface) //"interface"
@@ -462,15 +439,18 @@ final class SemanticTokenProvider  (
             else if (sym.isModule) getTypeId(SemanticTokenTypes.Class) //"object"
             else if (sym.isSourceMethod) getTypeId(SemanticTokenTypes.Method) //"def"
             else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
-              addPwrToMod(getModifierId(SemanticTokenModifiers.Readonly))
+              addPwrToMod(SemanticTokenModifiers.Readonly)
               getTypeId(SemanticTokenTypes.Variable)// "val"
             }
             else -1
         
         logString += strSep + "type:" + typ.toString()
 
-      //Modifier:abstract
-      if (sym.isAbstract)addPwrToMod(getModifierId(SemanticTokenModifiers.Abstract))
+      //Modifiers except by ReadOnly
+      if (sym.isAbstract)addPwrToMod(SemanticTokenModifiers.Abstract)
+      if (sym.isDeprecated)addPwrToMod(SemanticTokenModifiers.Deprecated)
+      if (sym.owner.isModule)addPwrToMod(SemanticTokenModifiers.Static)
+
         
       (typ,mod,logString)
     }
