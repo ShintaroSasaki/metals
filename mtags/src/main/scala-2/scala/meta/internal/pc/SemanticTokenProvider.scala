@@ -11,9 +11,6 @@ import scala.meta.pc.VirtualFileParams
 import org.eclipse.lsp4j.SemanticTokenTypes
 import scala.meta.tokens._
 import scala.reflect.internal.util.SourceFile
-import scala.reflect.internal.util.Position
-import scala.tools.nsc.doc.model.Public
-import org.jline.builtins.Completers.TreeCompleter.Node
 
 
 /**
@@ -119,7 +116,7 @@ final class SemanticTokenProvider  (
         case _: Token.Space =>
 
         // deals multi-line token
-        case _: Token.Comment|Token.Constant.String|Token.Constant.Char => 
+        case _: Token.Comment|Token.Constant.String => 
           var wkStartPos = tk.pos.start
           var wkCurrentPos = tk.pos.start
           val tokenType = tk match {
@@ -200,6 +197,7 @@ final class SemanticTokenProvider  (
           |_: Token.Constant.Float
           |_: Token.Constant.Double 
                 =>getTypeId(SemanticTokenTypes.Number)
+      case _: Token.Constant.Char =>getTypeId(SemanticTokenTypes.String)
 
 
       // Default

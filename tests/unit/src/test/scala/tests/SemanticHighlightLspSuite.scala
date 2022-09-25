@@ -40,41 +40,78 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin
   // )
 
-  // check(
-  //   "Comment(Single-Line, Multi-Line)",
+  check(
+    "Comment(Single-Line, Multi-Line)",
+    s"""|
+        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |
+        |   <</**>>/*comment*/
+        |<<   * Test of Comment Block>>/*comment*/
+        |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = 1
+        |
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+        |    <<// Single Line Comment>>/*comment*/
+        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1 <<// com = 1>>/*comment*/
+        |   }
+        |}
+        |
+        |
+        |""".stripMargin
+  )
+
+  //   check(
+  //   "import(Out of File)",
   //   s"""|
-  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |import scala.math.sqrt
+  //       |object sample3 {
   //       |
-  //       |   <</**>>/*comment*/
-  //       |<<   * Test of Comment Block>>/*comment*/
-  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = 1
+  //       |  def sqrtplus1(x: Int) 
+  //       |     = sqrt(x).toString()
   //       |
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-  //       |    <<// Single Line Comment>>/*comment*/
-  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1 <<// com = 1>>/*comment*/
-  //       |   }
+  //       |  def main(args: Array[String]) ={
+  //       |    println("Hello, world! : " + sqrtplus1(2))
+  //       |  }
   //       |}
+  //       |
+  //       |""".stripMargin
+  // )
+  // check(
+  //   "String, Char",
+  //   s"""|
+  //       |object sample7 {
+  //       |  def main(args: Array[String]) ={
+  //       |
+  //       |    val testStr1 : String = " Hello  "
+  //       |    println(testStr1)
+  //       |
+  //       |    val testStr2 : String = 
+  //       |    \"\"\"Test of multiline string
+  //       |        def sqrtplus1(x: Int) 
+  //       |       
+  //       |         = sqrt(x).toString()
+  //       |       \"\"\".stripMargin
+  //       |
+  //       |    println(testStr2)
+  //       |
+  //       |    var testChar1 : Char =  'x'
+  //       |     println(testChar1.toString())
+  //       |
+  //       |
+  //       |  }
+  //       |}
+  //       |""".stripMargin
+  // )
+
+
+
+  // check(
+  //   "Template",
+  //   s"""|
+  //       |
   //       |
   //       |
   //       |""".stripMargin
   // )
-
-    check(
-    "import(Out of File)",
-    s"""|
-        |import scala.math.sqrt
-        |object sample3 {
-        |
-        |  def sqrtplus1(x: Int) 
-        |     = sqrt(x).toString()
-        |
-        |  def main(args: Array[String]) ={
-        |    println("Hello, world! : " + sqrtplus1(2))
-        |  }
-        |}
-        |
-        |""".stripMargin
-  )
 
   // check(
   //   "abstract, trait, type parameter",
