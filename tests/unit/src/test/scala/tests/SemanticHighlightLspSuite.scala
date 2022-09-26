@@ -40,25 +40,6 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin
   // )
 
-  check(
-    "Comment(Single-Line, Multi-Line)",
-    s"""|
-        |<<object>>/*keyword*/ <<Main>>/*class*/{
-        |
-        |   <</**>>/*comment*/
-        |<<   * Test of Comment Block>>/*comment*/
-        |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = 1
-        |
-        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-        |    <<// Single Line Comment>>/*comment*/
-        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1 <<// com = 1>>/*comment*/
-        |   }
-        |}
-        |
-        |
-        |""".stripMargin
-  )
-
   //   check(
   //   "import(Out of File)",
   //   s"""|
@@ -72,43 +53,6 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |    println("Hello, world! : " + sqrtplus1(2))
   //       |  }
   //       |}
-  //       |
-  //       |""".stripMargin
-  // )
-  // check(
-  //   "String, Char",
-  //   s"""|
-  //       |object sample7 {
-  //       |  def main(args: Array[String]) ={
-  //       |
-  //       |    val testStr1 : String = " Hello  "
-  //       |    println(testStr1)
-  //       |
-  //       |    val testStr2 : String = 
-  //       |    \"\"\"Test of multiline string
-  //       |        def sqrtplus1(x: Int) 
-  //       |       
-  //       |         = sqrt(x).toString()
-  //       |       \"\"\".stripMargin
-  //       |
-  //       |    println(testStr2)
-  //       |
-  //       |    var testChar1 : Char =  'x'
-  //       |     println(testChar1.toString())
-  //       |
-  //       |
-  //       |  }
-  //       |}
-  //       |""".stripMargin
-  // )
-
-
-
-  // check(
-  //   "Template",
-  //   s"""|
-  //       |
-  //       |
   //       |
   //       |""".stripMargin
   // )
@@ -148,6 +92,103 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |}
   //       |""".stripMargin
   // )
+
+  
+  // check(
+  //   "Comment(Single-Line, Multi-Line)",
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |
+  //       |   <</**>>/*comment*/
+  //       |<<   * Test of Comment Block>>/*comment*/
+  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = 1
+  //       |
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+  //       |    <<// Single Line Comment>>/*comment*/
+  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ 1 <<// com = 1>>/*comment*/
+  //       |   }
+  //       |}
+  //       |
+  //       |
+  //       |""".stripMargin
+  // )
+
+  check(
+    "String, Char",
+    s"""|
+        |object sample7 {
+        |  def main(args: Array[String]) ={
+        |
+        |    val testStr1 : String = " Hello  "
+        |    println(testStr1)
+        |
+        |    val testStr2 = """This is
+        |    a multiline
+        |    Test"""
+        |    println(testStr2)
+        |
+        |    var testChar1 : Char =  'x'
+        |     println(testChar1.toString())
+        |
+        |
+        |  }
+        |}
+        |""".stripMargin
+  )
+
+  // check(
+  //   "enum",
+  //   s"""|
+  //       |
+  //       |
+  //       |
+  //       |""".stripMargin
+  // )
+
+  //in referred to https://www.scala-lang.org/api/2.13.3/scala/deprecated.html
+  check(
+    "Deprecated",
+    s"""|<<object>>/*keyword*/ <<sample9>>/*class*/ {
+       |  <<@>>/*keyword*/<<deprecated>>/*class*/("this method will be removed", "FooLib 12.0")
+       |  <<def>>/*keyword*/ <<oldMethod>>/*method,deprecated*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/) = <<x>>/*parameter*/
+       |
+       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[String]) ={
+       |    <<val>>/*keyword*/ <<str>>/*variable,readonly*/ = <<oldMethod>>/*method,deprecated*/(<<2>>/*number*/).<<toString>>/*method*/
+       |    <<println>>/*method*/("Hello, world!"<<+>>/*method*/ <<str>>/*variable,readonly*/)
+       |  }
+       |}
+       |""".stripMargin
+  )
+
+
+  check(
+    "number literal, Static",
+    s"""|
+        |object ab {
+        |  var  iVar:Int = 1
+        |  val  iVal:Double = 4.94065645841246544e-324d
+        |  val  fVal:Float = 1.40129846432481707e-45
+        |  val  lVal:Long = 9223372036854775807L
+        |}
+        |
+        |object sample10 {
+        |  def main(args: Array[String]) ={
+        |    println((ab.iVar + ab.iVal).toString)
+        |  }
+        |}
+        |""".stripMargin
+  )
+
+  // check(
+  //   "Template",
+  //   s"""|
+  //       |
+  //       |
+  //       |
+  //       |""".stripMargin
+  // )
+
+
 
   def check(
       name: TestOptions,

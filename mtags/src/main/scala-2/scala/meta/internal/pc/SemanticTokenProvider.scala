@@ -130,8 +130,10 @@ final class SemanticTokenProvider  (
 
             // Add token to Buffer
             if(wkStr=="\n" | wkCurrentPos == tk.pos.end){
-              val charSize = wkCurrentPos + (if(wkStr=="\n") - 1 else 0)
-                              - wkStartPos 
+              val adjustedCurrentPos =  if(wkStr=="\n") wkCurrentPos - 1 
+                                        else wkCurrentPos
+              val charSize = adjustedCurrentPos - wkStartPos
+                              
               addTokenToBuffer(
                 wkStartPos,charSize,
                 tokenType,tokeModifier
@@ -435,7 +437,9 @@ final class SemanticTokenProvider  (
             else if (sym.isVariable) getTypeId(SemanticTokenTypes.Variable) //"var"
             else if (sym.hasPackageFlag) getTypeId(SemanticTokenTypes.Namespace) //"package"
             else if (sym.isModule) getTypeId(SemanticTokenTypes.Class) //"object"
-            else if (sym.isSourceMethod) getTypeId(SemanticTokenTypes.Method) //"def"
+            else if (sym.isSourceMethod) 
+              if (sym.isGetter || sym.isSetter ) getTypeId(SemanticTokenTypes.Variable)
+              else getTypeId(SemanticTokenTypes.Method) //"def"
             else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
               addPwrToMod(SemanticTokenModifiers.Readonly)
               getTypeId(SemanticTokenTypes.Variable)// "val"
