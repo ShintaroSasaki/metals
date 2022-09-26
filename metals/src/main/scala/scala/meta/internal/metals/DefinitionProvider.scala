@@ -59,6 +59,7 @@ final class DefinitionProvider(
     buildTargets: BuildTargets,
     scalaVersionSelector: ScalaVersionSelector,
     saveDefFileToDisk: Boolean,
+    sourceMapper: SourceMapper,
 )(implicit ec: ExecutionContext) {
 
   val destinationProvider = new DestinationProvider(
@@ -70,6 +71,7 @@ final class DefinitionProvider(
     trees,
     buildTargets,
     saveDefFileToDisk,
+    sourceMapper,
   )
 
   def definition(
@@ -107,7 +109,7 @@ final class DefinitionProvider(
       sym: String,
       source: Option[AbsolutePath],
   ): ju.List[Location] = {
-    destinationProvider.fromSymbol(sym, source).flatMap(_.toResult) match {
+    destinationProvider.fromSymbol(sym, source) match {
       case None => ju.Collections.emptyList()
       case Some(destination) => destination.locations
     }
@@ -118,10 +120,9 @@ final class DefinitionProvider(
       targets: List[BuildTargetIdentifier],
   ): ju.List[Location] = {
     destinationProvider
-      .fromSymbol(sym, targets.toSet)
-      .flatMap(_.toResult) match {
+      .fromSymbol(sym, targets.toSet) match {
       case None => ju.Collections.emptyList()
-      case Some(destination) => destination.locations
+      case Some(r) => r.locations
     }
   }
 
@@ -265,7 +266,6 @@ final class DefinitionProvider(
         // symbol is global so it is defined in an external destination buffer.
         destinationProvider
           .fromSymbol(occ.symbol, Some(source))
-          .flatMap(_.toResult)
       }
     }
 
@@ -328,6 +328,7 @@ class DestinationProvider(
     trees: Trees,
     buildTargets: BuildTargets,
     saveSymbolFileToDisk: Boolean,
+    sourceMapper: SourceMapper,
 ) {
 
   private def bestTextDocument(
@@ -336,20 +337,27 @@ class DestinationProvider(
     val defnRevisedInput = symbolDefinition.path.toInput
     // Read text file from disk instead of editor buffers because the file
     // on disk is more likely to parse.
-    lazy val parsed =
+    lazy val parsed = {
       mtags.index(
         symbolDefinition.path.toLanguage,
         defnRevisedInput,
         symbolDefinition.dialect,
       )
+    }
 
-    if (symbolDefinition.path.isAmmoniteScript || parsed.occurrences.isEmpty) {
+    val path = symbolDefinition.path
+    if (path.isAmmoniteScript || parsed.occurrences.isEmpty) {
       // Fall back to SemanticDB on disk, if any
-      semanticdbsFallback
-        .flatMap {
-          _.textDocument(symbolDefinition.path).documentIncludingStale
-        }
+
+      def fromSemanticdbs(p: AbsolutePath): Option[TextDocument] =
+        semanticdbsFallback.flatMap(_.textDocument(p).documentIncludingStale)
+
+      fromSemanticdbs(path)
+        .orElse(
+          sourceMapper.mappedTo(path).flatMap(fromSemanticdbs)
+        )
         .getOrElse(parsed)
+
     } else {
       parsed
     }
@@ -404,28 +412,47 @@ class DestinationProvider(
   def fromSymbol(
       symbol: String,
       allowedBuildTargets: Set[BuildTargetIdentifier],
-  ): Option[DefinitionDestination] = {
-    definition(symbol, allowedBuildTargets).map { defn =>
-      val destinationDoc = bestTextDocument(defn)
+  ): Option[DefinitionResult] = {
+    definition(symbol, allowedBuildTargets).flatMap { defn =>
       val destinationPath =
         if (saveSymbolFileToDisk) defn.path.toFileOnDisk(workspace)
         else defn.path
-      val destinationDistance =
-        buffers.tokenEditDistance(destinationPath, destinationDoc.text, trees)
-      DefinitionDestination(
-        destinationDoc,
-        destinationDistance,
-        defn.definitionSymbol.value,
-        Some(destinationPath),
-        destinationPath.toURI.toString,
-      )
+      val uri = destinationPath.toURI.toString
+
+      defn.range match {
+        // read only source - no need to adjust positions
+        case Some(range) if defn.path.isJarFileSystem =>
+          Some(
+            DefinitionResult(
+              ju.Collections.singletonList(range.toLocation(uri)),
+              symbol,
+              Some(defn.path),
+              None,
+            )
+          )
+        case _ =>
+          val destinationDoc = bestTextDocument(defn)
+          val destinationDistance =
+            buffers.tokenEditDistance(
+              destinationPath,
+              destinationDoc.text,
+              trees,
+            )
+          DefinitionDestination(
+            destinationDoc,
+            destinationDistance,
+            defn.definitionSymbol.value,
+            Some(destinationPath),
+            uri,
+          ).toResult
+      }
     }
   }
 
   def fromSymbol(
       symbol: String,
       source: Option[AbsolutePath],
-  ): Option[DefinitionDestination] = {
+  ): Option[DefinitionResult] = {
     val targets = source.map(sourceToAllowedBuildTargets).getOrElse(Set.empty)
     fromSymbol(symbol, targets)
   }

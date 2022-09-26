@@ -48,13 +48,13 @@ import scala.meta.internal.metals.Messages.AmmoniteJvmParametersChange
 import scala.meta.internal.metals.Messages.IncompatibleBloopVersion
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals.ammonite.Ammonite
+import scala.meta.internal.metals.callHierarchy.CallHierarchyProvider
 import scala.meta.internal.metals.clients.language.ConfiguredLanguageClient
 import scala.meta.internal.metals.clients.language.DelegatingLanguageClient
 import scala.meta.internal.metals.clients.language.ForwardingMetalsBuildClient
 import scala.meta.internal.metals.clients.language.MetalsLanguageClient
 import scala.meta.internal.metals.clients.language.NoopLanguageClient
 import scala.meta.internal.metals.codeactions.CodeActionProvider
-import scala.meta.internal.metals.codeactions.ExtractMemberDefinitionData
 import scala.meta.internal.metals.codelenses.RunTestCodeLens
 import scala.meta.internal.metals.codelenses.SuperMethodCodeLens
 import scala.meta.internal.metals.codelenses.WorksheetCodeLens
@@ -133,8 +133,9 @@ class MetalsLanguageServer(
         case Some(session) => session.shutdown()
         case None => Future.successful(())
       }
-      try cancelables.cancel()
-      catch {
+      try {
+        cancelables.cancel()
+      } catch {
         case NonFatal(_) =>
       }
       try buildShutdown.asJava.get(100, TimeUnit.MILLISECONDS)
@@ -170,7 +171,7 @@ class MetalsLanguageServer(
   private val recentlyOpenedFiles = new ActiveFiles(time)
   private val recentlyFocusedFiles = new ActiveFiles(time)
   private val languageClient = new DelegatingLanguageClient(NoopLanguageClient)
-
+  val isImportInProcess = new AtomicBoolean(false)
   @volatile
   var userConfig: UserConfiguration = UserConfiguration()
   var excludedPackageHandler: ExcludedPackagesHandler =
@@ -275,6 +276,7 @@ class MetalsLanguageServer(
   private var syntheticsDecorator: SyntheticsDecorationProvider = _
   private var initializeParams: Option[InitializeParams] = None
   private var referencesProvider: ReferenceProvider = _
+  private var callHierarchyProvider: CallHierarchyProvider = _
   private var workspaceSymbols: WorkspaceSymbolProvider = _
   private val packageProvider: PackageProvider =
     new PackageProvider(buildTargets)
@@ -531,6 +533,7 @@ class MetalsLanguageServer(
           buildTargets,
           scalaVersionSelector,
           saveDefFileToDisk = !clientConfig.isVirtualDocumentSupported(),
+          sourceMapper,
         )
         formattingProvider = new FormattingProvider(
           workspace,
@@ -561,6 +564,16 @@ class MetalsLanguageServer(
           buffers,
           definitionProvider,
           remote,
+          trees,
+          buildTargets,
+        )
+        callHierarchyProvider = new CallHierarchyProvider(
+          workspace,
+          semanticdbs,
+          definitionProvider,
+          referencesProvider,
+          clientConfig.icons,
+          () => compilers,
           trees,
           buildTargets,
         )
@@ -687,21 +700,23 @@ class MetalsLanguageServer(
             sourceMapper,
           )
         )
-        debugProvider = new DebugProvider(
-          workspace,
-          definitionProvider,
-          buildTargets,
-          buildTargetClasses,
-          compilations,
-          languageClient,
-          buildClient,
-          classFinder,
-          definitionIndex,
-          stacktraceAnalyzer,
-          clientConfig,
-          semanticdbs,
-          compilers,
-          statusBar,
+        debugProvider = register(
+          new DebugProvider(
+            workspace,
+            definitionProvider,
+            buildTargets,
+            buildTargetClasses,
+            compilations,
+            languageClient,
+            buildClient,
+            classFinder,
+            definitionIndex,
+            stacktraceAnalyzer,
+            clientConfig,
+            semanticdbs,
+            compilers,
+            statusBar,
+          )
         )
         scalafixProvider = ScalafixProvider(
           buffers,
@@ -850,7 +865,7 @@ class MetalsLanguageServer(
         val capabilities = new ServerCapabilities()
         capabilities.setExecuteCommandProvider(
           new ExecuteCommandOptions(
-            ServerCommands.all.map(_.id).asJava
+            (ServerCommands.allIds ++ codeActionProvider.allActionCommandsIds).toList.asJava
           )
         )
         capabilities.setFoldingRangeProvider(true)
@@ -883,6 +898,7 @@ class MetalsLanguageServer(
             List(".", "*").asJava,
           )
         )
+        capabilities.setCallHierarchyProvider(true)
         capabilities.setWorkspaceSymbolProvider(true)
         capabilities.setDocumentSymbolProvider(true)
         capabilities.setDocumentFormattingProvider(true)
@@ -1409,9 +1425,7 @@ class MetalsLanguageServer(
     val path = AbsolutePath(event.path)
     val isScalaOrJava = path.isScalaOrJava
     if (isScalaOrJava && event.eventType == EventType.Delete) {
-      Future {
-        diagnostics.didDelete(path)
-      }.asJava
+      onDelete(path).asJava
     } else if (
       isScalaOrJava &&
       !savedFiles.isRecentlyActive(path) &&
@@ -1452,6 +1466,19 @@ class MetalsLanguageServer(
           compilations.compileFiles(paths),
           onBuildChanged(paths).ignoreValue,
         ) ++ paths.map(f => Future(interactiveSemanticdbs.textDocument(f)))
+      )
+      .ignoreValue
+  }
+
+  private def onDelete(path: AbsolutePath): Future[Unit] = {
+    Future
+      .sequence(
+        List(
+          compilations.compileFiles(List(path)),
+          Future {
+            diagnostics.didDelete(path)
+          },
+        )
       )
       .ignoreValue
   }
@@ -1665,6 +1692,30 @@ class MetalsLanguageServer(
       )
     }
   }
+
+  @JsonRequest("textDocument/prepareCallHierarchy")
+  def prepareCallHierarchy(
+      params: CallHierarchyPrepareParams
+  ): CompletableFuture[util.List[CallHierarchyItem]] =
+    CancelTokens.future { token =>
+      callHierarchyProvider.prepare(params, token).map(_.asJava)
+    }
+
+  @JsonRequest("callHierarchy/incomingCalls")
+  def callHierarchyIncomingCalls(
+      params: CallHierarchyIncomingCallsParams
+  ): CompletableFuture[util.List[CallHierarchyIncomingCall]] =
+    CancelTokens.future { token =>
+      callHierarchyProvider.incomingCalls(params, token).map(_.asJava)
+    }
+
+  @JsonRequest("callHierarchy/outgoingCalls")
+  def callHierarchyOutgoingCalls(
+      params: CallHierarchyOutgoingCallsParams
+  ): CompletableFuture[util.List[CallHierarchyOutgoingCall]] =
+    CancelTokens.future { token =>
+      callHierarchyProvider.outgoingCalls(params, token).map(_.asJava)
+    }
 
   @JsonRequest("textDocument/completion")
   def completion(params: CompletionParams): CompletableFuture[CompletionList] =
@@ -1945,7 +1996,6 @@ class MetalsLanguageServer(
           )
         } yield {
           statusBar.addMessage("Started debug server!")
-          cancelables.add(server)
           DebugSession(server.sessionName, server.uri.toString)
         }
         session.asJavaObject
@@ -2049,66 +2099,13 @@ class MetalsLanguageServer(
           languageClient.showMessage(Messages.Worksheets.unableToExport)
           Future.successful(()).asJavaObject
         }
-
-      case ServerCommands.InsertInferredType(textDocumentParams) =>
-        CancelTokens.future { token =>
-          val uri = textDocumentParams.getTextDocument().getUri()
-          for {
-            edits <- compilers.insertInferredType(textDocumentParams, token)
-            _ = logging.logErrorWhen(
-              edits.isEmpty(),
-              s"Could not infer type at ${textDocumentParams.getPosition()} in file\n${buffers
-                  .get(uri.toAbsolutePath)}",
-            )
-            workspaceEdit = new l.WorkspaceEdit(Map(uri -> edits).asJava)
-            _ <- languageClient
-              .applyEdit(new ApplyWorkspaceEditParams(workspaceEdit))
-              .asScala
-          } yield ().asInstanceOf[Object]
-        }
-
-      case ServerCommands.ConvertToNamedArguments(
-            ServerCommands.ConvertToNamedArgsRequest(position, argIndices)
+      case actionCommand
+          if codeActionProvider.allActionCommandsIds(
+            actionCommand.getCommand()
           ) =>
         CancelTokens.future { token =>
-          val uri = position.getTextDocument().getUri()
-          for {
-            edits <- compilers.convertToNamedArguments(
-              position,
-              argIndices,
-              token,
-            )
-            _ = logging.logErrorWhen(
-              edits.isEmpty(),
-              s"Could not find the correct names for arguments at $position with indices ${argIndices.asScala
-                  .mkString(",")}",
-            )
-            workspaceEdit = new l.WorkspaceEdit(Map(uri -> edits).asJava)
-            _ <- languageClient
-              .applyEdit(new ApplyWorkspaceEditParams(workspaceEdit))
-              .asScala
-          } yield ().asInstanceOf[Object]
+          codeActionProvider.executeCommands(params, token).withObjectValue
         }
-
-      case ServerCommands.ExtractMemberDefinition(textDocumentParams) =>
-        val data = ExtractMemberDefinitionData(textDocumentParams)
-        val future = for {
-          result <- codeActionProvider.executeCommands(data)
-          _ <- languageClient.applyEdit(result.edits).asScala
-        } yield {
-          result.goToLocation.foreach { location =>
-            languageClient.metalsExecuteClientCommand(
-              ClientCommands.GotoLocation.toExecuteCommandParams(
-                ClientCommands.WindowLocation(
-                  location.getUri(),
-                  location.getRange(),
-                )
-              )
-            )
-          }
-        }
-
-        future.asJavaObject
       case cmd =>
         ServerCommands.all
           .find(command => command.id == cmd.getCommand())
@@ -2283,7 +2280,7 @@ class MetalsLanguageServer(
 
   private def slowConnectToBuildServer(
       forceImport: Boolean
-  ): Future[BuildChange] = {
+  ): Future[BuildChange] =
     for {
       possibleBuildTool <- supportedBuildTool
       chosenBuildServer = tables.buildServers.selectedServer()
@@ -2305,7 +2302,6 @@ class MetalsLanguageServer(
           Future.successful(BuildChange.None)
       }
     } yield buildChange
-  }
 
   private def slowConnectToBloopServer(
       forceImport: Boolean,
@@ -2314,8 +2310,9 @@ class MetalsLanguageServer(
   ): Future[BuildChange] =
     for {
       result <- {
-        if (forceImport) bloopInstall.runUnconditionally(buildTool)
-        else bloopInstall.runIfApproved(buildTool, checksum)
+        if (forceImport)
+          bloopInstall.runUnconditionally(buildTool, isImportInProcess)
+        else bloopInstall.runIfApproved(buildTool, checksum, isImportInProcess)
       }
       change <- {
         if (result.isInstalled) quickConnectToBuildServer()

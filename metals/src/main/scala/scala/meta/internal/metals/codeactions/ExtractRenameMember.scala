@@ -14,8 +14,10 @@ import scala.meta.Template
 import scala.meta.Term
 import scala.meta.Tree
 import scala.meta.Type
+import scala.meta.internal.metals.ClientCommands
 import scala.meta.internal.metals.MetalsEnrichments._
-import scala.meta.internal.metals._
+import scala.meta.internal.metals.ServerCommands
+import scala.meta.internal.metals.clients.language.MetalsLanguageClient
 import scala.meta.internal.metals.codeactions.CodeAction
 import scala.meta.internal.metals.codeactions.ExtractRenameMember.CodeActionCommandNotFoundException
 import scala.meta.internal.metals.codeactions.ExtractRenameMember.getMemberType
@@ -30,9 +32,15 @@ import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.{lsp4j => l}
 
 class ExtractRenameMember(
-    trees: Trees
+    trees: Trees,
+    languageClient: MetalsLanguageClient,
 )(implicit ec: ExecutionContext)
     extends CodeAction {
+
+  override type CommandData = l.TextDocumentPositionParams
+
+  override def command: Option[ActionCommand] =
+    Some(ServerCommands.ExtractMemberDefinition)
 
   override def contribute(params: l.CodeActionParams, token: CancelToken)(
       implicit ec: ExecutionContext
@@ -320,11 +328,32 @@ class ExtractRenameMember(
     )
   }
 
-  def executeCommand(
-      data: ExtractMemberDefinitionData
-  ): Future[CodeActionCommandResult] = Future {
-    val uri = data.uri
-    val params = data.params
+  override def handleCommand(
+      textDocumentParams: l.TextDocumentPositionParams,
+      token: CancelToken,
+  )(implicit ec: ExecutionContext): Future[Unit] = {
+    for {
+      (edits, goToLocation) <- calculate(textDocumentParams)
+      _ <- languageClient.applyEdit(edits).asScala
+    } yield {
+      goToLocation.foreach { location =>
+        languageClient.metalsExecuteClientCommand(
+          ClientCommands.GotoLocation.toExecuteCommandParams(
+            ClientCommands.WindowLocation(
+              location.getUri(),
+              location.getRange(),
+            )
+          )
+        )
+      }
+    }
+
+  }
+
+  private def calculate(
+      params: l.TextDocumentPositionParams
+  ): Future[(ApplyWorkspaceEditParams, Option[Location])] = Future {
+    val uri = params.getTextDocument().getUri()
 
     def isCompanion(
         member: Member
@@ -373,7 +402,7 @@ class ExtractRenameMember(
       newFileMemberRange.setStart(pos)
       newFileMemberRange.setEnd(pos)
       val workspaceEdit = new WorkspaceEdit(Map(uri -> edits.asJava).asJava)
-      CodeActionCommandResult(
+      (
         new ApplyWorkspaceEditParams(workspaceEdit),
         Option(new Location(newFileUri, newFileMemberRange)),
       )
@@ -381,7 +410,7 @@ class ExtractRenameMember(
 
     opt.getOrElse(
       throw CodeActionCommandNotFoundException(
-        s"Could not execute command ${data.actionType}"
+        s"Could not execute command ${ServerCommands.ExtractMemberDefinition.id}"
       )
     )
   }

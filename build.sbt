@@ -276,6 +276,8 @@ val mtagsSettings = List(
       // for token edit-distance used by goto definition
       "com.googlecode.java-diff-utils" % "diffutils" % "1.3.0",
       "org.scalameta" % "semanticdb-scalac-core" % V.scalameta cross CrossVersion.full,
+      // for ivy completions
+      "io.get-coursier" % "interface" % V.coursierInterfaces,
     ),
     if3 = List(
       "org.scala-lang" %% "scala3-compiler" % scalaVersion.value,
@@ -306,6 +308,17 @@ val mtagsSettings = List(
   buildInfoKeys := Seq[BuildInfoKey](
     "scalaCompilerVersion" -> scalaVersion.value
   ),
+  Compile / unmanagedSourceDirectories := {
+    val current = (Compile / unmanagedSourceDirectories).value
+    val base = (Compile / sourceDirectory).value
+    val regex = "(\\d+)\\.(\\d+)\\.(\\d+).*".r
+    // For scala 2.13.9 we need to have a special Compat.scala
+    // For this case filter out `scala-2.13` directory that comes by default
+    if (scalaVersion.value == "2.13.9")
+      current.filter(f => f.getName() != "scala-2.13")
+    else
+      current
+  },
 )
 
 lazy val mtags3 = project
@@ -354,9 +367,9 @@ lazy val metals = project
       "com.swoval" % "file-tree-views" % "2.1.9",
       // for http client
       "io.undertow" % "undertow-core" % "2.2.19.Final",
-      "org.jboss.xnio" % "xnio-nio" % "3.8.7.Final",
+      "org.jboss.xnio" % "xnio-nio" % "3.8.8.Final",
       // for persistent data like "dismissed notification"
-      "org.flywaydb" % "flyway-core" % "9.3.0",
+      "org.flywaydb" % "flyway-core" % "9.3.1",
       "com.h2database" % "h2" % "2.1.214",
       // for BSP
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.5.0",

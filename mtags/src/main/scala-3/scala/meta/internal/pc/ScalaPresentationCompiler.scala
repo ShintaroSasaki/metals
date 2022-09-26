@@ -20,7 +20,7 @@ import scala.meta.internal.mtags.MtagsEnrichments.*
 import scala.meta.internal.pc.AutoImports.*
 import scala.meta.internal.pc.CompilerAccess
 import scala.meta.internal.pc.DefinitionResultImpl
-import scala.meta.internal.pc.completions.CompletionsProvider
+import scala.meta.internal.pc.completions.CompletionProvider
 import scala.meta.internal.pc.completions.OverrideCompletions
 import scala.meta.internal.semver.SemVer
 import scala.meta.pc.*
@@ -107,7 +107,7 @@ case class ScalaPresentationCompiler(
       params.token,
     ) { access =>
       val driver = access.compiler()
-      new CompletionsProvider(
+      new CompletionProvider(
         search,
         driver,
         params,
@@ -222,6 +222,24 @@ case class ScalaPresentationCompiler(
         .inferredTypeEdits()
         .asJava
     }
+
+  override def extractMethod(
+      range: RangeParams,
+      extractionPos: OffsetParams,
+  ): CompletableFuture[ju.List[l.TextEdit]] =
+    val empty: ju.List[l.TextEdit] = new ju.ArrayList[l.TextEdit]()
+    compilerAccess.withInterruptableCompiler(empty, range.token) { pc =>
+      new ExtractMethodProvider(
+        range,
+        extractionPos,
+        pc.compiler(),
+        search,
+      )
+        .extractMethod()
+        .asJava
+    }
+  end extractMethod
+
   override def convertToNamedArguments(
       params: OffsetParams,
       argIndices: ju.List[Integer],

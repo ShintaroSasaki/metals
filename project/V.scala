@@ -3,22 +3,22 @@ import sbt._
 object V {
   val scala210 = "2.10.7"
   val scala211 = "2.11.12"
-  val scala212 = "2.12.16"
-  val scala213 = "2.13.8"
+  val scala212 = "2.12.17"
+  val scala213 = "2.13.9"
   val scala3 = "3.2.0"
-  val nextScala3RC = "3.2.1-RC1"
-  val sbtScala = "2.12.14"
-  val ammonite212Version = "2.12.16"
-  val ammonite213Version = "2.13.8"
+  val nextScala3RC = "3.2.1-RC2"
+  val sbtScala = "2.12.16"
+  val ammonite212Version = "2.12.17"
+  val ammonite213Version = "2.13.9"
   val ammonite3Version = "3.1.3"
 
-  val ammonite = "2.5.4-22-4a9e6989"
+  val ammonite = "2.5.4-33-0af04a5b"
   val betterMonadicFor = "0.3.1"
   val bloop = "1.5.3-28-373a64c9"
   val bloopNightly = bloop
   val bsp = "2.1.0-M1"
-  val coursier = "2.1.0-M6"
-  val coursierInterfaces = "1.0.8"
+  val coursier = "2.1.0-M7"
+  val coursierInterfaces = "1.0.9"
   val debugAdapter = "2.2.0"
   val genyVersion = "0.7.1"
   val gradleBloop = bloop
@@ -35,8 +35,8 @@ object V {
   val pprint = "0.7.3"
   val sbtBloop = bloop
   val sbtJdiTools = "1.1.1"
-  val scalaCli = "0.1.12"
-  val scalafix = "0.10.1"
+  val scalaCli = "0.1.14"
+  val scalafix = "0.10.3"
   val scalafmt = "3.5.3"
   val scalameta = "4.5.13"
   val scribe = "3.10.3"
@@ -65,9 +65,9 @@ object V {
   // Scala 2
   def deprecatedScala2Versions = Seq(
     scala211,
-    "2.12.8",
     "2.12.9",
     "2.12.10",
+    "2.12.11",
     "2.13.1",
     "2.13.2",
     "2.13.3",
@@ -77,14 +77,15 @@ object V {
   def nonDeprecatedScala2Versions = Seq(
     scala213,
     scala212,
+    "2.12.16",
     "2.12.15",
     "2.12.14",
     "2.12.13",
     "2.12.12",
-    "2.12.11",
     "2.13.5",
     "2.13.6",
     "2.13.7",
+    "2.13.8",
   )
   def scala2Versions = nonDeprecatedScala2Versions ++ deprecatedScala2Versions
 
@@ -94,7 +95,7 @@ object V {
 
   // Scala 3
   def nonDeprecatedScala3Versions =
-    Seq(nextScala3RC, scala3, "3.1.3", "3.1.2", "3.1.1")
+    Seq(nextScala3RC, "3.2.1-RC1", scala3, "3.1.3", "3.1.2", "3.1.1")
   def deprecatedScala3Versions =
     Seq("3.2.0-RC4", "3.2.0-RC3", "3.1.0", "3.0.2", "3.0.1", "3.0.0")
   def scala3Versions = nonDeprecatedScala3Versions ++ deprecatedScala3Versions
