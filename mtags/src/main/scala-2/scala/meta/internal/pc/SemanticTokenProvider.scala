@@ -173,7 +173,7 @@ final class SemanticTokenProvider  (
       tk: scala.meta.tokens.Token
   ): Integer = {
     tk match {
-      // case _: Token.Ident => // in case of Ident is 
+      // case _: Token.Ident => // see getTypeAndMod
 
       // Alphanumeric keywords
       case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
