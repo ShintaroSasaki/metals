@@ -116,7 +116,7 @@ final class SemanticTokenProvider  (
         case _: Token.Space =>
 
         // deals multi-line token
-        case _: Token.Comment|Token.Constant.String => 
+        case _: Token.Comment|_:Token.Constant.String => 
           var wkStartPos = tk.pos.start
           var wkCurrentPos = tk.pos.start
           val tokenType = tk match {
@@ -425,7 +425,13 @@ final class SemanticTokenProvider  (
 
       //get Type
       val typ = 
-          if (sym.isValueParameter ) getTypeId(SemanticTokenTypes.Parameter)
+          if (sym.isValueParameter
+          // |sym.isParamWithDefault
+          // |sym.isDefaultGetter
+          // |sym.isParamAccessor
+          // |sym.isGetter
+          // |sym.isSetter
+          ) getTypeId(SemanticTokenTypes.Parameter)
           else if (sym.isTypeParameter) getTypeId(SemanticTokenTypes.TypeParameter)
           else if (sym.isJavaEnum) getTypeId(SemanticTokenTypes.Enum)
           else 
@@ -438,13 +444,13 @@ final class SemanticTokenProvider  (
             else if (sym.hasPackageFlag) getTypeId(SemanticTokenTypes.Namespace) //"package"
             else if (sym.isModule) getTypeId(SemanticTokenTypes.Class) //"object"
             else if (sym.isSourceMethod) 
-              if (sym.isGetter || sym.isSetter ) getTypeId(SemanticTokenTypes.Variable)
+              if (sym.isGetter | sym.isSetter ) getTypeId(SemanticTokenTypes.Variable)
               else getTypeId(SemanticTokenTypes.Method) //"def"
             else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
               addPwrToMod(SemanticTokenModifiers.Readonly)
               getTypeId(SemanticTokenTypes.Variable)// "val"
             }
-            else -1
+          else -1
         
         logString += strSep + "type:" + typ.toString()
 
