@@ -30,23 +30,16 @@ final class SemanticTokenProvider  (
   val strSep = ", "
   val linSep = "\n"
 
-  // initialize semantic tree
-  val ( unit,
-        root:cp.Tree, 
-        source:SourceFile,
-      )={
-        val unit = cp.addCompilationUnit(
-          params.text(),
-          params.uri().toString(),
-          None
-        )
-        cp.typeCheck(unit) // initializing unit
 
-        ( unit,
-          unit.lastBody,
-          unit.source
-        )
-      }
+  // initialize semantic tree
+  val unit = cp.addCompilationUnit(
+    params.text(),
+    params.uri().toString(),
+    None
+  )
+  cp.typeCheck(unit) // initializing unit
+  val (root, source) = (unit.lastBody, unit.source)
+
 
   def unitPos(offset:Int)=unit.position(offset)
   val nodes:Set[NodeInfo]=traverser.traverse(Set.empty[NodeInfo], root) 
