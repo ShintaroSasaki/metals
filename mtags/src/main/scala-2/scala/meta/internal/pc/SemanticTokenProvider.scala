@@ -423,17 +423,9 @@ final class SemanticTokenProvider(
 
       // get Type
       val typ =
-        if (
-          sym.isValueParameter
-          // |sym.isParamWithDefault
-          // |sym.isDefaultGetter
-          // |sym.isParamAccessor
-          // |sym.isGetter
-          // |sym.isSetter
-        ) getTypeId(SemanticTokenTypes.Parameter)
+        if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
         else if (sym.isTypeParameter)
           getTypeId(SemanticTokenTypes.TypeParameter)
-        // else if (sym.isJavaEnum) getTypeId(SemanticTokenTypes.Enum)
         else
         // See symbol.keystring about following conditions.
         if (sym.isJavaInterface)
