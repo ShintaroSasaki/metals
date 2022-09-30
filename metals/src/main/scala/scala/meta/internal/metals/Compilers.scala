@@ -378,10 +378,7 @@ class Compilers(
       capableModifiers: List[String],
       token: CancelToken,
   ): Future[SemanticTokens] = {
-    scribe.info("Debug: Compiliers.semanticTokens:Start")
 
-    // Probably extra prcess is needed to construct vFile for Scala 3.
-    // See didchange.
     val path = params.getTextDocument.getUri.toAbsolutePath
 
     if (path.isScalaScript || path.isSbt) {
