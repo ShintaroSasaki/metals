@@ -117,7 +117,6 @@ import org.eclipse.lsp4j.WorkspaceEdit
 import org.eclipse.lsp4j.WorkspaceFolder
 import org.eclipse.{lsp4j => l}
 import tests.MetalsTestEnrichments._
-import scala.collection.immutable
 
 /**
  * Wrapper around `MetalsLanguageServer` with helpers methods for testing purposes.

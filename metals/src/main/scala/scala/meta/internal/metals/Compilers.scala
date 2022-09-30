@@ -38,9 +38,9 @@ import org.eclipse.lsp4j.Hover
 import org.eclipse.lsp4j.InitializeParams
 import org.eclipse.lsp4j.SelectionRange
 import org.eclipse.lsp4j.SelectionRangeParams
-import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.SemanticTokens
 import org.eclipse.lsp4j.SemanticTokensParams
+import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentPositionParams
 import org.eclipse.lsp4j.TextEdit
@@ -372,8 +372,6 @@ class Compilers(
       .getOrElse(Future.successful(Nil))
   }
 
-  // sasaki dev area is start↓
-
   def semanticTokens(
       params: SemanticTokensParams,
       capableTypes: List[String],
@@ -407,8 +405,6 @@ class Compilers(
     }
 
   }
-
-  // sasaki dev area is over↑
 
   def completions(
       params: CompletionParams,

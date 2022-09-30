@@ -891,7 +891,6 @@ class MetalsLanguageServer(
         capabilities.setSignatureHelpProvider(
           new SignatureHelpOptions(List("(", "[", ",").asJava)
         )
-
         capabilities.setCompletionProvider(
           new CompletionOptions(
             clientConfig.isCompletionItemResolve,
