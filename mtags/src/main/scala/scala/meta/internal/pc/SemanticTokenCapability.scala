@@ -1,4 +1,4 @@
-package scala.meta.internal.metals
+package scala.meta.internal.pc
 
 import scala.collection.JavaConverters._
 
@@ -42,18 +42,5 @@ object SemanticTokenCapability {
     SemanticTokenModifiers.Documentation,
     SemanticTokenModifiers.DefaultLibrary,
   )
-
-  val defaultServerCapability: SemanticTokensWithRegistrationOptions =
-    new org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions(
-      new SemanticTokensLegend(
-        this.TokenTypes.asJava,
-        this.TokenModifiers.asJava,
-      ), // legend used in this server.
-      new SemanticTokensServerFull(
-        false
-      ), // Method 'full' is supported, but 'full/delta' is not.
-      false, // Method 'range' is not supported.
-      // Dynamic registration is not supported.
-    )
 
 }

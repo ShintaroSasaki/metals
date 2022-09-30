@@ -871,7 +871,17 @@ class MetalsLanguageServer(
         capabilities.setFoldingRangeProvider(true)
         capabilities.setSelectionRangeProvider(true)
         capabilities.setSemanticTokensProvider(
-          SemanticTokenCapability.defaultServerCapability
+          new org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions(
+            new SemanticTokensLegend(
+              this.TokenTypes.asJava,
+              this.TokenModifiers.asJava,
+            ), // legend used in this server.
+            new SemanticTokensServerFull(
+              false
+            ), // Method 'full' is supported, but 'full/delta' is not.
+            false, // Method 'range' is not supported.
+            // Dynamic registration is not supported.
+          )
         )
         capabilities.setCodeLensProvider(new CodeLensOptions(false))
         capabilities.setDefinitionProvider(true)

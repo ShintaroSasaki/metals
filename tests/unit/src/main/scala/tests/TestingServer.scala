@@ -49,6 +49,7 @@ import scala.meta.internal.metals.ParametrizedCommand
 import scala.meta.internal.metals.PositionSyntax._
 import scala.meta.internal.metals.ProgressTicks
 import scala.meta.internal.metals.ScalaVersionSelector
+import scala.meta.internal.metals.SemanticTokenCapability
 import scala.meta.internal.metals.ServerCommands
 import scala.meta.internal.metals.TextEdits
 import scala.meta.internal.metals.Time
@@ -1285,7 +1286,6 @@ final case class TestingServer(
   ): Future[Unit] = {
     try {
 
-      import scala.meta.internal.metals.SemanticTokenCapability
       scribe.info("\n Debug:  assertSemanticHighlight: Start")
 
       val uri = toPath(filePath).toTextDocumentIdentifier

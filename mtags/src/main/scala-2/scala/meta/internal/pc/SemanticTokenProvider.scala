@@ -456,17 +456,6 @@ final class SemanticTokenProvider(
     }
   }
 
-  import scala.reflect.internal.util.Position
-  private def namePos(t: cp.Tree): Position = {
-    try {
-      val wkStart = t.pos.point
-      val wkEnd = wkStart + t.symbol.name.length() // - 1
-      Position.range(t.pos.source, wkStart, wkStart, wkEnd)
-    } catch {
-      case _ => null
-    }
-  }
-
   var counter = 0
 
   /** makes string to logging tree construction. */
