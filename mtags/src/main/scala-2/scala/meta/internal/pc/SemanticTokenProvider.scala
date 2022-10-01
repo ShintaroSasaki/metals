@@ -9,7 +9,7 @@ import scala.reflect.internal.util.Position
 import scala.meta.internal.jdk.CollectionConverters._
 import scala.meta.pc.VirtualFileParams
 import scala.meta.tokens._
-
+import scala.meta.internal.pc.SemanticTokenCapability._
 import org.checkerframework.common.returnsreceiver.qual.This
 import org.eclipse.lsp4j.SemanticTokenModifiers
 import org.eclipse.lsp4j.SemanticTokenTypes
@@ -22,8 +22,8 @@ final class SemanticTokenProvider(
     ,
     val params: VirtualFileParams,
 ) {
-    val capableTypes= SemanticTokenCapability.tokenTypes
-    val capableModifiers = SemanticTokenCapability.tokenModifiers
+    val capableTypes= TokenTypes
+    val capableModifiers = TokenModifiers
   // alias for long notation
   def getTypeId(p: String): Int = capableTypes.indexOf(p)
 
@@ -79,13 +79,6 @@ final class SemanticTokenProvider(
     import scala.meta._
     for (tk <- params.text().tokenize.toOption.get) yield {
 
-      if (
-        tk.getClass.toString.substring(29) != "$Space"
-        && tk.getClass.toString.substring(29) != "$LF"
-      ) {
-        logString += tokenDescriber(tk)
-      }
-
       tk match {
         case _: Token.LF =>
           currentLine += 1
@@ -131,8 +124,7 @@ final class SemanticTokenProvider(
           }
 
         case _ =>
-          val (tokenType, tokeModifier, wkLog) = getTypeAndMod(tk)
-          logString += wkLog
+          val (tokenType, tokeModifier) = getTypeAndMod(tk)
           addTokenToBuffer(
             tk.pos.start,
             tk.text.size,
@@ -192,15 +184,15 @@ final class SemanticTokenProvider(
       pos: Position
   )
   object NodeInfo {
-    def apply(tree: Tree, pos: Position) = {
-      NodeInfo(tree.symbol, pos)
+    def apply(tree :Tree, pos: scala.meta.inputs.Position): Option[NodeInfo] = {
+      Option{new NodeInfo(tree.symbol, pos)}
     }
-    def apply(imp: Import): Option[NodeInfo] = {
-          selector(imp, tk.pos.start) match {
-            case Some(sym) => Some(NodeInfo(sym, tk.pos))
-            case None => None
-          }
-    }
+    // def apply(imp: Import,tk:scala.meta.tokens.Token): Option[NodeInfo] = {
+    //       selector(imp, tk.pos.start) match {
+    //         case Some(sym) => Some(new NodeInfo(sym, tk.pos))
+    //         case None => None
+    //       }
+    // }
   }
 
   /**
@@ -224,13 +216,13 @@ final class SemanticTokenProvider(
          * val a = <<b>>
          */
         case ident: cp.Ident if ident.pos.isRange =>
-          nodes + new NodeInfo(ident, ident.pos)
+          nodes + NodeInfo.apply(ident, ident.pos)
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
          */
         case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
-          nodes + new NodeInfo(tpe.original, typePos(tpe))
+          nodes + NodeInfo(tpe.original, typePos(tpe))
 
         /**
          * All select statements such as:
@@ -291,7 +283,7 @@ final class SemanticTokenProvider(
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          nodes + new NodeInfo(imp)
+          nodes + NodeInfo(imp)
 
         case _ =>
           if (tree == null) null
@@ -365,7 +357,7 @@ final class SemanticTokenProvider(
   /**
    * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
    */
-  private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int, String) = {
+  private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
 
     // whether token is identifier or not
     tk match {
@@ -375,13 +367,13 @@ final class SemanticTokenProvider(
       // e.g. which is `yield` of such as Thread.`yield`().
       case _ =>
         // Non-Ident has no modifier.
-        return (typeOfNonIdentToken(tk), 0, strSep + "Non-Ident")
+        return (typeOfNonIdentToken(tk), 0)
     }
 
 
     val nodeInfo = pickFromTraversed(tk)
 
-    if (nodeInfo == null) { (-1, 0, strSep + "Node-Nothing") }
+    if (nodeInfo == null) { (-1, 0) }
     else {
       val sym = nodeInfo.symbol
 
