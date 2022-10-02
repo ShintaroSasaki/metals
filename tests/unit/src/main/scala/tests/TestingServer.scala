@@ -49,7 +49,6 @@ import scala.meta.internal.metals.ParametrizedCommand
 import scala.meta.internal.metals.PositionSyntax._
 import scala.meta.internal.metals.ProgressTicks
 import scala.meta.internal.metals.ScalaVersionSelector
-import scala.meta.internal.metals.SemanticTokenCapability
 import scala.meta.internal.metals.ServerCommands
 import scala.meta.internal.metals.TextEdits
 import scala.meta.internal.metals.Time
@@ -61,6 +60,7 @@ import scala.meta.internal.metals.findfiles._
 import scala.meta.internal.metals.testProvider.BuildTargetUpdate
 import scala.meta.internal.mtags.Semanticdbs
 import scala.meta.internal.parsing.Trees
+import scala.meta.internal.pc.SemanticTokenCapability._
 import scala.meta.internal.semanticdb.Scala.Symbols
 import scala.meta.internal.semanticdb.Scala._
 import scala.meta.internal.tvp.TreeViewChildrenParams
@@ -1299,7 +1299,7 @@ final case class TestingServer(
 
         // TokenType
         if (typeInd != -1) {
-          buffer.addAll(List(SemanticTokenCapability.TokenTypes(typeInd)))
+          buffer.addAll(List(TokenTypes(typeInd)))
         }
 
         // TokenModifier
@@ -1309,7 +1309,7 @@ final case class TestingServer(
           if (wkList(i).toString == "1") {
             buffer.addAll(
               List(
-                SemanticTokenCapability.TokenModifiers(i)
+                TokenModifiers(i)
               )
             )
           }

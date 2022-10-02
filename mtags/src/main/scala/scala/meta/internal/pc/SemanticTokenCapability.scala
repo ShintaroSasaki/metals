@@ -2,7 +2,7 @@ package scala.meta.internal.pc
 import org.eclipse.lsp4j._
 
 object SemanticTokenCapability {
-  var TokenTypes: List[String] = List(
+  val TokenTypes: List[String] = List(
     SemanticTokenTypes.Type,
     SemanticTokenTypes.Class,
     SemanticTokenTypes.Enum,
@@ -27,7 +27,7 @@ object SemanticTokenCapability {
     SemanticTokenTypes.Decorator,
   )
 
-  var TokenModifiers: List[String] = List(
+  val TokenModifiers: List[String] = List(
     SemanticTokenModifiers.Declaration,
     SemanticTokenModifiers.Definition,
     SemanticTokenModifiers.Readonly,

@@ -374,8 +374,6 @@ class Compilers(
 
   def semanticTokens(
       params: SemanticTokensParams,
-      capableTypes: List[String],
-      capableModifiers: List[String],
       token: CancelToken,
   ): Future[SemanticTokens] = {
 
@@ -390,7 +388,7 @@ class Compilers(
 
       loadCompiler(path)
         .map { pc =>
-          pc.semanticTokens(vFile, capableTypes.asJava, capableModifiers.asJava)
+          pc.semanticTokens(vFile)
             .asScala
             .map { plist =>
               new SemanticTokens(plist)
