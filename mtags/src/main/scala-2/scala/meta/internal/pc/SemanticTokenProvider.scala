@@ -82,21 +82,19 @@ final class SemanticTokenProvider(
     for (tk <- params.text().tokenize.toOption.get) yield {
 
       tk match {
-        case _: Token.LF =>
-          currentLine += 1
-          lastNewlineOffset = tk.pos.end
+        // case _: Token.LF =>
+        //   currentLine += 1
+        //   lastNewlineOffset = tk.pos.end
 
-        case _: Token.Space =>
+        // case _: Token.Space =>
 
         // deals multi-line token
-        case _: Token.Comment | _: Token.Constant.String =>
+        case _ =>
+        // case _: Token.Comment | _: Token.Constant.String =>
+        // Token.Comment|Token.Constant.String can be multi-line
+          val (tokenType, tokeModifier) = getTypeAndMod(tk)
           var wkStartPos = tk.pos.start
           var wkCurrentPos = tk.pos.start
-          val tokenType = tk match {
-            case _: Token.Comment => getTypeId(SemanticTokenTypes.Comment)
-            case _ => getTypeId(SemanticTokenTypes.String)
-          }
-          val tokeModifier = 0
 
           for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
             wkCurrentPos += 1
@@ -125,14 +123,14 @@ final class SemanticTokenProvider(
 
           }
 
-        case _ =>
-          val (tokenType, tokeModifier) = getTypeAndMod(tk)
-          addTokenToBuffer(
-            tk.pos.start,
-            tk.text.size,
-            tokenType,
-            tokeModifier
-          )
+        // case _ =>
+        //   val (tokenType, tokeModifier) = getTypeAndMod(tk)
+        //   addTokenToBuffer(
+        //     tk.pos.start,
+        //     tk.text.size,
+        //     tokenType,
+        //     tokeModifier
+        //   )
       } // end match
 
     } // end for
@@ -173,7 +171,11 @@ final class SemanticTokenProvider(
       case _: Token.Constant.Int | _: Token.Constant.Long |
           _: Token.Constant.Float | _: Token.Constant.Double =>
         getTypeId(SemanticTokenTypes.Number)
-      case _: Token.Constant.Char => getTypeId(SemanticTokenTypes.String)
+      case _: Token.Constant.String|_: Token.Constant.Char =>
+         getTypeId(SemanticTokenTypes.String)
+
+      // Comment
+      case _:Token.Comment =>getTypeId(SemanticTokenTypes.Comment)
 
       // Default
       case _ => -1
@@ -359,8 +361,13 @@ final class SemanticTokenProvider(
       // continue this method.
       // Constant.Symbol means literal symbol with backticks.
       // e.g. which is `yield` of such as Thread.`yield`().
+
+      // case _: Token.Comment =>
+      //    return(getTypeId(SemanticTokenTypes.Comment),0)
+      // case _: Token.Constant.String =>
+      //    return(getTypeId(SemanticTokenTypes.String),0)
+      
       case _ =>
-        // Non-Ident has no modifier.
         return (typeOfNonIdentToken(tk), 0)
     }
 
