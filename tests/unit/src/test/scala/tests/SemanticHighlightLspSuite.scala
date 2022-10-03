@@ -129,22 +129,22 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin,
   // )
 
-  // check(
-  //   "import(Out of File)",
-  //   s"""|
-  //       |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
-  //       |<<object>>/*keyword*/ <<sample3>>/*class*/ {
-  //       |
-  //       |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
-  //       |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
-  //       |
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*method*/[<<String>>/*method*/]) ={
-  //       |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
-  //       |  }
-  //       |}
-  //       |
-  //       |""".stripMargin,
-  // )
+  check(
+    "import(Out of File)",
+    s"""|
+        |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
+        |<<object>>/*keyword*/ <<sample3>>/*class*/ {
+        |
+        |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
+        |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
+        |
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*method*/[<<String>>/*method*/]) ={
+        |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
+        |  }
+        |}
+        |
+        |""".stripMargin,
+  )
 
   // check(
   //   "String, Char",
