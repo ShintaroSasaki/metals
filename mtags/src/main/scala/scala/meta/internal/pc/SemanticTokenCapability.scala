@@ -3,6 +3,7 @@ import org.eclipse.lsp4j._
 
 object SemanticTokenCapability {
   val TokenTypes: List[String] = List(
+    SemanticTokenTypes.Namespace,
     SemanticTokenTypes.Type,
     SemanticTokenTypes.Class,
     SemanticTokenTypes.Enum,

@@ -26,10 +26,11 @@ final class SemanticTokenProvider(
   val capableTypes= TokenTypes
   val capableModifiers = TokenModifiers
 
-  // alias for long notation
+  // Alias for long notation
   val getTypeId :Map[String,Int] = capableTypes.zipWithIndex.toMap
   val getModifierId :Map[String,Int] = capableModifiers.zipWithIndex.toMap
 
+  // Initialize Tree
   import cp._
   val unit: RichCompilationUnit = cp.addCompilationUnit(
     params.text(),
@@ -93,7 +94,9 @@ final class SemanticTokenProvider(
       lastCharStartOffset = startPos
     }
 
+    /////////////////////////////
     // Loop by token
+    /////////////////////////////
     import scala.meta._
     for (tk <- params.text().tokenize.toOption.get) yield {
       tokenDescriber(tk)
@@ -139,6 +142,7 @@ final class SemanticTokenProvider(
 
   }
 
+
   /**
    * This function returns -1 when capable Type is nothing.
    *  TokenTypes that can be on multilines are handled in another func.
@@ -172,6 +176,7 @@ final class SemanticTokenProvider(
         getTypeId(SemanticTokenTypes.Number)
       case _: Token.Constant.String|_: Token.Constant.Char =>
          getTypeId(SemanticTokenTypes.String)
+      case _: Token.Constant.Symbol =>getTypeId(SemanticTokenTypes.Property)
 
       // Comment
       case _:Token.Comment =>getTypeId(SemanticTokenTypes.Comment)
@@ -208,7 +213,6 @@ final class SemanticTokenProvider(
     // if (nodeList.size == 0) None
     // else Some(nodeList(0))
   }
-
 
   case class NodeInfo(
     tree:Option[Tree],
@@ -368,17 +372,12 @@ final class SemanticTokenProvider(
    */
   private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
 
-    // whether token is identifier or not
     tk match {
-      case _: Token.Ident | _: Token.Constant.Symbol =>
-      // Constant.Symbol means literal symbol with backticks.
-      // e.g. which is `yield` of such as Thread.`yield`().
-        IndentTypeAndMod(tk)
-
-      case _ =>
-        return (typeOfNonIdentToken(tk), 0)
+      case _: Token.Ident => IndentTypeAndMod(tk)
+      case _ => (typeOfNonIdentToken(tk), 0)
     }
   }
+
   private def IndentTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) ={
     val default = (-1,0)
 
