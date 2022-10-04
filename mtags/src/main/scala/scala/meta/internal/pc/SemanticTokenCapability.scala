@@ -25,7 +25,7 @@ object SemanticTokenCapability {
     SemanticTokenTypes.Number,
     SemanticTokenTypes.Regexp,
     SemanticTokenTypes.Operator,
-    SemanticTokenTypes.Decorator,
+    SemanticTokenTypes.Decorator
   )
 
   val TokenModifiers: List[String] = List(
@@ -38,7 +38,7 @@ object SemanticTokenCapability {
     SemanticTokenModifiers.Async,
     SemanticTokenModifiers.Modification,
     SemanticTokenModifiers.Documentation,
-    SemanticTokenModifiers.DefaultLibrary,
+    SemanticTokenModifiers.DefaultLibrary
   )
 
 }
