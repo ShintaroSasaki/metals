@@ -45,7 +45,7 @@ final class SemanticTokenProvider(
                                   .sortBy(_.pos.map(_.start))
 
 
-  /** 
+  /**
    * main method
    */
   def provide(): ju.List[Integer] = {
@@ -58,7 +58,7 @@ final class SemanticTokenProvider(
     // logString += nodes.map(n=>
     //     treeDescriber(n.tree.get,false)
     //     + "   "+  n.pos.get.start +"," + n.pos.get.end
-    
+
     // ).mkString("")
 
     // Tools
@@ -72,53 +72,43 @@ final class SemanticTokenProvider(
     // For ecample, Comment or Literal String.
     import scala.meta._
     var cLine = Line(0,0) // Current Line
-    var lastProvided = SingleLineToken(cLine,0)
+    var lastProvided = SingleLineToken(cLine,0,None)
 
       for (tk <- params.text().tokenize.toOption.get) yield {
         tk match {
-          case _:Token.LF =>
-              logString += linSep + spcr + "Regular NewLine"
-              cLine = Line(cLine.number + 1, tk.pos.end)
+          // case _:Token.LF =>
+          //     logString += linSep + spcr + "Regular NewLine"
+          //     cLine = Line(cLine.number + 1, tk.pos.end)
 
-          case _:Token.Space =>
+          // case _:Token.Space =>
 
           case _ =>
 
             tokenDescriber(tk)
-
             var cOffset = tk.pos.start // Current Offset
-            val (tokenType, tokeModifier) = getTypeAndMod(tk)
-            
-            
-            val providing = SingleLineToken(cLine,cOffset)
-
-            def deltaLine=providing.line.number -lastProvided.line.number
-            def deltaStartChar: Int = {
-              if (deltaLine == 0){
-                providing.startOffset - lastProvided.startOffset
-                //  startOffset - lastStartOffset
-              } else providing.startOffset - cLine.startOffset
-            }
-
-            logString += linSep + spcr + "offset:" + providing.startOffset + "," + lastProvided.startOffset
-
-
+            var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
+            // logString += linSep + spcr + "deltaLine" + providing.deltaLine
+            // var nextStartOffset = 0
+            // var nextStartLine = 0
             for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
+              
 
               cOffset += 1
 
               // Token Break
               if (wkStr == "\n" | cOffset == tk.pos.end) {
+                val (tokenType, tokeModifier) = getTypeAndMod(tk)
                 if (tokenType == -1 && tokeModifier == 0) {
                   // Go to next loop
                 }else {
-                  providing.endOffset = 
-                      if (wkStr == "\n") cOffset - 1 
+                  
+                  providing.endOffset =
+                      if (wkStr == "\n") cOffset - 1
                       else cOffset
                   buffer.++=(
                     List(
-                      deltaLine, 
-                      deltaStartChar, 
+                      providing.deltaLine,
+                      providing.deltaStartChar,
                       providing.charSize,
                       tokenType,
                       tokeModifier
@@ -127,17 +117,17 @@ final class SemanticTokenProvider(
 
                   lastProvided = providing
                 }
+                // Line Break
+                if (wkStr == "\n") {
+                  cLine = Line(cLine.number + 1, cOffset)
+                }
+                providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
 
-              }
 
-              // Line Break
-              if (wkStr == "\n") {
-                logString += linSep + spcr + "Extra NewLine"
-                cLine = Line(cLine.number + 1, cOffset)
               }
 
             }
-            
+
           }
 
         } // end for
@@ -154,25 +144,23 @@ final class SemanticTokenProvider(
     val startOffset:Int
   )
   case class SingleLineToken (
-    line:Line, // line which token on 
-    startOffset:Int, // Offset from start of file. 
-    // lastLine:Line,
-    // lastStartOffset:Int,
-    // lastToken:Option[SingleLineToken]
+    line:Line, // line which token on
+    startOffset:Int, // Offset from start of file.
+    lastToken:Option[SingleLineToken]
   ){
     var endOffset : Int = 0
     def charSize:Int = endOffset - startOffset
-    // def deltaLine: Int =
-    //   line.number - this.lastToken.map(_.line.number).getOrElse(0)
-    //   // line.number-lastLine.number
-    // def deltaStartChar: Int = {
-    //   if (deltaLine == 0){
-    //     startOffset - lastToken.map(_.startOffset).getOrElse(0)
-    //     //  startOffset - lastStartOffset
-    //   } else startOffset - line.startOffset
-    // }
+    def deltaLine: Int =
+      line.number - this.lastToken.map(_.line.number).getOrElse(0)
+      // line.number-lastLine.number
+    def deltaStartChar: Int = {
+      if (deltaLine == 0)
+        startOffset - lastToken.map(_.startOffset).getOrElse(0)
+      else
+        startOffset - line.startOffset
+    }
   }
-   
+
 
   /**
    * This function returns -1 when capable Type is nothing.
@@ -218,7 +206,7 @@ final class SemanticTokenProvider(
 
   }
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
-    // logString += linSep + spcr + "Pick " 
+    // logString += linSep + spcr + "Pick "
     // logString += linSep + spcr +tk.pos.start +","+tk.pos.end
 
     val buffer = ListBuffer.empty[NodeInfo]
@@ -457,11 +445,11 @@ final class SemanticTokenProvider(
       (typ, mod)
 
     }
-    
+
     ret.getOrElse(default)
 
 
-    // def 
+    // def
     // nodeInfo.map(_.sym) match {
     //   case Some(sym:Symbol) =>
     //     // logString += linSep + "  ####  Symbol ###########"
@@ -601,9 +589,9 @@ final class SemanticTokenProvider(
     val nodeInfo = pickFromTraversed(tk)
     if (nodeInfo != None){
       nodeInfo.get.sym match {
-        case Some(symbol) => 
+        case Some(symbol) =>
           logString = logString + SymDescriber(symbol) + linSep
-        case None => 
+        case None =>
       }
     }
 

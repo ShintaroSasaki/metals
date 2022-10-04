@@ -36,24 +36,24 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin,
   )
 
-  // check(
-  //   "Comment(Single-Line, Multi-Line)",
-  //   s"""|
-  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |
-  //       |   <</**>>/*comment*/
-  //       |<<   * Test of Comment Block>>/*comment*/
-  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
-  //       |
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-  //       |    <<// Single Line Comment>>/*comment*/
-  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
-  //       |   }
-  //       |}
-  //       |
-  //       |
-  //       |""".stripMargin,
-  // )
+  check(
+    "Comment(Single-Line, Multi-Line)",
+    s"""|
+        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |
+        |   <</**>>/*comment*/
+        |<<   * Test of Comment Block>>/*comment*/
+        |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
+        |
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+        |    <<// Single Line Comment>>/*comment*/
+        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
+        |   }
+        |}
+        |
+        |
+        |""".stripMargin,
+  )
 
   // check(
   //   "number literal, Static",
