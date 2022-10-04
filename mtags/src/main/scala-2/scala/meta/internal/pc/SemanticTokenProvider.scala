@@ -74,63 +74,41 @@ final class SemanticTokenProvider(
     var cLine = Line(0,0) // Current Line
     var lastProvided = SingleLineToken(cLine,0,None)
 
-      for (tk <- params.text().tokenize.toOption.get) yield {
-        tk match {
-          // case _:Token.LF =>
-          //     logString += linSep + spcr + "Regular NewLine"
-          //     cLine = Line(cLine.number + 1, tk.pos.end)
+    for (tk <- params.text().tokenize.toOption.get) yield {
 
-          // case _:Token.Space =>
+      tokenDescriber(tk)
+      implicit val (tokenType, tokeModifier) = getTypeAndMod(tk)
+      var cOffset = tk.pos.start // Current Offset
+      var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
+      for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
+        cOffset += 1
 
-          case _ =>
+        // Token Break
+        if (wkStr == "\n" | cOffset == tk.pos.end) {
+          providing.endOffset =
+              if (wkStr == "\n") cOffset - 1
+              else cOffset
 
-            tokenDescriber(tk)
-            var cOffset = tk.pos.start // Current Offset
-            var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
-            // logString += linSep + spcr + "deltaLine" + providing.deltaLine
-            // var nextStartOffset = 0
-            // var nextStartLine = 0
-            for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
-              
-
-              cOffset += 1
-
-              // Token Break
-              if (wkStr == "\n" | cOffset == tk.pos.end) {
-                val (tokenType, tokeModifier) = getTypeAndMod(tk)
-                if (tokenType == -1 && tokeModifier == 0) {
-                  // Go to next loop
-                }else {
-                  
-                  providing.endOffset =
-                      if (wkStr == "\n") cOffset - 1
-                      else cOffset
-                  buffer.++=(
-                    List(
-                      providing.deltaLine,
-                      providing.deltaStartChar,
-                      providing.charSize,
-                      tokenType,
-                      tokeModifier
-                    )
-                  )
-
-                  lastProvided = providing
-                }
-                // Line Break
-                if (wkStr == "\n") {
-                  cLine = Line(cLine.number + 1, cOffset)
-                }
-                providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
-
-
-              }
-
-            }
-
+          if ((tokenType, tokeModifier) != (-1,0)) {
+            buffer.++=(
+              List(
+                providing.deltaLine,
+                providing.deltaStartChar,
+                providing.charSize,
+                tokenType,
+                tokeModifier
+              )
+            )
+            lastProvided = providing
           }
+          // Line Break
+          if (wkStr == "\n") cLine = Line(cLine.number + 1, cOffset)
+          providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
+        }
 
-        } // end for
+      } // end for-wkStr
+
+    } // end for-tk
 
 
     this.logger.info(logString) //Log
@@ -152,12 +130,17 @@ final class SemanticTokenProvider(
     def charSize:Int = endOffset - startOffset
     def deltaLine: Int =
       line.number - this.lastToken.map(_.line.number).getOrElse(0)
-      // line.number-lastLine.number
+
     def deltaStartChar: Int = {
       if (deltaLine == 0)
         startOffset - lastToken.map(_.startOffset).getOrElse(0)
       else
         startOffset - line.startOffset
+    }
+
+    def pushToken(implicit tokenType:Int, tokeModifier:Int ) ={
+
+      
     }
   }
 
