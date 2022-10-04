@@ -52,9 +52,6 @@ final class SemanticTokenProvider(
 
     val buffer = ListBuffer.empty[Integer]
 
-    // If a meta-Token is over multiline,
-    // semantic-token is provided by each line.
-    // For ecample, Comment or Literal String.
     import scala.meta._
     var cLine = Line(0,0) // Current Line
     var lastProvided = SingleLineToken(cLine,0,None)
@@ -65,6 +62,9 @@ final class SemanticTokenProvider(
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
 
+      // If a meta-Token is over multiline,
+      // semantic-token is provided by each line.
+      // For ecample, Comment or Literal String.
       for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
         cOffset += 1
 
