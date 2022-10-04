@@ -63,87 +63,85 @@ final class SemanticTokenProvider(
 
     // Tools
     val buffer = ListBuffer.empty[Integer]
-    var currentLine = 0
-    var lastLine = 0
-    var lastNewlineOffset = 0
-    var lastCharStartOffset = 0
-
-    def deltaLine(): Int = currentLine - lastLine
-    def deltaStartChar(startPos: Int): Int = {
-      if (deltaLine() == 0) startPos - lastCharStartOffset
-      else startPos - lastNewlineOffset
-    }
-    def addTokenToBuffer(
-        startPos: Int,
-        charSize: Int,
-        tokenType: Int,
-        tokeModifier: Int
-    ): Unit = {
-      if (tokenType == -1 && tokeModifier == 0) return
-
-      buffer.++=(
-        List(
-          deltaLine(), // 1
-          deltaStartChar(startPos), // 2
-          charSize, // 3
-          tokenType, // 4
-          tokeModifier // 5
-        )
-      )
-      lastLine = currentLine
-      lastCharStartOffset = startPos
-    }
 
     /////////////////////////////
     // Loop by token
     /////////////////////////////
+    // If a meta-Token is over multiline,
+    // semantic-token is provided by each line.
+    // For ecample, Comment or Literal String.
     import scala.meta._
-    for (tk <- params.text().tokenize.toOption.get) yield {
-      tokenDescriber(tk)
+    var cLine = Line(0,0) // Current Line
+    var lastProvided = SingleLineToken(cLine,0)
 
-      val (tokenType, tokeModifier) = getTypeAndMod(tk)
-      if (tokenType == -1 && tokeModifier == 0) {
-        // Go to next loop
-      }
+      for (tk <- params.text().tokenize.toOption.get) yield {
+        tk match {
+          case _:Token.LF =>
+              logString += linSep + spcr + "Regular NewLine"
+              cLine = Line(cLine.number + 1, tk.pos.end)
 
-      // If a meta-Token is over multiline,
-      // semantic-token is provided by each line.
-      // For ecample, Comment or Literal String.
+          case _:Token.Space =>
 
-      var currentPos = tk.pos.start
-      var currentLine = new Line(tk.pos.startLine,lastNewlineOffset)
-      var newToken = SingleLineToken(currentLine,currentPos,None)
-      for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
-        currentPos += 1
+          case _ =>
 
-        // Token Break
-        if (wkStr == "\n" | currentPos == tk.pos.end) {
+            tokenDescriber(tk)
 
-          newToken.endOffset = 
-              if (wkStr == "\n") currentPos - 1 
-              else currentPos
+            var cOffset = tk.pos.start // Current Offset
+            val (tokenType, tokeModifier) = getTypeAndMod(tk)
+            
+            
+            val providing = SingleLineToken(cLine,cOffset)
 
-          buffer.++=(
-            List(
-              newToken.deltaLine, 
-              newToken.deltaStartChar, 
-              newToken.charSize,
-              tokenType,
-              tokeModifier
-            )
-          )
-          
-          newToken= SingleLineToken(currentLine, currentPos, Some(newToken))
-        }
+            def deltaLine=providing.line.number -lastProvided.line.number
+            def deltaStartChar: Int = {
+              if (deltaLine == 0){
+                providing.startOffset - lastProvided.startOffset
+                //  startOffset - lastStartOffset
+              } else providing.startOffset - cLine.startOffset
+            }
 
-        // Line Break
-        if (wkStr == "\n") {
-          currentLine = new Line(currentLine.number + 1, currentPos)
-        }
+            logString += linSep + spcr + "offset:" + providing.startOffset + "," + lastProvided.startOffset
 
-      }
 
-    } // end for
+            for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
+
+              cOffset += 1
+
+              // Token Break
+              if (wkStr == "\n" | cOffset == tk.pos.end) {
+                if (tokenType == -1 && tokeModifier == 0) {
+                  // Go to next loop
+                }else {
+                  providing.endOffset = 
+                      if (wkStr == "\n") cOffset - 1 
+                      else cOffset
+                  buffer.++=(
+                    List(
+                      deltaLine, 
+                      deltaStartChar, 
+                      providing.charSize,
+                      tokenType,
+                      tokeModifier
+                    )
+                  )
+
+                  lastProvided = providing
+                }
+
+              }
+
+              // Line Break
+              if (wkStr == "\n") {
+                logString += linSep + spcr + "Extra NewLine"
+                cLine = Line(cLine.number + 1, cOffset)
+              }
+
+            }
+            
+          }
+
+        } // end for
+
 
     this.logger.info(logString) //Log
     buffer.toList.asJava
@@ -158,17 +156,21 @@ final class SemanticTokenProvider(
   case class SingleLineToken (
     line:Line, // line which token on 
     startOffset:Int, // Offset from start of file. 
-    lastToken:Option[SingleLineToken]
+    // lastLine:Line,
+    // lastStartOffset:Int,
+    // lastToken:Option[SingleLineToken]
   ){
-    var endOffset : Int = startOffset
+    var endOffset : Int = 0
     def charSize:Int = endOffset - startOffset
-    def deltaLine: Int =
-      line.number - lastToken.map(_.line.number).getOrElse(0)
-    def deltaStartChar: Int = {
-      if (deltaLine == 0){
-         startOffset - lastToken.map(_.startOffset).getOrElse(0)
-      } else startOffset - line.startOffset
-    }
+    // def deltaLine: Int =
+    //   line.number - this.lastToken.map(_.line.number).getOrElse(0)
+    //   // line.number-lastLine.number
+    // def deltaStartChar: Int = {
+    //   if (deltaLine == 0){
+    //     startOffset - lastToken.map(_.startOffset).getOrElse(0)
+    //     //  startOffset - lastStartOffset
+    //   } else startOffset - line.startOffset
+    // }
   }
    
 
@@ -581,12 +583,12 @@ final class SemanticTokenProvider(
   }
 
   def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
-    tk match {
-      case _:Token.Ident =>
-      case _ => return
-    }
+    // tk match {
+    //   case _:Token.Ident =>
+    //   case _ => return
+    // }
 
-    logString += linSep
+    logString += linSep + linSep
 
     logString += "token: " + tk.getClass.toString.substring(29)
     logString += strSep + "text: " + tk.text.toString()
