@@ -50,23 +50,8 @@ final class SemanticTokenProvider(
    */
   def provide(): ju.List[Integer] = {
 
-      // logger.info(linSep + linSep + params.text() + linSep)
-    // pprint.log(root)
-    //  Thread.sleep(3000)
-    // logString = linSep + params.text()
-    // logString += "\n\n nodes:" + nodes.size.toString()
-    // logString += nodes.map(n=>
-    //     treeDescriber(n.tree.get,false)
-    //     + "   "+  n.pos.get.start +"," + n.pos.get.end
-
-    // ).mkString("")
-
-    // Tools
     val buffer = ListBuffer.empty[Integer]
 
-    /////////////////////////////
-    // Loop by token
-    /////////////////////////////
     // If a meta-Token is over multiline,
     // semantic-token is provided by each line.
     // For ecample, Comment or Literal String.
@@ -76,10 +61,10 @@ final class SemanticTokenProvider(
 
     for (tk <- params.text().tokenize.toOption.get) yield {
 
-      tokenDescriber(tk)
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
+
       for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
         cOffset += 1
 
@@ -112,8 +97,6 @@ final class SemanticTokenProvider(
 
     } // end for-tk
 
-
-    this.logger.info(logString) //Log
     buffer.toList.asJava
 
   }
@@ -187,31 +170,25 @@ final class SemanticTokenProvider(
 
   }
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
-    // logString += linSep + spcr + "Pick "
-    // logString += linSep + spcr +tk.pos.start +","+tk.pos.end
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
-      node.tree.get match {
-        case imp: cp.Import =>
-          // selector(imp, tk.pos.start) match {
-          //   case Some(sym) => buffer.++=(List(NodeInfo(sym)))
-          //   case None => // pass
-          // }
+      node.tree match {
+        case Some(imp: cp.Import) =>
           selector(imp, tk.pos.start)
             .map(sym=>buffer.++=(List(NodeInfo(sym))))
 
-        case _ =>
+        case Some(x) =>
           node.pos
             .filter(_.start == tk.pos.start)
             .filter(_.end == tk.pos.end)
             .map(_=>buffer.++=(List(node)))
+
+        case None =>
       }
     }
 
     buffer.toList.headOption
-    // if (nodeList.size == 0) None
-    // else Some(nodeList(0))
   }
 
   case class NodeInfo(
@@ -429,155 +406,6 @@ final class SemanticTokenProvider(
 
     ret.getOrElse(default)
 
-
-    // def
-    // nodeInfo.map(_.sym) match {
-    //   case Some(sym:Symbol) =>
-    //     // logString += linSep + "  ####  Symbol ###########"
-    //     // initialize Mod
-    //     var mod: Int = 0
-    //     def addPwrToMod(tokenID: String) = {
-    //       val place: Int = getModifierId(tokenID)
-    //       if (place != -1) mod += (1 << place)
-    //     }
-
-    //     // get Type
-    //     val typ =
-    //       if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
-    //       else if (sym.isTypeParameter)
-    //         getTypeId(SemanticTokenTypes.TypeParameter)
-    //       else
-    //       // See symbol.keystring about following conditions.
-    //       if (sym.isJavaInterface)
-    //         getTypeId(SemanticTokenTypes.Interface) // "interface"
-    //       else if (sym.isTrait) getTypeId(SemanticTokenTypes.Interface) // "trait"
-    //       else if (sym.isClass) getTypeId(SemanticTokenTypes.Class) // "class"
-    //       else if (sym.isType && !sym.isParameter)
-    //         getTypeId(SemanticTokenTypes.Type) // "type"
-    //       else if (sym.isVariable) getTypeId(SemanticTokenTypes.Variable) // "var"
-    //       else if (sym.hasPackageFlag)
-    //         getTypeId(SemanticTokenTypes.Namespace) // "package"
-    //       else if (sym.isModule) getTypeId(SemanticTokenTypes.Class) // "object"
-    //       else if (sym.isSourceMethod)
-    //         if (sym.isGetter | sym.isSetter)
-    //           getTypeId(SemanticTokenTypes.Variable)
-    //         else getTypeId(SemanticTokenTypes.Method) // "def"
-    //       else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
-    //         addPwrToMod(SemanticTokenModifiers.Readonly)
-    //         getTypeId(SemanticTokenTypes.Variable) // "val"
-    //       } else -1
-
-
-    //     // Modifiers except by ReadOnly
-    //     if (sym.isAbstract) addPwrToMod(SemanticTokenModifiers.Abstract)
-    //     if (sym.isDeprecated) addPwrToMod(SemanticTokenModifiers.Deprecated)
-    //     if (sym.owner.isModule) addPwrToMod(SemanticTokenModifiers.Static)
-
-    //     (typ, mod)
-    //   case None =>
-    //   // logString += linSep + "####  No Symbol ###########" + linSep
-
-    //     (-1,0)
-    // }
-
   }
-
-  //////////////////////////////////////////////////
-  // log tools
-  //////////////////////////////////////////////////
-  val logger: Logger = Logger.getLogger("SemanticTokenProvider")
-  var logString:String=""
-  val strSep = ", "
-  val linSep = "\n"
-  val spcr= "    "
-  import scala.reflect.internal.util.Position
-  private def namePos(t: cp.Tree): Position = {
-    try {
-      val wkStart = t.pos.point
-      val wkEnd = wkStart + t.symbol.name.length() // - 1
-      Position.range(t.pos.source, wkStart, wkStart, wkEnd)
-    } catch {
-      case _ => null
-    }
-  }
-
-  var counter = 0
-
-  /** makes string to logging tree construction. */
-  def treeDescriber(t: cp.Tree, doRecurse: Boolean = true): String = {
-    if (t == null) return "  " + "Null Tree"
-
-    var ret = ""
-    if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
-
-    counter += 1
-    ret += linSep
-    ret += "  " + ("000" + counter.toString()).takeRight(3) + "  "
-
-    // Position
-    try {
-      val wkNamePos = namePos(t)
-      ret += "namePos:(" + wkNamePos.start.toString()
-      ret += "," + wkNamePos.end.toString() + ")"
-    } catch { case _ => }
-    ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
-
-    // symbol
-    try {
-      ret = ret + SymDescriber(t.symbol)
-
-    } catch { case _ => return "" }
-
-    // recursive
-    if (doRecurse)
-      ret += t.children
-        .map(treeDescriber(_, true))
-        .mkString("\n")
-
-    // end
-    ret + linSep
-
-  }
-  def SymDescriber(sym: cp.Symbol): String = {
-    var ret = ""
-
-    ret += strSep + "sym:" + sym.toString
-    ret += strSep + "keyStr:" + sym.keyString
-    ret += strSep + "\n  name:" + sym.nameString
-    ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
-    ret += strSep + "SymKnd:" + sym.accurateKindString
-
-    ret
-
-  }
-
-  def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
-    // tk match {
-    //   case _:Token.Ident =>
-    //   case _ => return
-    // }
-
-    logString += linSep + linSep
-
-    logString += "token: " + tk.getClass.toString.substring(29)
-    logString += strSep + "text: " + tk.text.toString()
-    logString += strSep + "stt,end:(" + tk.pos.start.toString
-    logString += strSep + tk.pos.end.toString + ")"
-    logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
-    logString += "," + tk.pos.endLine.toString + ")"
-
-    counter = 0
-    val nodeInfo = pickFromTraversed(tk)
-    if (nodeInfo != None){
-      nodeInfo.get.sym match {
-        case Some(symbol) =>
-          logString = logString + SymDescriber(symbol) + linSep
-        case None =>
-      }
-    }
-
-  }
-
-
-
 }
+
