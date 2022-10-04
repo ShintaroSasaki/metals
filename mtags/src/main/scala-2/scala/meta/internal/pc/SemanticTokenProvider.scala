@@ -102,35 +102,43 @@ final class SemanticTokenProvider(
       tokenDescriber(tk)
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
+      if (tokenType == -1 && tokeModifier == 0) {
+        // Go to next loop
+      }
 
       // If a meta-Token is over multiline,
       // semantic-token is provided by each line.
       // For ecample, Comment or Literal String.
-      var wkStartPos = tk.pos.start
-      var wkCurrentPos = tk.pos.start
+
+      var currentPos = tk.pos.start
+      var currentLine = new Line(tk.pos.startLine,lastNewlineOffset)
+      var newToken = SingleLineToken(currentLine,currentPos,None)
       for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
-        wkCurrentPos += 1
+        currentPos += 1
 
         // Token Break
-        if (wkStr == "\n" | wkCurrentPos == tk.pos.end) {
-          val adjustedCurrentPos =
-            if (wkStr == "\n") wkCurrentPos - 1
-            else wkCurrentPos
-          val charSize = adjustedCurrentPos - wkStartPos
+        if (wkStr == "\n" | currentPos == tk.pos.end) {
 
-          addTokenToBuffer(
-            wkStartPos,
-            charSize,
-            tokenType,
-            tokeModifier
+          newToken.endOffset = 
+              if (wkStr == "\n") currentPos - 1 
+              else currentPos
+
+          buffer.++=(
+            List(
+              newToken.deltaLine, 
+              newToken.deltaStartChar, 
+              newToken.charSize,
+              tokenType,
+              tokeModifier
+            )
           )
-          wkStartPos = wkCurrentPos
+          
+          newToken= SingleLineToken(currentLine, currentPos, Some(newToken))
         }
 
         // Line Break
         if (wkStr == "\n") {
-          currentLine += 1
-          lastNewlineOffset = wkCurrentPos
+          currentLine = new Line(currentLine.number + 1, currentPos)
         }
 
       }
@@ -142,6 +150,27 @@ final class SemanticTokenProvider(
 
   }
 
+  //single-LIne SemanticToken
+  case class Line(
+    val number:Int,
+    val startOffset:Int
+  )
+  case class SingleLineToken (
+    line:Line, // line which token on 
+    startOffset:Int, // Offset from start of file. 
+    lastToken:Option[SingleLineToken]
+  ){
+    var endOffset : Int = startOffset
+    def charSize:Int = endOffset - startOffset
+    def deltaLine: Int =
+      line.number - lastToken.map(_.line.number).getOrElse(0)
+    def deltaStartChar: Int = {
+      if (deltaLine == 0){
+         startOffset - lastToken.map(_.startOffset).getOrElse(0)
+      } else startOffset - line.startOffset
+    }
+  }
+   
 
   /**
    * This function returns -1 when capable Type is nothing.
