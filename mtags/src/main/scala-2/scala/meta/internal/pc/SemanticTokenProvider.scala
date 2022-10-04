@@ -77,7 +77,7 @@ final class SemanticTokenProvider(
     for (tk <- params.text().tokenize.toOption.get) yield {
 
       tokenDescriber(tk)
-      implicit val (tokenType, tokeModifier) = getTypeAndMod(tk)
+      val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
       for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
@@ -102,7 +102,9 @@ final class SemanticTokenProvider(
             lastProvided = providing
           }
           // Line Break
-          if (wkStr == "\n") cLine = Line(cLine.number + 1, cOffset)
+          if (wkStr == "\n") {
+            cLine = Line(cLine.number + 1, cOffset)
+          }
           providing = SingleLineToken(cLine,cOffset,Some(lastProvided.copy()))
         }
 
@@ -138,10 +140,6 @@ final class SemanticTokenProvider(
         startOffset - line.startOffset
     }
 
-    def pushToken(implicit tokenType:Int, tokeModifier:Int ) ={
-
-      
-    }
   }
 
 

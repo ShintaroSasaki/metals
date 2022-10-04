@@ -55,96 +55,96 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin,
   )
 
-  // check(
-  //   "number literal, Static",
-  //   s"""|
-  //       |<<object>>/*keyword*/ <<ab>>/*class*/ {
-  //       |  <<var>>/*keyword*/  <<iVar>>/*variable*/:<<Int>>/*class,abstract*/ = <<1>>/*number*/
-  //       |  <<val>>/*keyword*/  <<iVal>>/*variable,readonly*/:<<Double>>/*class,abstract*/ = <<4.94065645841246544e-324d>>/*number*/
-  //       |  <<val>>/*keyword*/  <<fVal>>/*variable,readonly*/:<<Float>>/*class,abstract*/ = <<1.40129846432481707e-45>>/*number*/
-  //       |  <<val>>/*keyword*/  <<lVal>>/*variable,readonly*/:<<Long>>/*class,abstract*/ = <<9223372036854775807L>>/*number*/
-  //       |}
-  //       |
-  //       |<<object>>/*keyword*/ <<sample10>>/*class*/ {
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-  //       |    <<println>>/*method*/(
-  //       |     (<<ab>>/*class*/.<<iVar>>/*variable*/ <<+>>/*method,abstract*/ <<ab>>/*class*/.<<iVal>>/*variable,readonly*/).<<toString>>/*method*/
-  //       |    )
-  //       |  }
-  //       |}
-  //       |""".stripMargin,
-  // )
+  check(
+    "number literal, Static",
+    s"""|
+        |<<object>>/*keyword*/ <<ab>>/*class*/ {
+        |  <<var>>/*keyword*/  <<iVar>>/*variable*/:<<Int>>/*class,abstract*/ = <<1>>/*number*/
+        |  <<val>>/*keyword*/  <<iVal>>/*variable,readonly*/:<<Double>>/*class,abstract*/ = <<4.94065645841246544e-324d>>/*number*/
+        |  <<val>>/*keyword*/  <<fVal>>/*variable,readonly*/:<<Float>>/*class,abstract*/ = <<1.40129846432481707e-45>>/*number*/
+        |  <<val>>/*keyword*/  <<lVal>>/*variable,readonly*/:<<Long>>/*class,abstract*/ = <<9223372036854775807L>>/*number*/
+        |}
+        |
+        |<<object>>/*keyword*/ <<sample10>>/*class*/ {
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+        |    <<println>>/*method*/(
+        |     (<<ab>>/*class*/.<<iVar>>/*variable*/ <<+>>/*method,abstract*/ <<ab>>/*class*/.<<iVal>>/*variable,readonly*/).<<toString>>/*method*/
+        |    )
+        |  }
+        |}
+        |""".stripMargin,
+  )
 
-  // check(
-  //   "abstract(modifier), trait, type parameter",
-  //   s"""|
-  //       |<<package>>/*keyword*/ a.b
-  //       |<<object>>/*keyword*/ <<Sample5>>/*class*/ {
-  //       |
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-  //       |      <<val>>/*keyword*/ <<itr>>/*variable,readonly*/ = <<new>>/*keyword*/ <<IntIterator>>/*class*/(<<5>>/*number*/)
-  //       |      <<var>>/*keyword*/ <<str>>/*variable*/ = <<itr>>/*variable,readonly*/.<<next>>/*method*/().<<toString>>/*method*/ <<+>>/*method*/ <<",">>/*string*/
-  //       |          <<str>>/*variable*/ += <<itr>>/*variable,readonly*/.<<next>>/*method*/().<<toString>>/*method*/
-  //       |      <<println>>/*method*/(<<"count:">>/*string*/<<+>>/*method*/<<str>>/*variable*/)
-  //       |  }
-  //       |
-  //       |  <<trait>>/*keyword*/ <<Iterator>>/*interface,abstract*/[<<A>>/*typeParameter,abstract*/] {
-  //       |    <<def>>/*keyword*/ <<next>>/*method,abstract*/(): <<A>>/*typeParameter,abstract*/
-  //       |  }
-  //       |
-  //       |  <<abstract>>/*modifier*/ <<class>>/*keyword*/ <<hasLogger>>/*class,abstract*/ {
-  //       |    <<def>>/*keyword*/ <<log>>/*method*/(<<str>>/*parameter*/:<<String>>/*type*/) = {<<println>>/*method*/(<<str>>/*parameter*/)}
-  //       |  }
-  //       |
-  //       |  <<class>>/*keyword*/ <<IntIterator>>/*class*/(<<to>>/*parameter*/: <<Int>>/*class,abstract*/)
-  //       |  <<extends>>/*keyword*/ <<hasLogger>>/*class,abstract*/ <<with>>/*keyword*/ <<Iterator>>/*interface,abstract*/[Int]  {
-  //       |    <<private>>/*modifier*/ <<var>>/*keyword*/ <<current>>/*variable*/ = <<0>>/*number*/
-  //       |    <<override>>/*modifier*/ <<def>>/*keyword*/ <<next>>/*method*/(): <<Int>>/*class,abstract*/ = {
-  //       |      <<if>>/*keyword*/ (<<current>>/*variable*/ <<<>>/*method,abstract*/ <<to>>/*variable,readonly*/) {
-  //       |        <<log>>/*method*/(<<"main">>/*string*/)
-  //       |        <<val>>/*keyword*/ <<t>>/*variable,readonly*/ = <<current>>/*variable*/
-  //       |        <<current>>/*variable*/ = <<current>>/*variable*/ <<+>>/*method,abstract*/ <<1>>/*number*/
-  //       |        <<t>>/*variable,readonly*/
-  //       |      } <<else>>/*keyword*/ <<0>>/*number*/
-  //       |    }
-  //       |  }
-  //       |}
-  //       |
-  //       |
-  //       |""".stripMargin,
-  // )
+  check(
+    "abstract(modifier), trait, type parameter",
+    s"""|
+        |<<package>>/*keyword*/ a.b
+        |<<object>>/*keyword*/ <<Sample5>>/*class*/ {
+        |
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+        |      <<val>>/*keyword*/ <<itr>>/*variable,readonly*/ = <<new>>/*keyword*/ <<IntIterator>>/*class*/(<<5>>/*number*/)
+        |      <<var>>/*keyword*/ <<str>>/*variable*/ = <<itr>>/*variable,readonly*/.<<next>>/*method*/().<<toString>>/*method*/ <<+>>/*method*/ <<",">>/*string*/
+        |          <<str>>/*variable*/ += <<itr>>/*variable,readonly*/.<<next>>/*method*/().<<toString>>/*method*/
+        |      <<println>>/*method*/(<<"count:">>/*string*/<<+>>/*method*/<<str>>/*variable*/)
+        |  }
+        |
+        |  <<trait>>/*keyword*/ <<Iterator>>/*interface,abstract*/[<<A>>/*typeParameter,abstract*/] {
+        |    <<def>>/*keyword*/ <<next>>/*method,abstract*/(): <<A>>/*typeParameter,abstract*/
+        |  }
+        |
+        |  <<abstract>>/*modifier*/ <<class>>/*keyword*/ <<hasLogger>>/*class,abstract*/ {
+        |    <<def>>/*keyword*/ <<log>>/*method*/(<<str>>/*parameter*/:<<String>>/*type*/) = {<<println>>/*method*/(<<str>>/*parameter*/)}
+        |  }
+        |
+        |  <<class>>/*keyword*/ <<IntIterator>>/*class*/(<<to>>/*parameter*/: <<Int>>/*class,abstract*/)
+        |  <<extends>>/*keyword*/ <<hasLogger>>/*class,abstract*/ <<with>>/*keyword*/ <<Iterator>>/*interface,abstract*/[Int]  {
+        |    <<private>>/*modifier*/ <<var>>/*keyword*/ <<current>>/*variable*/ = <<0>>/*number*/
+        |    <<override>>/*modifier*/ <<def>>/*keyword*/ <<next>>/*method*/(): <<Int>>/*class,abstract*/ = {
+        |      <<if>>/*keyword*/ (<<current>>/*variable*/ <<<>>/*method,abstract*/ <<to>>/*variable,readonly*/) {
+        |        <<log>>/*method*/(<<"main">>/*string*/)
+        |        <<val>>/*keyword*/ <<t>>/*variable,readonly*/ = <<current>>/*variable*/
+        |        <<current>>/*variable*/ = <<current>>/*variable*/ <<+>>/*method,abstract*/ <<1>>/*number*/
+        |        <<t>>/*variable,readonly*/
+        |      } <<else>>/*keyword*/ <<0>>/*number*/
+        |    }
+        |  }
+        |}
+        |
+        |
+        |""".stripMargin,
+  )
 
-  // // code is in referred to https://www.scala-lang.org/api/2.13.3/scala/deprecated.html
-  // check(
-  //   "Deprecated",
-  //   s"""|<<object>>/*keyword*/ <<sample9>>/*class*/ {
-  //       |  <<@>>/*keyword*/<<deprecated>>/*class*/(<<"this method will be removed">>/*string*/, <<"FooLib 12.0">>/*string*/)
-  //       |  <<def>>/*keyword*/ <<oldMethod>>/*method,deprecated*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/) = <<x>>/*parameter*/
-  //       |
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[String]) ={
-  //       |    <<val>>/*keyword*/ <<str>>/*variable,readonly*/ = <<oldMethod>>/*method,deprecated*/(<<2>>/*number*/).<<toString>>/*method*/
-  //       |     <<println>>/*method*/(<<"Hello, world!">>/*string*/<<+>>/*method*/ <<str>>/*variable,readonly*/)
-  //       |  }
-  //       |}
-  //       |""".stripMargin,
-  // )
+  // code is in referred to https://www.scala-lang.org/api/2.13.3/scala/deprecated.html
+  check(
+    "Deprecated",
+    s"""|<<object>>/*keyword*/ <<sample9>>/*class*/ {
+        |  <<@>>/*keyword*/<<deprecated>>/*class*/(<<"this method will be removed">>/*string*/, <<"FooLib 12.0">>/*string*/)
+        |  <<def>>/*keyword*/ <<oldMethod>>/*method,deprecated*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/) = <<x>>/*parameter*/
+        |
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[String]) ={
+        |    <<val>>/*keyword*/ <<str>>/*variable,readonly*/ = <<oldMethod>>/*method,deprecated*/(<<2>>/*number*/).<<toString>>/*method*/
+        |     <<println>>/*method*/(<<"Hello, world!">>/*string*/<<+>>/*method*/ <<str>>/*variable,readonly*/)
+        |  }
+        |}
+        |""".stripMargin,
+  )
 
-  // check(
-  //   "import(Out of File)",
-  //   s"""|
-  //       |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
-  //       |<<object>>/*keyword*/ <<sample3>>/*class*/ {
-  //       |
-  //       |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
-  //       |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
-  //       |
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*method*/[<<String>>/*method*/]) ={
-  //       |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
-  //       |  }
-  //       |}
-  //       |
-  //       |""".stripMargin,
-  // )
+  check(
+    "import(Out of File)",
+    s"""|
+        |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
+        |<<object>>/*keyword*/ <<sample3>>/*class*/ {
+        |
+        |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
+        |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
+        |
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*method*/[<<String>>/*method*/]) ={
+        |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
+        |  }
+        |}
+        |
+        |""".stripMargin,
+  )
 
   // check(
   //   "String, Char",
