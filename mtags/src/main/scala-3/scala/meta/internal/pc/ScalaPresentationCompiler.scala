@@ -86,8 +86,6 @@ case class ScalaPresentationCompiler(
 
   override def semanticTokens(
       params: VirtualFileParams,
-      capableTypes: java.util.List[String],
-      capableModifiers: java.util.List[String],
   ): CompletableFuture[ju.List[Integer]] =
     CompletableFuture.completedFuture {
       new ju.ArrayList[Integer]()
