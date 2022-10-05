@@ -167,18 +167,16 @@ final class SemanticTokenProvider(
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
-      node match {
-        case NodeInfoNotSym(tree,pos) =>
+      node.tree match {
+        case Some(x) =>
           node.pos
             .filter(_.start == tk.pos.start)
             .filter(_.end == tk.pos.end)
             .map(_ => buffer.++=(List(node)))
 
-        case NodeInfoSym(sym:Symbol) =>
-          if (
-            sym.pos.start == tk.pos.start &&
-            sym.pos.end == tk.pos.end
-          ) buffer.++=(List(node))
+        // case None =>
+        //   if (node.sym.get.nameString==tk.name )
+        //     buffer.++=(List(node))
 
         case _ => None
       }
@@ -198,24 +196,6 @@ final class SemanticTokenProvider(
 
     def apply(sym: Symbol): NodeInfo =
       new NodeInfo(None, Some(sym), None)
-  }
-  object NodeInfoNotSym {
-    def unapply(nodeInfo: NodeInfo)
-    : Option[(Tree, scala.reflect.api.Position)] ={
-      nodeInfo match {
-        case NodeInfo(Some(tree), None,Some(pos)) => Some((tree,pos))
-        case _ => None
-      }
-    }
-  }
-  object NodeInfoSym {
-    def unapply(nodeInfo: NodeInfo)
-    : Option[Symbol] ={
-      nodeInfo match {
-        case NodeInfo(None, Some(sym), None) => Some(sym)
-        case _ => None
-      }
-    }
   }
 
   /**
@@ -308,7 +288,9 @@ final class SemanticTokenProvider(
         case imp: cp.Import =>
           val ret = for {
             sel <- imp.selectors
-          } yield  imp.expr.symbol.info.member(sel.name)
+          } yield {
+            imp.expr.symbol.info.member(sel.name)
+          } 
 
           nodes ++ ret.map(sym=>NodeInfo(sym))
 
@@ -387,7 +369,6 @@ final class SemanticTokenProvider(
         // get Type
         val typ =
           if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
-          // else if (sym.isParameter) getTypeId(SemanticTokenTypes.Parameter)
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else
