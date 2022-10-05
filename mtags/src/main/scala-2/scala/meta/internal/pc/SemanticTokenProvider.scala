@@ -167,18 +167,20 @@ final class SemanticTokenProvider(
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
-      node.tree match {
-        case Some(x) =>
+      node match {
+        case NodeInfoNotSym(tree,pos) =>
           node.pos
             .filter(_.start == tk.pos.start)
             .filter(_.end == tk.pos.end)
             .map(_ => buffer.++=(List(node)))
 
-        case Some(imp: cp.Import) =>
-          selector(imp, tk.pos.start)
-            .map(sym => buffer.++=(List(NodeInfo(sym))))
+        case NodeInfoSym(sym:Symbol) =>
+          if (
+            sym.pos.start == tk.pos.start &&
+            sym.pos.end == tk.pos.end
+          ) buffer.++=(List(node))
 
-        case None =>
+        case _ => None
       }
     }
 
@@ -194,11 +196,26 @@ final class SemanticTokenProvider(
     def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(tree), Some(tree.symbol), Some(pos))
 
-    def apply(imp: Import): NodeInfo =
-      new NodeInfo(Some(imp), None, None)
-
     def apply(sym: Symbol): NodeInfo =
       new NodeInfo(None, Some(sym), None)
+  }
+  object NodeInfoNotSym {
+    def unapply(nodeInfo: NodeInfo)
+    : Option[(Tree, scala.reflect.api.Position)] ={
+      nodeInfo match {
+        case NodeInfo(Some(tree), None,Some(pos)) => Some((tree,pos))
+        case _ => None
+      }
+    }
+  }
+  object NodeInfoSym {
+    def unapply(nodeInfo: NodeInfo)
+    : Option[Symbol] ={
+      nodeInfo match {
+        case NodeInfo(None, Some(sym), None) => Some(sym)
+        case _ => None
+      }
+    }
   }
 
   /**
@@ -289,7 +306,11 @@ final class SemanticTokenProvider(
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          nodes :+ NodeInfo(imp)
+          val ret = for {
+            sel <- imp.selectors
+          } yield  imp.expr.symbol.info.member(sel.name)
+
+          nodes ++ ret.map(sym=>NodeInfo(sym))
 
         case _ =>
           if (tree == null) null
