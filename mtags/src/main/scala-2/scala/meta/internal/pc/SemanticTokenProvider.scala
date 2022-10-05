@@ -168,15 +168,15 @@ final class SemanticTokenProvider(
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
       node.tree match {
-        case Some(imp: cp.Import) =>
-          selector(imp, tk.pos.start)
-            .map(sym => buffer.++=(List(NodeInfo(sym))))
-
         case Some(x) =>
           node.pos
             .filter(_.start == tk.pos.start)
             .filter(_.end == tk.pos.end)
             .map(_ => buffer.++=(List(node)))
+
+        case Some(imp: cp.Import) =>
+          selector(imp, tk.pos.start)
+            .map(sym => buffer.++=(List(NodeInfo(sym))))
 
         case None =>
       }
@@ -228,8 +228,8 @@ final class SemanticTokenProvider(
          * type A = [<<b>>]
          */
         case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
-          nodes :+ NodeInfo(tpe.original, typePos(tpe))
-
+          // nodes :+ NodeInfo(tpe.original, typePos(tpe))
+          tpe.original.children.foldLeft(nodes :+ NodeInfo(tpe.original, typePos(tpe)))(traverse(_, _))
         /**
          * All select statements such as:
          * val a = hello.<<b>>
@@ -366,6 +366,7 @@ final class SemanticTokenProvider(
         // get Type
         val typ =
           if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
+          // else if (sym.isParameter) getTypeId(SemanticTokenTypes.Parameter)
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else
