@@ -78,7 +78,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   check(
     "abstract(modifier), trait, type parameter",
     s"""|
-        |<<package>>/*keyword*/ a.b
+        |<<package>>/*keyword*/ <<a>>/*namespace*/.<<b>>/*namespace*/
         |<<object>>/*keyword*/ <<Sample5>>/*class*/ {
         |
         |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={

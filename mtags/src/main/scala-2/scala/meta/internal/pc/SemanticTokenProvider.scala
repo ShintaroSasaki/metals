@@ -174,9 +174,9 @@ final class SemanticTokenProvider(
             .filter(_.end == tk.pos.end)
             .map(_ => buffer.++=(List(node)))
 
-        // case None =>
-        //   if (node.sym.get.nameString==tk.name )
-        //     buffer.++=(List(node))
+        case Some(imp: cp.Import) =>
+          selector(imp, tk.pos.start)
+            .map(sym => buffer.++=(List(NodeInfo(sym))))
 
         case _ => None
       }
@@ -225,8 +225,9 @@ final class SemanticTokenProvider(
          * type A = [<<b>>]
          */
         case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
-          // nodes :+ NodeInfo(tpe.original, typePos(tpe))
-          tpe.original.children.foldLeft(nodes :+ NodeInfo(tpe.original, typePos(tpe)))(traverse(_, _))
+          tpe.original.children.foldLeft(
+            nodes :+ NodeInfo(tpe.original, typePos(tpe))
+          )(traverse(_, _))
         /**
          * All select statements such as:
          * val a = hello.<<b>>
