@@ -172,7 +172,7 @@ final class SemanticTokenProvider(
           node.pos.end == tk.pos.end
         ) buffer.++=(List(node))
       
-      isTest = node match {
+      val isTest = node match {
         case NodeInfo(Some(tree), Some(symbol), _) => true 
         case NodeInfo(None, Some(symbol), Some(pos)) =>false
       }
