@@ -171,11 +171,6 @@ final class SemanticTokenProvider(
       if (node.pos.start == tk.pos.start &&
           node.pos.end == tk.pos.end
         ) buffer.++=(List(node))
-      
-      val isTest = node match {
-        case NodeInfo(Some(tree), Some(symbol), _) => true 
-        case NodeInfo(None, Some(symbol), Some(pos)) =>false
-      }
     }
 
     buffer.toList.headOption
@@ -284,15 +279,12 @@ final class SemanticTokenProvider(
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          // nodes :+ NodeInfo(imp)
-
           val ret = for {
             sel <- imp.selectors
           } yield {
             val symbol =imp.expr.symbol.info.member(sel.name)
             NodeInfo(symbol,sel.namePosition(source))
           } 
-
           nodes ++ ret
 
         case _ =>
