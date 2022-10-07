@@ -188,7 +188,6 @@ final class SemanticTokenProvider(
       new NodeInfo(Some(sym), pos)
   }
 
-  // }
   /**
    * was written in reference to PcDocumentHighlightProvider.
    */
