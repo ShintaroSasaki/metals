@@ -24,7 +24,6 @@ class SemanticTokensSuite extends BasePCSuite {
         |""".stripMargin,
   )
 
-
   check(
     "abstract(modifier), trait, type parameter",
     s"""|
@@ -63,22 +62,22 @@ class SemanticTokensSuite extends BasePCSuite {
         |
         |""".stripMargin,
   )
-  
+
   check(
-  "import(Out of File)",
-  s"""|
-      |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
-      |<<object>>/*keyword*/ <<sample3>>/*class*/ {
-      |
-      |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
-      |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
-      |
-      |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-      |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
-      |  }
-      |}
-      |
-      |""".stripMargin,
+    "import(Out of File)",
+    s"""|
+        |<<import>>/*keyword*/ scala.math.<<sqrt>>/*method*/
+        |<<object>>/*keyword*/ <<sample3>>/*class*/ {
+        |
+        |  <<def>>/*keyword*/ <<sqrtplus1>>/*method*/(<<x>>/*parameter*/: <<Int>>/*class,abstract*/)
+        |     = <<sqrt>>/*method*/(<<x>>/*parameter*/).<<toString>>/*method*/()
+        |
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+        |    <<println>>/*method*/(<<"Hello, world! : ">>/*string*/ <<+>>/*method*/ <<sqrtplus1>>/*method*/(<<2>>/*number*/))
+        |  }
+        |}
+        |
+        |""".stripMargin,
   )
 
   def check(

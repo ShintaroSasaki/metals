@@ -168,9 +168,10 @@ final class SemanticTokenProvider(
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
-      if (node.pos.start == tk.pos.start &&
-          node.pos.end == tk.pos.end
-        ) buffer.++=(List(node))
+      if (
+        node.pos.start == tk.pos.start &&
+        node.pos.end == tk.pos.end
+      ) buffer.++=(List(node))
     }
 
     buffer.toList.headOption
@@ -184,7 +185,7 @@ final class SemanticTokenProvider(
     def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(tree.symbol), pos)
 
-    def apply(sym: Symbol,pos:scala.reflect.api.Position): NodeInfo =
+    def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(sym), pos)
   }
 
@@ -280,9 +281,9 @@ final class SemanticTokenProvider(
           val ret = for {
             sel <- imp.selectors
           } yield {
-            val symbol =imp.expr.symbol.info.member(sel.name)
-            NodeInfo(symbol,sel.namePosition(source))
-          } 
+            val symbol = imp.expr.symbol.info.member(sel.name)
+            NodeInfo(symbol, sel.namePosition(source))
+          }
           nodes ++ ret
 
         case _ =>
@@ -343,12 +344,12 @@ final class SemanticTokenProvider(
     }
   }
 
-  private def IndentTypeAndMod(ident:Token.Ident): (Int, Int) = {
+  private def IndentTypeAndMod(ident: Token.Ident): (Int, Int) = {
     val default = (-1, 0)
 
     val isOperatorName = (ident.name.last: @switch) match {
-      case '~' | '!' | '@' | '#' | '%' | '^' | '*' | '+' | '-' | '<' | '>' | '?' | ':' | '=' | '&' |
-          '|' | '/' | '\\' =>
+      case '~' | '!' | '@' | '#' | '%' | '^' | '*' | '+' | '-' | '<' | '>' |
+          '?' | ':' | '=' | '&' | '|' | '/' | '\\' =>
         true
       case _ => false
     }
