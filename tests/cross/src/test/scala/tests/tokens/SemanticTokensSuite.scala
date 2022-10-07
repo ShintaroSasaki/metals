@@ -1,11 +1,13 @@
 package tests.tokens
 
-import tests.BasePCSuite
-import munit.TestOptions
-import munit.Location
-import scala.meta.internal.metals.CompilerVirtualFileParams
-import scala.meta.internal.jdk.CollectionConverters._
 import java.net.URI
+
+import scala.meta.internal.jdk.CollectionConverters._
+import scala.meta.internal.metals.CompilerVirtualFileParams
+
+import munit.Location
+import munit.TestOptions
+import tests.BasePCSuite
 import tests.TestSemanticTokens
 
 class SemanticTokensSuite extends BasePCSuite {
