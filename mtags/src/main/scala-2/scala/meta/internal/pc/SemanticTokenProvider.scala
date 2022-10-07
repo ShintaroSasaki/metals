@@ -1,6 +1,7 @@
 package scala.meta.internal.pc
 import java.{util => ju}
 
+import scala.annotation.switch
 import scala.collection.mutable.ListBuffer
 
 import scala.meta.internal.jdk.CollectionConverters._
@@ -38,7 +39,7 @@ final class SemanticTokenProvider(
   def unitPos(offset: Int): Position = unit.position(offset)
   val nodes: List[NodeInfo] = traverser
     .traverse(List.empty[NodeInfo], root)
-    .sortBy(_.pos.map(_.start))
+    .sortBy(_.pos.start)
 
   /**
    * main method
@@ -167,19 +168,13 @@ final class SemanticTokenProvider(
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
-      node match {
-        // case NodeInfo(tree,sym,pos) =>
-        case ni :NodeInfo =>
-          node.pos
-            .filter(_.start == tk.pos.start)
-            .filter(_.end == tk.pos.end)
-            .map(_ => buffer.++=(List(node)))
-
-        case _ =>
-          // selector(imp, tk.pos.start)
-          //   .map(sym => buffer.++=(List(NodeInfo(sym))))
-
-        case _ => None
+      if (node.pos.start == tk.pos.start &&
+          node.pos.end == tk.pos.end
+        ) buffer.++=(List(node))
+      
+      isTest = node match {
+        case NodeInfo(Some(tree), Some(symbol), _) => true 
+        case NodeInfo(None, Some(symbol), Some(pos)) =>false
       }
     }
 
@@ -189,32 +184,17 @@ final class SemanticTokenProvider(
   case class NodeInfo(
       tree: Option[Tree],
       sym: Option[Symbol],
-      pos: Option[scala.reflect.api.Position]
+      pos: scala.reflect.api.Position
   )
   object NodeInfo {
     def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
-      new NodeInfo(Some(tree), Some(tree.symbol), Some(pos))
+      new NodeInfo(Some(tree), Some(tree.symbol), pos)
 
-    def apply(sym: Symbol): NodeInfo =
-      new NodeInfo(None, Some(sym), None)
-
-    def apply(imp: cp.Import): NodeInfo =
-      new NodeInfo(Some(imp), None, None)
-
-    def unapply(nodeinfo:NodeInfo):Option[(Tree,Symbol,Position)] =
-         nodeinfo match {
-          case NodeInfo(tree,sym,pos) => Some((tree,sym,pos))
-          case _ => None
-         }
+    def apply(sym: Symbol,pos:scala.reflect.api.Position): NodeInfo =
+      new NodeInfo(None, Some(sym), pos)
   }
-  object NodeInfoImp {
-    def unapply(nodeinfo:NodeInfo):Option[Import] =
-         nodeinfo match {
-          case NodeInfo(Some(imp:Import),None,None) => Some(imp)
-          case _ => None
-         }
 
-  }
+  // }
   /**
    * was written in reference to PcDocumentHighlightProvider.
    */
@@ -304,15 +284,16 @@ final class SemanticTokenProvider(
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          nodes :+ NodeInfo(imp)
+          // nodes :+ NodeInfo(imp)
 
-          // val ret = for {
-          //   sel <- imp.selectors
-          // } yield {
-          //   imp.expr.symbol.info.member(sel.name)
-          // } 
+          val ret = for {
+            sel <- imp.selectors
+          } yield {
+            val symbol =imp.expr.symbol.info.member(sel.name)
+            NodeInfo(symbol,sel.namePosition(source))
+          } 
 
-          // nodes ++ ret.map(sym=>NodeInfo(sym))
+          nodes ++ ret
 
         case _ =>
           if (tree == null) null
@@ -367,19 +348,24 @@ final class SemanticTokenProvider(
   private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
 
     tk match {
-      case ident: Token.Ident =>
-         IndentTypeAndMod(tk)
+      case ident: Token.Ident => IndentTypeAndMod(ident)
       case _ => (typeOfNonIdentToken(tk), 0)
     }
   }
 
-  private def IndentTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
+  private def IndentTypeAndMod(ident:Token.Ident): (Int, Int) = {
     val default = (-1, 0)
 
-    
+    val isOperatorName = (ident.name.last: @switch) match {
+      case '~' | '!' | '@' | '#' | '%' | '^' | '*' | '+' | '-' | '<' | '>' | '?' | ':' | '=' | '&' |
+          '|' | '/' | '\\' =>
+        true
+      case _ => false
+    }
+
     val ret =
       for (
-        nodeInfo <- pickFromTraversed(tk);
+        nodeInfo <- pickFromTraversed(ident);
         sym <- nodeInfo.sym
       ) yield {
         var mod: Int = 0
@@ -393,9 +379,9 @@ final class SemanticTokenProvider(
           if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
-          else if (isOperatorName) getTypeId(SemanticTokenTypes.TypeParameter)
+          else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
           // See symbol.keystring about following conditions.
-          if (sym.isJavaInterface)
+          else if (sym.isJavaInterface)
             getTypeId(SemanticTokenTypes.Interface) // "interface"
           else if (sym.isTrait)
             getTypeId(SemanticTokenTypes.Interface) // "trait"
