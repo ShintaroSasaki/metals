@@ -222,7 +222,7 @@ class MetalsLanguageServer(
       params => didChangeWatchedFiles(params),
     )
   )
-  private val indexingPromise: Promise[Unit] = Promise[Unit]()
+  val indexingPromise: Promise[Unit] = Promise[Unit]()
   var buildServerPromise: Promise[Unit] = Promise[Unit]()
   val parseTrees = new BatchedFunction[AbsolutePath, Unit](paths =>
     CancelableFuture(
@@ -314,14 +314,16 @@ class MetalsLanguageServer(
     initialConfig
   )
 
-  def parseTreesAndPublishDiags(paths: Seq[AbsolutePath]): Future[Seq[Unit]] = {
-    Future.traverse(paths.distinct) { path =>
-      if (path.isScalaFilename) {
-        Future(diagnostics.onSyntaxError(path, trees.didChange(path)))
-      } else {
-        Future.successful(())
+  def parseTreesAndPublishDiags(paths: Seq[AbsolutePath]): Future[Unit] = {
+    Future
+      .traverse(paths.distinct) { path =>
+        if (path.isScalaFilename && buffers.contains(path)) {
+          Future(diagnostics.onSyntaxError(path, trees.didChange(path)))
+        } else {
+          Future.successful(())
+        }
       }
-    }
+      .ignoreValue
   }
 
   def connectToLanguageClient(client: MetalsLanguageClient): Unit = {
@@ -816,6 +818,7 @@ class MetalsLanguageServer(
             () => focusedDocument,
             clientConfig.initialConfig,
             scalaVersionSelector,
+            parseTreesAndPublishDiags,
           )
         )
         buildTargets.addData(ammonite.buildTargetsData)
@@ -1131,30 +1134,33 @@ class MetalsLanguageServer(
         ()
       }
     } else {
-      val triggeredImportOpt =
-        if (path.isAmmoniteScript && buildTargets.inverseSources(path).isEmpty)
-          maybeImportScript(path)
-        else
-          None
-      def load(): Future[Unit] = {
-        val compileAndLoad = buildServerPromise.future.flatMap { _ =>
-          Future.sequence(
-            List(
-              compilers.load(List(path)),
-              compilations.compileFile(path),
-            )
+      buildServerPromise.future.flatMap { _ =>
+        val triggeredImportOpt =
+          if (
+            path.isAmmoniteScript && buildTargets.inverseSources(path).isEmpty
           )
+            maybeImportScript(path)
+          else
+            None
+        def load(): Future[Unit] = {
+          val compileAndLoad =
+            Future.sequence(
+              List(
+                compilers.load(List(path)),
+                compilations.compileFile(path),
+              )
+            )
+          Future
+            .sequence(
+              List(
+                compileAndLoad,
+                publishSynthetics,
+              )
+            )
+            .ignoreValue
         }
-        Future
-          .sequence(
-            List(
-              compileAndLoad,
-              publishSynthetics,
-            )
-          )
-          .ignoreValue
-      }
-      triggeredImportOpt.getOrElse(load()).asJava
+        triggeredImportOpt.getOrElse(load())
+      }.asJava
     }
   }
 
@@ -1418,7 +1424,7 @@ class MetalsLanguageServer(
    */
   private def fileWatchFilter(path: Path): Boolean = {
     val abs = AbsolutePath(path)
-    abs.isScalaOrJava || abs.isSemanticdb || abs.isBuild
+    abs.isScalaOrJava || abs.isSemanticdb || abs.isBuild || abs.isBsp
   }
 
   /**
@@ -1434,6 +1440,12 @@ class MetalsLanguageServer(
   ): CompletableFuture[Unit] = {
     val path = AbsolutePath(event.path)
     val isScalaOrJava = path.isScalaOrJava
+
+    event.eventType match {
+      case EventType.CreateOrModify if path.isBsp =>
+        quickConnectToBuildServer()
+      case _ =>
+    }
     if (isScalaOrJava && event.eventType == EventType.Delete) {
       onDelete(path).asJava
     } else if (
@@ -2072,23 +2084,12 @@ class MetalsLanguageServer(
         ammonite.stop()
 
       case ServerCommands.StartScalaCliServer() =>
-        val f = focusedDocument.map(_.parent) match {
+        val f = focusedDocument match {
           case None => Future.unit
-          case Some(newDir) =>
-            val updated =
-              if (newDir.toNIO.startsWith(workspace.toNIO)) {
-                val relPath = workspace.toNIO.relativize(newDir.toNIO)
-                val segments =
-                  relPath.iterator().asScala.map(_.toString).toVector
-                val idx = segments.indexOf(".metals")
-                if (idx < 0) newDir
-                else
-                  AbsolutePath(
-                    segments.take(idx).foldLeft(workspace.toNIO)(_.resolve(_))
-                  )
-              } else newDir
-            if (scalaCli.roots.contains(updated)) Future.unit
-            else scalaCli.start(scalaCli.roots :+ updated)
+          case Some(path) =>
+            val scalaCliPath = scalaCliDirOrFile(path)
+            if (scalaCli.loaded(scalaCliPath)) Future.unit
+            else scalaCli.start(scalaCliPath)
         }
         f.asJavaObject
       case ServerCommands.StopScalaCliServer() =>
@@ -2274,6 +2275,8 @@ class MetalsLanguageServer(
         if (!buildTools.isAutoConnectable) {
           warnings.noBuildTool()
         }
+        // wait for a bsp file to show up
+        fileWatcher.start(Set(workspace.resolve(".bsp")))
         Future(None)
       }
       case buildTool :: Nil => Future(isCompatibleVersion(buildTool))
@@ -2502,12 +2505,12 @@ class MetalsLanguageServer(
       buffers,
       () => indexer.profiledIndexWorkspace(() => ()),
       () => diagnostics,
-      () => workspace,
       () => tables,
       () => buildClient,
       languageClient,
       () => clientConfig.initialConfig,
       () => userConfig,
+      parseTreesAndPublishDiags,
     )
   )
   buildTargets.addData(scalaCli.buildTargetsData)
@@ -2666,9 +2669,6 @@ class MetalsLanguageServer(
             definitionResult(positionParams, token)
           }
         case None =>
-          if (semanticDBDoc.isEmpty) {
-            warnings.noSemanticdb(source)
-          }
           // Even if it failed to retrieve the symbol occurrence from semanticdb,
           // try to find its definitions from presentation compiler.
           definitionResult(positionParams, token)
@@ -2764,20 +2764,42 @@ class MetalsLanguageServer(
       // (require ./mill or ./.mill-version)
       buildTools.isMill
 
+  /**
+   * Returns the absolute path or directory that ScalaCLI imports as ScalaCLI scripts.
+   * By default, ScalaCLI tries to import the entire directory as ScalaCLI scripts.
+   * However, we have to ensure that there are no clashes with other existing sourceItems
+   * see: https://github.com/scalameta/metals/issues/4447
+   *
+   * @param path the absolute path of the ScalaCLI script to import
+   */
+  private def scalaCliDirOrFile(path: AbsolutePath): AbsolutePath = {
+    val dir = path.parent
+    val nioDir = dir.toNIO
+    val conflictsWithMainBsp =
+      buildTargets.sourceItems.filter(_.exists).exists { item =>
+        val nioItem = item.toNIO
+        nioDir.startsWith(nioItem) || nioItem.startsWith(nioDir)
+      }
+
+    if (conflictsWithMainBsp) path else dir
+  }
+
   def maybeImportScript(path: AbsolutePath): Option[Future[Unit]] = {
-    val directory = path.parent
+    val scalaCliPath = scalaCliDirOrFile(path)
     if (
-      ammonite.loaded(path) || scalaCli.loaded(directory) || isMillBuildSc(path)
+      ammonite.loaded(path) || scalaCli.loaded(scalaCliPath) || isMillBuildSc(
+        path
+      )
     )
       None
     else {
       def doImportScalaCli(): Unit =
-        scalaCli.start(scalaCli.roots :+ directory).onComplete {
+        scalaCli.start(scalaCliPath).onComplete {
           case Failure(e) =>
             languageClient.showMessage(
               Messages.ImportScalaScript.ImportFailed(path.toString)
             )
-            scribe.warn(s"Error importing Scala CLI project $directory", e)
+            scribe.warn(s"Error importing Scala CLI project $scalaCliPath", e)
           case Success(_) =>
             languageClient.showMessage(
               Messages.ImportScalaScript.ImportedScalaCli

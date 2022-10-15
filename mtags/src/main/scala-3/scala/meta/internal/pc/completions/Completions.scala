@@ -241,52 +241,51 @@ class Completions(
     )
   end isAbstractType
 
-  private def findSuffix(symbol: Symbol): Option[String] =
-    val bracketSuffix =
-      if shouldAddSnippet &&
-        cursorPos.allowBracketSuffix && symbol.info.typeParams.nonEmpty
-      then "[$0]"
-      else ""
-
-    val bracesSuffix =
-      if shouldAddSnippet && symbol.is(Flags.Method)
-      then
-        val paramss = getParams(symbol)
-        paramss match
-          case Nil => ""
-          case List(Nil) => "()"
-          case _ if config.isCompletionSnippetsEnabled =>
-            val onlyParameterless = paramss.forall(_.isEmpty)
-            lazy val onlyImplicitOrTypeParams = paramss.forall(
-              _.exists { sym =>
-                sym.isType || sym.is(Implicit) || sym.is(Given)
-              }
-            )
-            if onlyParameterless then "()" * paramss.length
-            else if onlyImplicitOrTypeParams then ""
-            else if bracketSuffix == "[$0]" then "()"
-            else "($0)"
-          case _ => ""
-        end match
-      else ""
-
-    val templateSuffix =
-      if shouldAddSnippet && cursorPos.allowTemplateSuffix
-        && isAbstractType(symbol)
-      then
-        if bracketSuffix.nonEmpty || bracesSuffix.contains("$0") then " {}"
-        else " {$0}"
-      else ""
-
-    val concludedSuffix = bracketSuffix + bracesSuffix + templateSuffix
-    if concludedSuffix.nonEmpty then Some(concludedSuffix) else None
+  private def findSuffix(symbol: Symbol): CompletionSuffix =
+    CompletionSuffix.empty
+      .chain { suffix => // for [] suffix
+        if shouldAddSnippet &&
+          cursorPos.allowBracketSuffix && symbol.info.typeParams.nonEmpty
+        then suffix.copy(bracket = true, snippet = SuffixKind.Bracket)
+        else suffix
+      }
+      .chain { suffix => // for () suffix
+        if shouldAddSnippet && symbol.is(Flags.Method)
+        then
+          val paramss = getParams(symbol)
+          paramss match
+            case Nil => suffix
+            case List(Nil) => suffix.copy(brace = true)
+            case _ if config.isCompletionSnippetsEnabled =>
+              val onlyParameterless = paramss.forall(_.isEmpty)
+              lazy val onlyImplicitOrTypeParams = paramss.forall(
+                _.exists { sym =>
+                  sym.isType || sym.is(Implicit) || sym.is(Given)
+                }
+              )
+              if onlyParameterless then suffix.copy(brace = true)
+              else if onlyImplicitOrTypeParams then suffix
+              else if suffix.hasSnippet then suffix.copy(brace = true)
+              else suffix.copy(brace = true, snippet = SuffixKind.Brace)
+            case _ => suffix
+          end match
+        else suffix
+      }
+      .chain { suffix => // for {} suffix
+        if shouldAddSnippet && cursorPos.allowTemplateSuffix
+          && isAbstractType(symbol)
+        then
+          if suffix.hasSnippet then suffix.copy(template = true)
+          else suffix.copy(template = true, snippet = SuffixKind.Template)
+        else suffix
+      }
 
   end findSuffix
 
   def completionsWithSuffix(
       sym: Symbol,
       label: String,
-      toCompletionValue: (String, Symbol, Option[String]) => CompletionValue,
+      toCompletionValue: (String, Symbol, CompletionSuffix) => CompletionValue,
   ): List[CompletionValue] =
     // workaround for earlier versions that force correctly detecting Java flags
     def isJavaDefined = if canDetectJavaObjectsCorrectly then
@@ -331,7 +330,11 @@ class Completions(
     lazy val filename = rawFileName
       .stripSuffix(".scala")
     val MatchCaseExtractor = new MatchCaseExtractor(pos, text, completionPos)
+    val ScalaCliCompletions = new ScalaCliCompletions(pos, text)
     path match
+
+      case ScalaCliCompletions(dependency) =>
+        (ScalaCliCompletions.contribute(dependency), true)
       case _ if ScaladocCompletions.isScaladocCompletion(pos, text) =>
         val values = ScaladocCompletions.contribute(pos, text, config)
         (values, true)
@@ -630,6 +633,7 @@ class Completions(
               (autofill.label, true)
             case fileSysMember: CompletionValue.FileSystemMember =>
               (fileSysMember.label, true)
+            case si: CompletionValue.ScalaCLiImport => (si.label, true)
 
         if !isSeen(id) && include then
           isSeen += id

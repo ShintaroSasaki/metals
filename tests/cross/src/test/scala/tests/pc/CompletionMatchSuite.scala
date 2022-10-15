@@ -289,15 +289,12 @@ class CompletionMatchSuite extends BaseCompletionSuite {
                 |package example
                 |
                 |import java.nio.file.AccessMode
-                |import java.nio.file.AccessMode.READ
-                |import java.nio.file.AccessMode.WRITE
-                |import java.nio.file.AccessMode.EXECUTE
                 |
                 |object Main {
                 |  (null: AccessMode) match
-                |\tcase READ => $$0
-                |\tcase WRITE =>
-                |\tcase EXECUTE =>
+                |\tcase AccessMode.READ => $$0
+                |\tcase AccessMode.WRITE =>
+                |\tcase AccessMode.EXECUTE =>
                 |
                 |}""".stripMargin
     ),
@@ -306,34 +303,36 @@ class CompletionMatchSuite extends BaseCompletionSuite {
   checkEdit(
     "exhaustive-scala-enum".tag(IgnoreScala2),
     """
-      |package example
+      |package withenum {
       |enum Color(rank: Int):
       |  case Red extends Color(1)
       |  case Blue extends Color(2)
       |  case Green extends Color(3)
+      |}
+      |
+      |package example
       |
       |object Main {
-      |  val x: Color = ???
+      |  val x: withenum.Color = ???
       |  x match@@
       |}""".stripMargin,
-    s"""|package example
+    s"""|import withenum.Color
         |
-        |import example.Color.Red
-        |
-        |import example.Color.Blue
-        |
-        |import example.Color.Green
+        |package withenum {
         |enum Color(rank: Int):
         |  case Red extends Color(1)
         |  case Blue extends Color(2)
         |  case Green extends Color(3)
+        |}
+        |
+        |package example
         |
         |object Main {
-        |  val x: Color = ???
+        |  val x: withenum.Color = ???
         |  x match
-        |\tcase Red => $$0
-        |\tcase Blue =>
-        |\tcase Green =>
+        |\tcase Color.Red => $$0
+        |\tcase Color.Blue =>
+        |\tcase Color.Green =>
         |
         |}
         |""".stripMargin,

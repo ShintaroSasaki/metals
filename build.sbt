@@ -9,7 +9,7 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 Global / resolvers += "scala-integration" at
   "https://scala-ci.typesafe.com/artifactory/scala-integration/"
 
-def localSnapshotVersion = "0.11.9-SNAPSHOT"
+def localSnapshotVersion = "0.11.10-SNAPSHOT"
 def isCI = System.getenv("CI") != null
 
 def isScala211(v: Option[(Long, Long)]): Boolean = v.contains((2, 11))
@@ -273,6 +273,8 @@ val mtagsSettings = List(
     "com.thoughtworks.qdox" % "qdox" % V.qdox, // for java mtags
     "org.scala-lang.modules" %% "scala-java8-compat" % V.java8Compat,
     "org.jsoup" % "jsoup" % V.jsoup, // for extracting HTML from javadocs
+    // for ivy completions
+    "io.get-coursier" % "interface" % V.coursierInterfaces,
   ),
   libraryDependencies ++= crossSetting(
     scalaVersion.value,
@@ -280,8 +282,6 @@ val mtagsSettings = List(
       // for token edit-distance used by goto definition
       "com.googlecode.java-diff-utils" % "diffutils" % "1.3.0",
       "org.scalameta" % "semanticdb-scalac-core" % V.scalameta cross CrossVersion.full,
-      // for ivy completions
-      "io.get-coursier" % "interface" % V.coursierInterfaces,
     ),
     if3 = List(
       "org.scala-lang" %% "scala3-compiler" % scalaVersion.value,
@@ -316,9 +316,9 @@ val mtagsSettings = List(
     val current = (Compile / unmanagedSourceDirectories).value
     val base = (Compile / sourceDirectory).value
     val regex = "(\\d+)\\.(\\d+)\\.(\\d+).*".r
-    // For scala 2.13.9 we need to have a special Compat.scala
+    // For scala 2.13.9/10 we need to have a special Compat.scala
     // For this case filter out `scala-2.13` directory that comes by default
-    if (scalaVersion.value == "2.13.9")
+    if (scalaVersion.value == "2.13.9" || scalaVersion.value == "2.13.10")
       current.filter(f => f.getName() != "scala-2.13")
     else
       current
@@ -370,10 +370,10 @@ lazy val metals = project
       // for file watching
       "com.swoval" % "file-tree-views" % "2.1.9",
       // for http client
-      "io.undertow" % "undertow-core" % "2.2.19.Final",
+      "io.undertow" % "undertow-core" % "2.2.20.Final",
       "org.jboss.xnio" % "xnio-nio" % "3.8.8.Final",
       // for persistent data like "dismissed notification"
-      "org.flywaydb" % "flyway-core" % "9.3.1",
+      "org.flywaydb" % "flyway-core" % "9.4.0",
       "com.h2database" % "h2" % "2.1.214",
       // for BSP
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.5.0",
