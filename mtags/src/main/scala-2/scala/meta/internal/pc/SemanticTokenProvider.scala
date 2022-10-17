@@ -135,6 +135,7 @@ final class SemanticTokenProvider(
       // Alphanumeric keywords
       case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
       case _: Token.Keyword => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwNull   => getTypeId(SemanticTokenTypes.Keyword)
 
       // extends Symbolic keywords
       case _: Token.Hash => getTypeId(SemanticTokenTypes.Keyword)
