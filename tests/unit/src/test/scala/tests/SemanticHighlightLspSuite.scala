@@ -10,16 +10,20 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
 
   check(
-    "import(Out of File)",
+    "interporlation",
     s"""|
-        |object sample11 {
-        |  def main(args: Array[String]) ={
-        |    val name = "George"
-        |    val outStr= s"Hello $name , Can you hear me ? "
-        |    println(outStr)
+        |<<object>>/*keyword*/ <<sample11>>/*class*/ {
+        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+        |    <<val>>/*keyword*/ <<name>>/*variable,readonly*/ = <<"George">>/*string*/
+        |    <<val>>/*keyword*/ <<height>>/*variable,readonly*/ = <<1.9d>>/*number*/
+        |    <<val>>/*keyword*/ <<outStr>>/*variable,readonly*/= 
+        |     <<s>>/*keyword*/<<">>/*string*/<<Hello >>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<< , Can you hear me ? >>/*string*/<<">>/*string*/
+        |    <<val>>/*keyword*/ <<fmtStr>>/*variable,readonly*/=
+        |     <<f>>/*keyword*/<<">>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<<%s is >>/*string*/<<$$>>/*keyword*/<<height>>/*variable,readonly*/<<%2.2f meters tall>>/*string*/<<">>/*string*/
+        |    <<println>>/*method*/(<<outStr>>/*variable,readonly*/)
+        |    <<println>>/*method*/(<<fmtStr>>/*variable,readonly*/)
         |  }
         |}
-        |
         |
         |""".stripMargin,
   )

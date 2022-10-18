@@ -54,6 +54,8 @@ final class SemanticTokenProvider(
 
     for (tk <- params.text().tokenize.toOption.get) yield {
 
+      tokenDescriber(tk)
+
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine, cOffset, Some(lastProvided.copy()))
@@ -93,6 +95,7 @@ final class SemanticTokenProvider(
 
     } // end for-tk
 
+    logIt
     buffer.toList.asJava
 
   }
@@ -136,6 +139,8 @@ final class SemanticTokenProvider(
       case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
       case _: Token.Keyword => getTypeId(SemanticTokenTypes.Keyword)
       case _: Token.KwNull   => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwTrue   => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwFalse   => getTypeId(SemanticTokenTypes.Keyword)
 
       // extends Symbolic keywords
       case _: Token.Hash => getTypeId(SemanticTokenTypes.Keyword)
@@ -159,6 +164,16 @@ final class SemanticTokenProvider(
 
       // Comment
       case _: Token.Comment => getTypeId(SemanticTokenTypes.Comment)
+
+      // Interpolation 
+      case _: Token.Interpolation.Id
+          |_: Token.Interpolation.SpliceStart
+             => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.Interpolation.Start
+          |_: Token.Interpolation.Part
+          |_: Token.Interpolation.SpliceEnd
+          |_: Token.Interpolation.End
+             => getTypeId(SemanticTokenTypes.String)  // $ symbol
 
       // Default
       case _ => -1
@@ -345,6 +360,10 @@ final class SemanticTokenProvider(
     }
   }
 
+
+  /**
+   * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
+   */
   private def IndentTypeAndMod(ident: Token.Ident): (Int, Int) = {
     val default = (-1, 0)
 
@@ -406,4 +425,110 @@ final class SemanticTokenProvider(
     ret.getOrElse(default)
 
   }
+
+
+
+
+  //////////////////////////////////////////////////
+  // log tools
+  //////////////////////////////////////////////////
+  import java.util.logging.Logger
+  val logger: Logger = Logger.getLogger("SemanticTokenProvider")
+  var logString:String=""
+  def logIt :Unit ={logger.info(logString)}
+  val strSep = ", "
+  val linSep = "\n"
+  val spcr= "    "
+  import scala.reflect.internal.util.Position
+  private def namePos(t: cp.Tree): Position = {
+    try {
+      val wkStart = t.pos.point
+      val wkEnd = wkStart + t.symbol.name.length() // - 1
+      Position.range(t.pos.source, wkStart, wkStart, wkEnd)
+    } catch {
+      case _ => null
+    }
+  }
+
+  var counter = 0
+
+  /** makes string to logging tree construction. */
+  def treeDescriber(t: cp.Tree, doRecurse: Boolean = true): String = {
+    if (t == null) return "  " + "Null Tree"
+
+    var ret = ""
+    if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
+
+    counter += 1
+    ret += linSep
+    ret += "  " + ("000" + counter.toString()).takeRight(3) + "  "
+
+    // Position
+    try {
+      val wkNamePos = namePos(t)
+      ret += "namePos:(" + wkNamePos.start.toString()
+      ret += "," + wkNamePos.end.toString() + ")"
+    } catch { case _ => }
+    ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
+
+    // symbol
+    try {
+      ret = ret + SymDescriber(t.symbol)
+
+    } catch { case _ => return "" }
+
+    // recursive
+    if (doRecurse)
+      ret += t.children
+        .map(treeDescriber(_, true))
+        .mkString("\n")
+
+    // end
+    ret + linSep
+
+  }
+  def SymDescriber(sym: cp.Symbol): String = {
+    var ret = ""
+
+    ret += strSep + "sym:" + sym.toString
+    ret += strSep + "keyStr:" + sym.keyString
+    ret += strSep + "\n  name:" + sym.nameString
+    ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
+    ret += strSep + "SymKnd:" + sym.accurateKindString
+
+    ret
+
+  }
+
+  def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
+    tk match {
+      case _:Token.Space|_:Token.LF => return
+      case _ => //pass
+    }
+
+      
+    logString += linSep + linSep
+
+    logString += "token: " + tk.getClass.toString.substring(29)
+    logString += strSep + "text: " + tk.text.toString()
+    logString += strSep + "stt,end:(" + tk.pos.start.toString
+    logString += strSep + tk.pos.end.toString + ")"
+    logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
+    logString += "," + tk.pos.endLine.toString + ")"
+
+    counter = 0
+    val nodeInfo = pickFromTraversed(tk)
+    if (nodeInfo != None){
+      nodeInfo.get.sym match {
+        case Some(symbol) =>
+          logString = logString + SymDescriber(symbol) + linSep
+        case None =>
+      }
+    }
+
+  }
+
+
+
+
 }
