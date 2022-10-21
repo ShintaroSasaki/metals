@@ -52,6 +52,11 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
+    pprint.log(root)
+     Thread.sleep(2000)
+    // treeDescriber(root)
+    nodesDscrib()
+
     for (tk <- params.text().tokenize.toOption.get) yield {
 
       tokenDescriber(tk)
@@ -198,8 +203,13 @@ final class SemanticTokenProvider(
       pos: scala.reflect.api.Position
   )
   object NodeInfo {
-    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
+    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo ={
+      // val adjustedPos = if (
+      //     tree.symbol.nameString.trim('`').size == 
+      //       tree.symbol.nameString.size - 2
+      //     ) pos + 2 else pos
       new NodeInfo(Some(tree.symbol), pos)
+    }
 
     def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(sym), pos)
@@ -487,12 +497,23 @@ final class SemanticTokenProvider(
     ret + linSep
 
   }
+ 
+  def nodesDscrib():Unit={
+    logString += linSep + "#### Traversed is  #########"
+    for ((node,i) <- nodes.zipWithIndex){
+      logString += linSep + ("00000" + i.toString).takeRight(4)
+      logString += "  pos:("+ node.pos.start + ","+ node.pos.end
+      logString += "),  sym:"+ node.sym.map(SymDescriber(_) )
+    }
+  }
+
+  
   def SymDescriber(sym: cp.Symbol): String = {
     var ret = ""
 
     ret += strSep + "sym:" + sym.toString
     ret += strSep + "keyStr:" + sym.keyString
-    ret += strSep + "\n  name:" + sym.nameString
+    ret += strSep + "  name:" + sym.nameString
     ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
     ret += strSep + "SymKnd:" + sym.accurateKindString
 
@@ -507,7 +528,7 @@ final class SemanticTokenProvider(
     }
 
       
-    logString += linSep + linSep
+    logString += linSep //+ linSep
 
     logString += "token: " + tk.getClass.toString.substring(29)
     logString += strSep + "text: " + tk.text.toString()

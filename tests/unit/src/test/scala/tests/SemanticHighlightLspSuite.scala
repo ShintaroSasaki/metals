@@ -9,24 +9,166 @@ import munit.TestOptions
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
 
+  // check(
+  //   "interporlation",
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<sample11>>/*class*/ {
+  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+  //       |    <<val>>/*keyword*/ <<name>>/*variable,readonly*/ = <<"George">>/*string*/
+  //       |    <<val>>/*keyword*/ <<height>>/*variable,readonly*/ = <<1.9d>>/*number*/
+  //       |    <<val>>/*keyword*/ <<outStr>>/*variable,readonly*/= 
+  //       |     <<s>>/*keyword*/<<">>/*string*/<<Hello >>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<< , Can you hear me ? >>/*string*/<<">>/*string*/
+  //       |    <<val>>/*keyword*/ <<fmtStr>>/*variable,readonly*/=
+  //       |     <<f>>/*keyword*/<<">>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<<%s is >>/*string*/<<$$>>/*keyword*/<<height>>/*variable,readonly*/<<%2.2f meters tall>>/*string*/<<">>/*string*/
+  //       |    <<println>>/*method*/(<<outStr>>/*variable,readonly*/)
+  //       |    <<println>>/*method*/(<<fmtStr>>/*variable,readonly*/)
+  //       |  }
+  //       |}
+  //       |
+  //       |""".stripMargin,
+  // )
+
+  // check(
+  //   "backtick",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/.<<`type`>>/*namespace*/
+  //       |
+  //       |<<class>>/*keyword*/ <<Backtick>>/*class*/ {}
+  //       | 
+  //       |""".stripMargin,
+  // )
+
+  // check(
+  //   "StructuralTypes",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |
+  //       |<<object>>/*keyword*/ <<StructuralTypes>>/*class*/ {
+  //       |  <<type>>/*keyword*/ <<User>>/*type*/ = {
+  //       |    <<def>>/*keyword*/ <<name>>/*method,abstract*/: String/*type*/
+  //       |    <<def>>/*keyword*/ <<age>>/*method,abstract*/: Int/*class,abstract*/
+  //       |  }
+  //       |
+  //       |  <<val>>/*keyword*/ <<user>>/*variable,readonly*/ = <<null>>/*keyword*/.<<asInstanceOf>>/*method*/[<<User>>/*type*/]
+  //       |  <<user>>/*variable,readonly*/.<<name>>/*method,abstract*/
+  //       |  <<user>>/*variable,readonly*/.<<age>>/*method,abstract*/
+  //       |
+  //       |  <<val>>/*keyword*/ <<V>>/*variable,readonly*/: <<Object>>/*class,abstract*/ {
+  //       |    <<def>>/*keyword*/ <<scalameta>>/*method,abstract*/: <<String>>/*type*/
+  //       |  } = <<new>>/*keyword*/ {
+  //       |    <<def>>/*keyword*/ <<scalameta>>/*method*/ = <<"4.0">>/*string*/
+  //       |  }
+  //       |  <<V>>/*variable,readonly*/.<<scalameta>>/*method,abstract*/
+  //       |}
+  //       |""".stripMargin,
+  // )
+
+  // check(
+  //   "PatternMatching",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |
+  //       |<<class>>/*keyword*/ <<PatternMatching>>/*class*/ {
+  //       |  <<val>>/*keyword*/ <<some>>/*variable,readonly*/ = <<Some>>/*class*/(<<1>>/*number*/)
+  //       |  <<some>>/*variable,readonly*/ <<match>>/*keyword*/ {
+  //       |    <<case>>/*keyword*/ <<Some>>/*class*/(number) <<=>>>/*operator*/
+  //       |      <<number>>/*variable,readonly*/
+  //       |  }
+  //       |
+  //       |  <<// tuple deconstruction>>/*comment*/
+  //       |  <<val>>/*keyword*/ (<<left>>/*variable,readonly*/, <<right>>/*variable,readonly*/) = (<<1>>/*number*/, <<2>>/*number*/)
+  //       |  (<<left>>/*variable,readonly*/, <<right>>/*variable,readonly*/)
+  //       |
+  //       |  <<// val deconstruction>>/*comment*/
+  //       |  <<val>>/*keyword*/ <<Some>>/*class*/(number1) =
+  //       |    <<some>>/*variable,readonly*/
+  //       |  <<println>>/*method*/(<<number1>>/*variable,readonly*/)
+  //       |
+  //       |  <<def>>/*keyword*/ <<localDeconstruction>>/*method*/ = {
+  //       |    <<val>>/*keyword*/ <<Some>>/*class*/(<<number2>>/*variable, readonly*/) =
+  //       |      <<some>>/*variable,readonly*/
+  //       |    <<number2>>/*variable,readonly*/
+  //       |  }
+  //       |}
+  //       | 
+  //       |""".stripMargin,
+  // )
+
+  // check(
+  //   "package(nested)",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |
+  //       |<<package>>/*keyword*/ <<object>>/*keyword*/ <<nested>>/*class*/ {
+  //       |
+  //       |  <<class>>/*keyword*/ <<PackageObjectNestedClass>>/*class*/
+  //       |
+  //       |}
+  //       |
+  //       |<<class>>/*keyword*/ <<PackageObjectSibling>>/*class*/
+  //       |
+  //       |""".stripMargin,
+  // )
+
   check(
-    "interporlation",
+    "Miscellaneous",
     s"""|
-        |<<object>>/*keyword*/ <<sample11>>/*class*/ {
-        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-        |    <<val>>/*keyword*/ <<name>>/*variable,readonly*/ = <<"George">>/*string*/
-        |    <<val>>/*keyword*/ <<height>>/*variable,readonly*/ = <<1.9d>>/*number*/
-        |    <<val>>/*keyword*/ <<outStr>>/*variable,readonly*/= 
-        |     <<s>>/*keyword*/<<">>/*string*/<<Hello >>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<< , Can you hear me ? >>/*string*/<<">>/*string*/
-        |    <<val>>/*keyword*/ <<fmtStr>>/*variable,readonly*/=
-        |     <<f>>/*keyword*/<<">>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<<%s is >>/*string*/<<$$>>/*keyword*/<<height>>/*variable,readonly*/<<%2.2f meters tall>>/*string*/<<">>/*string*/
-        |    <<println>>/*method*/(<<outStr>>/*variable,readonly*/)
-        |    <<println>>/*method*/(<<fmtStr>>/*variable,readonly*/)
+        |<<package>>/*keyword*/ <<example>>/*namespace*/
+        |
+        |<<class>>/*keyword*/ <<Miscellaneous>>/*class*/ {
+        |  <<// backtick identifier>>/*comment*/
+        |  <<val>>/*keyword*/ <<`a b`>>/*variable,readonly*/ = <<42>>/*number*/
+        |
+        |  <<// block with only wildcard value>>/*comment*/
+        |  <<def>>/*keyword*/ <<apply>>/*method*/(): <<Unit>>/*class,abstract*/ = {
+        |    <<val>>/*keyword*/ <<_>>/*variable*/ = <<42>>/*number*/
         |  }
+        |  <<// infix + inferred apply/implicits/tparams>>/*comment*/
+        |  (<<List>>/*variable,readonly*/(<<1>>/*number*/)
+        |    .<<map>>/*method*/(<<_>>/*variable*/ <<+>>/*method,abstract*/ <<1>>/*number*/)
+        |    <<++>>/*method*/
+        |      <<List>>/*variable,readonly*/(<<3>>/*number*/))
         |}
         |
+        | 
         |""".stripMargin,
   )
+
+  // check(
+  //   "Definitions",
+  //   s"""|
+  //       | 
+  //       |package example
+  //       |
+  //       |import io.circe.derivation.deriveDecoder
+  //       |import io.circe.derivation.deriveEncoder
+  //       |
+  //       |class Definitions {
+  //       |  Predef.any2stringadd(1)
+  //       |  List[
+  //       |    java.util.Map.Entry[
+  //       |      java.lang.Integer,
+  //       |      java.lang.Double,
+  //       |    ]
+  //       |  ](
+  //       |    elems = null
+  //       |  )
+  //       |  println(deriveDecoder[MacroAnnotation])
+  //       |  println(deriveEncoder[MacroAnnotation])
+  //       |}
+  //       |
+  //       |
+  //       |""".stripMargin,
+  // )
+
+
+  // check(
+  //   "",
+  //   s"""|
+  //       | 
+  //       |""".stripMargin,
+  // )
+
 
   // check(
   //   "String, Char",
