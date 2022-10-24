@@ -9,34 +9,6 @@ import munit.TestOptions
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
 
-  // check(
-  //   "interporlation",
-  //   s"""|
-  //       |<<object>>/*keyword*/ <<sample11>>/*class*/ {
-  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-  //       |    <<val>>/*keyword*/ <<name>>/*variable,readonly*/ = <<"George">>/*string*/
-  //       |    <<val>>/*keyword*/ <<height>>/*variable,readonly*/ = <<1.9d>>/*number*/
-  //       |    <<val>>/*keyword*/ <<outStr>>/*variable,readonly*/= 
-  //       |     <<s>>/*keyword*/<<">>/*string*/<<Hello >>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<< , Can you hear me ? >>/*string*/<<">>/*string*/
-  //       |    <<val>>/*keyword*/ <<fmtStr>>/*variable,readonly*/=
-  //       |     <<f>>/*keyword*/<<">>/*string*/<<$$>>/*keyword*/<<name>>/*variable,readonly*/<<%s is >>/*string*/<<$$>>/*keyword*/<<height>>/*variable,readonly*/<<%2.2f meters tall>>/*string*/<<">>/*string*/
-  //       |    <<println>>/*method*/(<<outStr>>/*variable,readonly*/)
-  //       |    <<println>>/*method*/(<<fmtStr>>/*variable,readonly*/)
-  //       |  }
-  //       |}
-  //       |
-  //       |""".stripMargin,
-  // )
-
-  // check(
-  //   "backtick",
-  //   s"""|
-  //       |<<package>>/*keyword*/ <<example>>/*namespace*/.<<`type`>>/*namespace*/
-  //       |
-  //       |<<class>>/*keyword*/ <<Backtick>>/*class*/ {}
-  //       | 
-  //       |""".stripMargin,
-  // )
 
   // check(
   //   "StructuralTypes",
@@ -85,7 +57,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |  <<println>>/*method*/(<<number1>>/*variable,readonly*/)
   //       |
   //       |  <<def>>/*keyword*/ <<localDeconstruction>>/*method*/ = {
-  //       |    <<val>>/*keyword*/ <<Some>>/*class*/(<<number2>>/*variable, readonly*/) =
+  //       |    <<val>>/*keyword*/ <<Some>>/*class*/(<<number2>>/*variable,readonly*/) =
   //       |      <<some>>/*variable,readonly*/
   //       |    <<number2>>/*variable,readonly*/
   //       |  }
@@ -94,21 +66,21 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin,
   // )
 
-  check(
-    "package(nested)",
-    s"""|
-        |<<package>>/*keyword*/ <<example>>/*namespace*/
-        |
-        |<<package>>/*keyword*/ <<object>>/*keyword*/ <<nested>>/*class*/ {
-        |
-        |  <<class>>/*keyword*/ <<PackageObjectNestedClass>>/*class*/
-        |
-        |}
-        |
-        |<<class>>/*keyword*/ <<PackageObjectSibling>>/*class*/
-        |
-        |""".stripMargin,
-  )
+  // check(
+  //   "package(nested)",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |
+  //       |<<package>>/*keyword*/ <<object>>/*keyword*/ <<nested>>/*class*/ {
+  //       |
+  //       |  <<class>>/*keyword*/ <<PackageObjectNestedClass>>/*class*/
+  //       |
+  //       |}
+  //       |
+  //       |<<class>>/*keyword*/ <<PackageObjectSibling>>/*class*/
+  //       |
+  //       |""".stripMargin,
+  // )
 
   // OK
   // check(

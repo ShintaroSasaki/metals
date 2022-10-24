@@ -57,8 +57,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    pprint.log(root)
-     Thread.sleep(2000)
+    pprint.log(root);Thread.sleep(2000)
     treeDescriber(root)
     nodesDscrib()
 
@@ -67,6 +66,11 @@ final class SemanticTokenProvider(
       tokenDescriber(tk)
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
+
+      if (tk.text.toString=="nested") {
+        logString += linSep + "nested:" +tokenType.toString +","+ tokeModifier.toString
+      }
+
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine, cOffset, Some(lastProvided.copy()))
 
@@ -194,7 +198,7 @@ final class SemanticTokenProvider(
 
 
     def adjustEnd(tk:Token, node:NodeInfo):Int = {
-      // val ret:Int=0
+      var ret:Int=0
       tk.text.size match {
         case 0 => 0
         case _ =>
@@ -202,17 +206,17 @@ final class SemanticTokenProvider(
           // node.pos.end need adjustment because 
           // the backticks in tk.text is ignored.
           val cName= tk.text.toCharArray()
-          if (cName(0)==96.toChar //backtick
+          ret = if (cName(0)==96.toChar //backtick
           & cName(cName.size-1)==96.toChar 
           )  2 else 0 //ret + 2
           
-          // node.sym match {
-          //   case _:ModuleDef => ret - 1
-          //   case _=>
-          // }
+          // ret = ret + node.sym.map( s => s match {
+          //     case _:ModuleSymbol => - 1
+          //     case _ => 0
+          //   }).getOrElse(0)
       }
 
-      // ret 
+      ret 
     }
 
     val buffer = ListBuffer.empty[NodeInfo]
@@ -291,7 +295,7 @@ final class SemanticTokenProvider(
          * etc.
          */
         case df: cp.MemberDef if df.pos.isRange =>
-          logString += linSep + "memberDef,"
+          logString = logString + linSep + "memberDef," + df.name.dropLocal.decoded
           (annotationChildren(df) ++ df.children)
             .foldLeft(
               nodes :+ NodeInfo(df, df.namePos)
@@ -401,6 +405,9 @@ final class SemanticTokenProvider(
    * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
    */
   private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
+    if (tk.text.toString=="nested"){
+      logString += linSep + "#### nested is passed getTypeAndMod. ##########"
+    }
 
     tk match {
       case ident: Token.Ident => IndentTypeAndMod(ident)
@@ -414,6 +421,10 @@ final class SemanticTokenProvider(
    */
   private def IndentTypeAndMod(ident: Token.Ident): (Int, Int) = {
     val default = (-1, 0)
+    if (ident.text.toString=="nested"){
+      logString += linSep + "#### nested is passed here. ##########"
+      logString += pickFromTraversed(ident).getOrElse("None")
+    }
 
     val isOperatorName = (ident.name.last: @switch) match {
       case '~' | '!' | '@' | '#' | '%' | '^' | '*' | '+' | '-' | '<' | '>' |
@@ -432,6 +443,10 @@ final class SemanticTokenProvider(
           val place: Int = getModifierId(tokenID)
           if (place != -1) mod += (1 << place)
         }
+    if (ident.text.toString=="nested"){
+      logString += linSep + "#### nested is passed here. ##########"
+    }
+
 
         // get Type
         val typ =
@@ -512,8 +527,8 @@ final class SemanticTokenProvider(
 
     counter += 1
     ret += linSep
-    ret += "  " + ("000" + counter.toString()).takeRight(3) + "  "
-
+    ret += "  Tree:" + ("000" + counter.toString()).takeRight(3) + "  "
+      
     // Position
     try {
       val wkNamePos = namePos(t)
@@ -552,13 +567,14 @@ final class SemanticTokenProvider(
   
   def SymDescriber(sym: cp.Symbol): String = {
     var ret = ""
-
+    if (sym==null) return ""
     ret += strSep + "sym:" + sym.toString
     ret += strSep + "keyStr:" + sym.keyString
-    ret += strSep + "  name:" + sym.nameString
+    ret += strSep + "name:@" + sym.nameString + "@"
+    ret += strSep + "name2:@" + sym.name + "@"
     ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
-    ret += strSep + "SymKnd:" + sym.accurateKindString
-    ret += linSep
+    // ret += strSep + "SymKnd:" + sym.accurateKindString
+    // ret += linSep
 
     ret
 
@@ -585,7 +601,7 @@ final class SemanticTokenProvider(
     if (nodeInfo != None){
       nodeInfo.get.sym match {
         case Some(symbol) =>
-          logString = logString + SymDescriber(symbol) + linSep
+          logString = logString + linSep + SymDescriber(symbol) + linSep
         case None =>
       }
     }

@@ -1289,6 +1289,14 @@ final case class TestingServer(
     for {
       obtainedTokens <- server.semanticTokensFull(params).asScala
     } yield {
+      scribe.info(
+        "\n\n obtainedToken:   \n" 
+        + obtainedTokens.getData.asScala
+          .grouped(5).map(_.mkString(","))
+          .mkString("\n")
+                                      
+      )
+
       val obtained = TestSemanticTokens.semanticString(
         fileContent,
         obtainedTokens.getData().map(_.toInt).asScala.toList,
