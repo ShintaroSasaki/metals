@@ -269,16 +269,20 @@ final class SemanticTokenProvider(
          */
         case ident: cp.Ident if ident.pos.isRange =>
           logString += linSep + "Ident,"
+           pprint.log(ident);Thread.sleep(2000)
+
           nodes :+ NodeInfo(ident, ident.pos)
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
          */
-        case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
+        case tpe : cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
           logString += linSep + "tpe,"
           tpe.original.children.foldLeft(
             nodes :+ NodeInfo(tpe.original, typePos(tpe))
           )(traverse(_, _))
+
+          
         /**
          * All select statements such as:
          * val a = hello.<<b>>
@@ -296,8 +300,18 @@ final class SemanticTokenProvider(
          */
         case df: cp.MemberDef if df.pos.isRange =>
           logString = logString + linSep + "memberDef," + df.name.dropLocal.decoded
+          if (df.name.dropLocal.decoded=="Int"){
+           pprint.log(df.children);Thread.sleep(2000)
+          }
+          df match {
+            case TypeDef(_, _, _, rhs) => 
+                logString += linSep + "#### TypeDef rhs is  #########"
+                rhs.symbol.paramss.flatten.map(logString += SymDescriber(_))
+            case _=> 
+          }
           (annotationChildren(df) ++ df.children)
             .foldLeft(
+              // nodes :+ NodeInfo(df, df.namePos)
               nodes :+ NodeInfo(df, df.namePos)
             )(traverse(_, _))
         /* Named parameters, since they don't show up in typed tree:
@@ -312,7 +326,7 @@ final class SemanticTokenProvider(
               namedArgCache.get(arg.pos.start)
             }
             .collectFirst { case cp.AssignOrNamedArg(i @ cp.Ident(_), _) =>
-              NodeInfo(i, i.pos)
+              NodeInfo(appl.symbol.paramss.flatten.find(_.name == i.name), i.pos)
             }
 
           tree.children.foldLeft(nodes ++ named)(traverse(_, _))

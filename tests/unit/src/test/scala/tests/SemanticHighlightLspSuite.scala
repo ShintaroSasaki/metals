@@ -8,32 +8,47 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-
-
-  // check(
-  //   "StructuralTypes",
+  //   check(
+  //   "",
   //   s"""|
-  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
-  //       |
-  //       |<<object>>/*keyword*/ <<StructuralTypes>>/*class*/ {
-  //       |  <<type>>/*keyword*/ <<User>>/*type*/ = {
-  //       |    <<def>>/*keyword*/ <<name>>/*method,abstract*/: String/*type*/
-  //       |    <<def>>/*keyword*/ <<age>>/*method,abstract*/: Int/*class,abstract*/
+  //       | object sample0 {
+  //       |  def main(args: Array[String]) ={
+  //       |    val x:Int =1
+  //       |    println("Hello, world!")
   //       |  }
-  //       |
-  //       |  <<val>>/*keyword*/ <<user>>/*variable,readonly*/ = <<null>>/*keyword*/.<<asInstanceOf>>/*method*/[<<User>>/*type*/]
-  //       |  <<user>>/*variable,readonly*/.<<name>>/*method,abstract*/
-  //       |  <<user>>/*variable,readonly*/.<<age>>/*method,abstract*/
-  //       |
-  //       |  <<val>>/*keyword*/ <<V>>/*variable,readonly*/: <<Object>>/*class,abstract*/ {
-  //       |    <<def>>/*keyword*/ <<scalameta>>/*method,abstract*/: <<String>>/*type*/
-  //       |  } = <<new>>/*keyword*/ {
-  //       |    <<def>>/*keyword*/ <<scalameta>>/*method*/ = <<"4.0">>/*string*/
-  //       |  }
-  //       |  <<V>>/*variable,readonly*/.<<scalameta>>/*method,abstract*/
   //       |}
+  //       |
+  //       |
+  //       |
   //       |""".stripMargin,
   // )
+
+
+  check(
+    "StructuralTypes",
+    s"""|
+        |<<package>>/*keyword*/ <<example>>/*namespace*/
+        |
+        |<<object>>/*keyword*/ <<StructuralTypes>>/*class*/ {
+        |  <<type>>/*keyword*/ <<User>>/*type*/ = {
+        |    <<def>>/*keyword*/ <<name>>/*method,abstract*/: <<String>>/*type*/
+        |    <<def>>/*keyword*/ <<age>>/*method,abstract*/: <<Int>>/*class,abstract*/
+        |  }
+        |
+        |  <<val>>/*keyword*/ <<user>>/*variable,readonly*/ = <<null>>/*keyword*/.<<asInstanceOf>>/*method*/[<<User>>/*type*/]
+        |  <<user>>/*variable,readonly*/.<<name>>/*method,abstract*/
+        |  <<user>>/*variable,readonly*/.<<age>>/*method,abstract*/
+        |
+        |  <<val>>/*keyword*/ <<V>>/*variable,readonly*/: <<Object>>/*class,abstract*/ {
+        |    <<def>>/*keyword*/ <<scalameta>>/*method,abstract*/: <<String>>/*type*/
+        |  } = <<new>>/*keyword*/ {
+        |    <<def>>/*keyword*/ <<scalameta>>/*method*/ = <<"4.0">>/*string*/
+        |  }
+        |  <<V>>/*variable,readonly*/.<<scalameta>>/*method,abstract*/
+        |}
+        |""".stripMargin,
+  )
+
 
   // check(
   //   "PatternMatching",
@@ -82,65 +97,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |""".stripMargin,
   // )
 
-  // OK
-  // check(
-  //   "Miscellaneous",
-  //   s"""|
-  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
-  //       |
-  //       |<<class>>/*keyword*/ <<Miscellaneous>>/*class*/ {
-  //       |  <<// backtick identifier>>/*comment*/
-  //       |  <<val>>/*keyword*/ <<`a b`>>/*variable,readonly*/ = <<42>>/*number*/
-  //       |
-  //       |  <<// block with only wildcard value>>/*comment*/
-  //       |  <<def>>/*keyword*/ <<apply>>/*method*/(): <<Unit>>/*class,abstract*/ = {
-  //       |    <<val>>/*keyword*/ <<_>>/*variable*/ = <<42>>/*number*/
-  //       |  }
-  //       |  <<// infix + inferred apply/implicits/tparams>>/*comment*/
-  //       |  (<<List>>/*variable,readonly*/(<<1>>/*number*/)
-  //       |    .<<map>>/*method*/(<<_>>/*variable*/ <<+>>/*method,abstract*/ <<1>>/*number*/)
-  //       |    <<++>>/*method*/
-  //       |      <<List>>/*variable,readonly*/(<<3>>/*number*/))
-  //       |}
-  //       |
-  //       | 
-  //       |""".stripMargin,
-  // )
 
-  // check(
-  //   "Definitions",
-  //   s"""|
-  //       | 
-  //       |package example
-  //       |
-  //       |import io.circe.derivation.deriveDecoder
-  //       |import io.circe.derivation.deriveEncoder
-  //       |
-  //       |class Definitions {
-  //       |  Predef.any2stringadd(1)
-  //       |  List[
-  //       |    java.util.Map.Entry[
-  //       |      java.lang.Integer,
-  //       |      java.lang.Double,
-  //       |    ]
-  //       |  ](
-  //       |    elems = null
-  //       |  )
-  //       |  println(deriveDecoder[MacroAnnotation])
-  //       |  println(deriveEncoder[MacroAnnotation])
-  //       |}
-  //       |
-  //       |
-  //       |""".stripMargin,
-  // )
-
-
-  // check(
-  //   "",
-  //   s"""|
-  //       | 
-  //       |""".stripMargin,
-  // )
 
 
   // check(
@@ -214,7 +171,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
           expectError = true,
         )
         _ <- server.didOpen("a/src/main/scala/a/Main.scala")
-        _ = assertEmpty(client.workspaceDiagnostics)
+        // _ = assertEmpty(client.workspaceDiagnostics)
         _ <- server.assertSemanticHighlight(
           "a/src/main/scala/a/Main.scala",
           expected,
