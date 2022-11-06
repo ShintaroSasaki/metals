@@ -8,22 +8,49 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-    check(
-    "Enum",
+
+
+  check(
+    "Named Arguments",
     s"""|
         |<<package>>/*keyword*/ <<example>>/*namespace*/
-        |<<import>>/*keyword*/ java.nio.file.<<AccessMode>>/*enum*/
-        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<READ>>/*enumMember*/
-        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<WRITE>>/*enumMember*/
-        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<EXECUTE>>/*enumMember*/
-        |<<object>>/*keyword*/ <<Main>>/*class*/ {
-        |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
-        |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
-        |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
-        |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
+        |
+        |<<object>>/*keyword*/ <<NamedArguments>>/*class*/ {
+        |  <<final>>/*modifier*/ <<val>>/*keyword*/ <<susan>>/*variable,readonly*/ = <<"Susan">>/*string*/
+        |
+        |  <<// anonymous classes>>/*comment*/
+        |  <<@>>/*keyword*/<<deprecated>>/*class*/(
+        |    <<message>>/*parameter*/ = <<"a">>/*string*/,
+        |    <<since>>/*parameter*/ = <<susan>>/*variable,readonly*/,
+        |  ) <<def>>/*keyword*/ <<b>>/*method,deprecated*/ = <<1>>/*number*/
+        |
+        |  <<// vararg>>/*comment*/
+        |  <<List>>/*variable,readonly*/(
+        |    <<elems>>/*parameter*/ = <<2>>/*number*/
+        |  )
+        |
+        |}
         |
         |""".stripMargin,
   )
+        // |<<case>>/*keyword*/ <<class>>/*keyword*/ <<User>>/*class*/(
+        // |    <<name>>/*variable,readonly*/: <<String>>/*type*/ = {
+        // |      <<// assert default values have occurrences>>/*comment*/
+        // |      <<Map>>/*variable,readonly*/.<<toString>>/*method*/
+        // |    }
+        // |)
+
+        // |  <<val>>/*keyword*/ <<user1>>/*variable,readonly*/ =
+        // |    <<User>>/*class*/
+        // |      .<<apply>>/*method*/(
+        // |        <<name>>/*parameter*/ = <<"John">>/*string*/
+        // |      )
+        // |  <<val>>/*keyword*/ <<user2>>/*variable,readonly*/: <<User>>/*class*/ =
+        // |    <<User>>/*class*/(
+        // |      <<name>>/*parameter*/ = <<susan>>/*variable,readonly*/
+        // |    ).<<copy>>/*method*/(
+        // |      <<name>>/*parameter*/ = <<susan>>/*variable,readonly*/
+        // |    )
 
 
   // check(
@@ -50,6 +77,47 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |}
   //       |""".stripMargin,
   // )
+
+
+
+  // check(
+  //   "Comment(Single-Line, Multi-Line)",
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |
+  //       |   <</**>>/*comment*/
+  //       |<<   * Test of Comment Block>>/*comment*/
+  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
+  //       |
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+  //       |    <<// Single Line Comment>>/*comment*/
+  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
+  //       |   }
+  //       |}
+  //       |
+  //       |
+  //       |""".stripMargin,
+  // )
+
+
+  //   check(
+  //   "Enum",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |<<import>>/*keyword*/ java.nio.file.<<AccessMode>>/*enum*/
+  //       |<<import>>/*keyword*/ java.nio.file.AccessMode.<<READ>>/*enumMember*/
+  //       |<<import>>/*keyword*/ java.nio.file.AccessMode.<<WRITE>>/*enumMember*/
+  //       |<<import>>/*keyword*/ java.nio.file.AccessMode.<<EXECUTE>>/*enumMember*/
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/ {
+  //       |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
+  //       |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
+  //       |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
+  //       |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
+  //       |  }
+  //       |}
+  //       |""".stripMargin,
+  // )
+
 
 
   // check(
@@ -119,6 +187,8 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |}
   //       |""".stripMargin,
   // )
+
+
 
 
   def check(

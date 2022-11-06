@@ -57,7 +57,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    // pprint.log(root);Thread.sleep(2000)
+    // pprint.log(root);Thread.sleep(4000)
     treeDescriber(root)
     nodesDscrib()
 
@@ -229,13 +229,19 @@ final class SemanticTokenProvider(
     def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo ={
       logString = logString + linSep + " ### Traversing... pos( " 
       logString = logString + pos.start.toString + ","+pos.end.toString 
-      logString = logString + ") "+ tree.getClass.getName.substring(29)
+      logString = logString + ") "
+      logString = logString + ", "+ tree.getClass.getName.substring(29)
       new NodeInfo(Some(tree.symbol), pos)
 
     }
 
-    def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
+    def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo ={
+      logString = logString + linSep + " ### Traversing... pos( " 
+      logString = logString + pos.start.toString + ","+pos.end.toString 
+      logString = logString + ") "
+      logString = logString + ", "+ sym.getClass.getName.substring(29)
       new NodeInfo(Some(sym), pos)
+    }
   }
 
   /**
@@ -263,18 +269,23 @@ final class SemanticTokenProvider(
 
           val symbol =
             if (ident.symbol == NoSymbol) 
-              if(ident.tpe != null)
-              ident.tpe.typeSymbol
+              if(ident.tpe != null){
+                logString +=  "tpe "
+                ident.tpe.typeSymbol
+              }
               else {
+                logString +=  "context "
                 val context = doLocateContext(ident.pos)
                 context.lookupSymbol(ident.name, _ => true) match {
                    case LookupSucceeded(_, symbol) => symbol
                    case _ => NoSymbol
                 }
               }
-            else ident.symbol
+            else {
+              logString +=  "context "
+              ident.symbol
+            }
           nodes :+ NodeInfo(symbol, ident.pos)
-
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
@@ -284,17 +295,6 @@ final class SemanticTokenProvider(
           tpe.original.children.foldLeft(
             nodes :+ NodeInfo(tpe.original, typePos(tpe))
           )(traverse(_, _))
-
-          
-        /**
-         * statements such as:
-         * val Some(<<a>>) = Some(2)
-         */
-        case bnd: cp.Bind =>
-          logString += linSep + "Bind:" + bnd.pos.start + "," + bnd.pos.end
-          nodes :+ NodeInfo(bnd, bnd.pos)
-
-
         /**
          * All select statements such as:
          * val a = hello.<<b>>
@@ -305,6 +305,14 @@ final class SemanticTokenProvider(
             nodes :+ NodeInfo(sel, sel.namePos),
             sel.qualifier
           )
+        /**
+         * statements such as:
+         * val Some(<<a>>) = Some(2)
+         */
+        case bnd: cp.Bind =>
+          logString += linSep + "Bind:" + bnd.pos.start + "," + bnd.pos.end
+          bnd.children.foldLeft(nodes :+ NodeInfo(bnd, bnd.pos))(traverse(_, _))
+
         /* all definitions:
          * def <<foo>> = ???
          * class <<Foo>> = ???
@@ -322,12 +330,17 @@ final class SemanticTokenProvider(
          * etc.
          */
         case appl: cp.Apply =>
-          logString += linSep + "Apply,"
+          logString += linSep + "Apply," 
+          logString += appl.args.size.toString()
           val named = appl.args
             .flatMap { arg =>
               namedArgCache.get(arg.pos.start)
             }
-            .collectFirst { case cp.AssignOrNamedArg(i @ cp.Ident(_), _) =>
+            .collect { case cp.AssignOrNamedArg(i @ cp.Ident(_), _) =>
+      logString = logString + linSep + " ### Traversing... pos( " 
+      logString = logString + i.pos.start.toString + ","+i.pos.end.toString 
+      logString = logString + ") "
+      logString = logString + ", "+ tree.getClass.getName.substring(29)
               NodeInfo(appl.symbol.paramss.flatten.find(_.name == i.name), i.pos)
             }
 
@@ -470,6 +483,7 @@ final class SemanticTokenProvider(
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
+          // Java Enum
           else if (sym.companion.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
             getTypeId(SemanticTokenTypes.Enum)
           else if (sym.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
@@ -494,7 +508,8 @@ final class SemanticTokenProvider(
           else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
             addPwrToMod(SemanticTokenModifiers.Readonly)
             getTypeId(SemanticTokenTypes.Variable) // "val"
-          } else -1
+          }
+          else -1
 
         // Modifiers except by ReadOnly
         if (sym.isAbstract) addPwrToMod(SemanticTokenModifiers.Abstract)
