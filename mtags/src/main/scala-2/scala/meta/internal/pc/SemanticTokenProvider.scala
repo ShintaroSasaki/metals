@@ -197,23 +197,14 @@ final class SemanticTokenProvider(
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
 
 
-    def adjustEnd(tk:Token, node:NodeInfo):Int = {
+    def adjustEnd(tk:Token):Int = {
       var ret:Int=0
-      tk.text.size match {
-        case 0 => 0
-        case _ =>
-          // When tk.text is surrounded by backticks(`),
-          // node.pos.end need adjustment because 
-          // the backticks in tk.text is ignored.
-          val cName= tk.text.toCharArray()
-          ret = if (cName(0)==96.toChar //backtick
-          & cName(cName.size-1)==96.toChar 
-          )  2 else 0 //ret + 2
-          
-          // ret = ret + node.sym.map( s => s match {
-          //     case _:ModuleSymbol => - 1
-          //     case _ => 0
-          //   }).getOrElse(0)
+
+      val cName= tk.text.toCharArray()
+      if (cName.size >= 2 ){
+        if (  cName(0)==96.toChar //backtick
+          &&  cName(cName.size-1)==96.toChar 
+          ) ret = 2
       }
 
       ret 
@@ -223,7 +214,7 @@ final class SemanticTokenProvider(
     for (node <- nodes) {
       if (
         node.pos.start == tk.pos.start &&
-        node.pos.end + adjustEnd(tk,node) == tk.pos.end
+        node.pos.end + adjustEnd(tk) == tk.pos.end
       ) buffer.++=(List(node))
     }
 
@@ -295,6 +286,10 @@ final class SemanticTokenProvider(
           )(traverse(_, _))
 
           
+        /**
+         * statements such as:
+         * val Some(<<a>>) = Some(2)
+         */
         case bnd: cp.Bind =>
           logString += linSep + "Bind:" + bnd.pos.start + "," + bnd.pos.end
           nodes :+ NodeInfo(bnd, bnd.pos)
@@ -475,10 +470,10 @@ final class SemanticTokenProvider(
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
-          else if (sym.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
-            getTypeId(SemanticTokenTypes.EnumMember)
           else if (sym.companion.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
             getTypeId(SemanticTokenTypes.Enum)
+          else if (sym.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
+            getTypeId(SemanticTokenTypes.EnumMember)
           // See symbol.keystring about following conditions.
           else if (sym.isJavaInterface)
             getTypeId(SemanticTokenTypes.Interface) // "interface"

@@ -8,50 +8,48 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-  //   check(
-  //   "Enum",
-  //   s"""|
-  //       |package example
-  //       |import java.nio.file.AccessMode
-  //       |import java.nio.file.AccessMode.READ
-  //       |import java.nio.file.AccessMode.WRITE
-  //       |import java.nio.file.AccessMode.EXECUTE
-  //       |object Main {
-  //       |  (null: AccessMode) match {
-  //       |    case READ => 0
-  //       |    case WRITE =>
-  //       |    case EXECUTE =>
-  //       |  }
-  //       |}
-  //       |
-  //       |""".stripMargin,
-  // )
-
-
-  check(
-    "StructuralTypes",
+    check(
+    "Enum",
     s"""|
         |<<package>>/*keyword*/ <<example>>/*namespace*/
+        |<<import>>/*keyword*/ java.nio.file.<<AccessMode>>/*enum*/
+        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<READ>>/*enumMember*/
+        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<WRITE>>/*enumMember*/
+        |<<import>>/*keyword*/ java.nio.file.AccessMode.<<EXECUTE>>/*enumMember*/
+        |<<object>>/*keyword*/ <<Main>>/*class*/ {
+        |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
+        |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
+        |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
+        |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
         |
-        |<<object>>/*keyword*/ <<StructuralTypes>>/*class*/ {
-        |  <<type>>/*keyword*/ <<User>>/*type*/ = {
-        |    <<def>>/*keyword*/ <<name>>/*method,abstract*/: <<String>>/*type*/
-        |    <<def>>/*keyword*/ <<age>>/*method,abstract*/: <<Int>>/*class,abstract*/
-        |  }
-        |
-        |  <<val>>/*keyword*/ <<user>>/*variable,readonly*/ = <<null>>/*keyword*/.<<asInstanceOf>>/*method*/[<<User>>/*type*/]
-        |  <<user>>/*variable,readonly*/.<<name>>/*method,abstract*/
-        |  <<user>>/*variable,readonly*/.<<age>>/*method,abstract*/
-        |
-        |  <<val>>/*keyword*/ <<V>>/*variable,readonly*/: <<Object>>/*class,abstract*/ {
-        |    <<def>>/*keyword*/ <<scalameta>>/*method,abstract*/: <<String>>/*type*/
-        |  } = <<new>>/*keyword*/ {
-        |    <<def>>/*keyword*/ <<scalameta>>/*method*/ = <<"4.0">>/*string*/
-        |  }
-        |  <<V>>/*variable,readonly*/.<<scalameta>>/*method,abstract*/
-        |}
         |""".stripMargin,
   )
+
+
+  // check(
+  //   "StructuralTypes",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |
+  //       |<<object>>/*keyword*/ <<StructuralTypes>>/*class*/ {
+  //       |  <<type>>/*keyword*/ <<User>>/*type*/ = {
+  //       |    <<def>>/*keyword*/ <<name>>/*method,abstract*/: <<String>>/*type*/
+  //       |    <<def>>/*keyword*/ <<age>>/*method,abstract*/: <<Int>>/*class,abstract*/
+  //       |  }
+  //       |
+  //       |  <<val>>/*keyword*/ <<user>>/*variable,readonly*/ = <<null>>/*keyword*/.<<asInstanceOf>>/*method*/[<<User>>/*type*/]
+  //       |  <<user>>/*variable,readonly*/.<<name>>/*method,abstract*/
+  //       |  <<user>>/*variable,readonly*/.<<age>>/*method,abstract*/
+  //       |
+  //       |  <<val>>/*keyword*/ <<V>>/*variable,readonly*/: <<Object>>/*class,abstract*/ {
+  //       |    <<def>>/*keyword*/ <<scalameta>>/*method,abstract*/: <<String>>/*type*/
+  //       |  } = <<new>>/*keyword*/ {
+  //       |    <<def>>/*keyword*/ <<scalameta>>/*method*/ = <<"4.0">>/*string*/
+  //       |  }
+  //       |  <<V>>/*variable,readonly*/.<<scalameta>>/*method,abstract*/
+  //       |}
+  //       |""".stripMargin,
+  // )
 
 
   // check(
@@ -102,57 +100,26 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   // )
 
 
-
-
   // check(
-  //   "String, Char",
+  //   "number literal, Static",
   //   s"""|
-  //       |object sample7 {
-  //       |  def main(args: Array[String]) ={
+  //       |<<object>>/*keyword*/ <<ab>>/*class*/ {
+  //       |  <<var>>/*keyword*/  <<iVar>>/*variable*/:<<Int>>/*class,abstract*/ = <<1>>/*number*/
+  //       |  <<val>>/*keyword*/  <<iVal>>/*variable,readonly*/:<<Double>>/*class,abstract*/ = <<4.94065645841246544e-324d>>/*number*/
+  //       |  <<val>>/*keyword*/  <<fVal>>/*variable,readonly*/:<<Float>>/*class,abstract*/ = <<1.40129846432481707e-45>>/*number*/
+  //       |  <<val>>/*keyword*/  <<lVal>>/*variable,readonly*/:<<Long>>/*class,abstract*/ = <<9223372036854775807L>>/*number*/
+  //       |}
   //       |
-  //       |    val testStr1 : String = " Hello  "
-  //       |    println(testStr1)
-  //       |
-  //       |    val testStr2 = """This is
-  //       |    a multiline
-  //       |    Test"""
-  //       |    println(testStr2)
-  //       |
-  //       |    var testChar1 : Char =  'x'
-  //       |     println(testChar1.toString())
-  //       |
-  //       |
+  //       |<<object>>/*keyword*/ <<sample10>>/*class*/ {
+  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+  //       |    <<println>>/*method*/(
+  //       |     (<<ab>>/*class*/.<<iVar>>/*variable*/ <<+>>/*method,abstract*/ <<ab>>/*class*/.<<iVal>>/*variable,readonly*/).<<toString>>/*method*/
+  //       |    )
   //       |  }
   //       |}
-  //       |""".stripMargin
+  //       |""".stripMargin,
   // )
 
-  // check(
-  //   "enum",
-  //   s"""|
-  //       |
-  //       |
-  //       |
-  //       |""".stripMargin
-  // )
-
-  // check(
-  //   "Literal Identifer",
-  //   s"""|
-  //       |
-  //       |
-  //       |
-  //       |""".stripMargin
-  // )
-
-  // check(
-  //   "Template",
-  //   s"""|
-  //       |
-  //       |
-  //       |
-  //       |""".stripMargin
-  // )
 
   def check(
       name: TestOptions,
