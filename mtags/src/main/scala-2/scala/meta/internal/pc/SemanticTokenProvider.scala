@@ -57,7 +57,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    pprint.log(root);Thread.sleep(2000)
+    // pprint.log(root);Thread.sleep(2000)
     treeDescriber(root)
     nodesDscrib()
 
@@ -269,9 +269,21 @@ final class SemanticTokenProvider(
          */
         case ident: cp.Ident if ident.pos.isRange =>
           logString += linSep + "Ident,"
-           pprint.log(ident);Thread.sleep(2000)
 
-          nodes :+ NodeInfo(ident, ident.pos)
+          val symbol =
+            if (ident.symbol == NoSymbol) 
+              if(ident.tpe != null)
+              ident.tpe.typeSymbol
+              else {
+                val context = doLocateContext(ident.pos)
+                context.lookupSymbol(ident.name, _ => true) match {
+                   case LookupSucceeded(_, symbol) => symbol
+                   case _ => NoSymbol
+                }
+              }
+            else ident.symbol
+          nodes :+ NodeInfo(symbol, ident.pos)
+
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
@@ -283,6 +295,11 @@ final class SemanticTokenProvider(
           )(traverse(_, _))
 
           
+        case bnd: cp.Bind =>
+          logString += linSep + "Bind:" + bnd.pos.start + "," + bnd.pos.end
+          nodes :+ NodeInfo(bnd, bnd.pos)
+
+
         /**
          * All select statements such as:
          * val a = hello.<<b>>
@@ -300,18 +317,8 @@ final class SemanticTokenProvider(
          */
         case df: cp.MemberDef if df.pos.isRange =>
           logString = logString + linSep + "memberDef," + df.name.dropLocal.decoded
-          if (df.name.dropLocal.decoded=="Int"){
-           pprint.log(df.children);Thread.sleep(2000)
-          }
-          df match {
-            case TypeDef(_, _, _, rhs) => 
-                logString += linSep + "#### TypeDef rhs is  #########"
-                rhs.symbol.paramss.flatten.map(logString += SymDescriber(_))
-            case _=> 
-          }
           (annotationChildren(df) ++ df.children)
             .foldLeft(
-              // nodes :+ NodeInfo(df, df.namePos)
               nodes :+ NodeInfo(df, df.namePos)
             )(traverse(_, _))
         /* Named parameters, since they don't show up in typed tree:
@@ -468,6 +475,10 @@ final class SemanticTokenProvider(
           else if (sym.isTypeParameter)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
+          else if (sym.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
+            getTypeId(SemanticTokenTypes.EnumMember)
+          else if (sym.companion.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
+            getTypeId(SemanticTokenTypes.Enum)
           // See symbol.keystring about following conditions.
           else if (sym.isJavaInterface)
             getTypeId(SemanticTokenTypes.Interface) // "interface"

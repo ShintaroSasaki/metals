@@ -9,16 +9,20 @@ import munit.TestOptions
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
   //   check(
-  //   "",
+  //   "Enum",
   //   s"""|
-  //       | object sample0 {
-  //       |  def main(args: Array[String]) ={
-  //       |    val x:Int =1
-  //       |    println("Hello, world!")
+  //       |package example
+  //       |import java.nio.file.AccessMode
+  //       |import java.nio.file.AccessMode.READ
+  //       |import java.nio.file.AccessMode.WRITE
+  //       |import java.nio.file.AccessMode.EXECUTE
+  //       |object Main {
+  //       |  (null: AccessMode) match {
+  //       |    case READ => 0
+  //       |    case WRITE =>
+  //       |    case EXECUTE =>
   //       |  }
   //       |}
-  //       |
-  //       |
   //       |
   //       |""".stripMargin,
   // )
@@ -58,7 +62,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |<<class>>/*keyword*/ <<PatternMatching>>/*class*/ {
   //       |  <<val>>/*keyword*/ <<some>>/*variable,readonly*/ = <<Some>>/*class*/(<<1>>/*number*/)
   //       |  <<some>>/*variable,readonly*/ <<match>>/*keyword*/ {
-  //       |    <<case>>/*keyword*/ <<Some>>/*class*/(number) <<=>>>/*operator*/
+  //       |    <<case>>/*keyword*/ <<Some>>/*class*/(<<number>>/*variable,readonly*/) <<=>>>/*operator*/
   //       |      <<number>>/*variable,readonly*/
   //       |  }
   //       |
@@ -67,7 +71,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   //       |  (<<left>>/*variable,readonly*/, <<right>>/*variable,readonly*/)
   //       |
   //       |  <<// val deconstruction>>/*comment*/
-  //       |  <<val>>/*keyword*/ <<Some>>/*class*/(number1) =
+  //       |  <<val>>/*keyword*/ <<Some>>/*class*/(<<number1>>/*variable,readonly*/) =
   //       |    <<some>>/*variable,readonly*/
   //       |  <<println>>/*method*/(<<number1>>/*variable,readonly*/)
   //       |
