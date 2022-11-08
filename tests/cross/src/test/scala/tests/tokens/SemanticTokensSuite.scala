@@ -12,6 +12,9 @@ import tests.TestSemanticTokens
 
 class SemanticTokensSuite extends BasePCSuite {
 
+  override protected def ignoreScalaVersion: Option[IgnoreScalaVersion] = Some(
+    IgnoreScala3
+  )
 
   check(
     "class, object, var, val(readonly), method, type, parameter, String(single-line)",
@@ -166,6 +169,24 @@ class SemanticTokensSuite extends BasePCSuite {
           CompilerVirtualFileParams(URI.create("file:/Tokens.scala"), base)
         )
         .get()
+
+
+      import java.util.logging.Logger
+      val logger: Logger = Logger.getLogger("SemanticTokenProvider")
+      logger.info(
+          "\n\n base:   \n" 
+          + base
+                                        
+      )
+
+      logger.info(
+          "\n\n obtainedToken:   \n" 
+          + tokens.asScala
+            .grouped(5).map(_.mkString(","))
+            .mkString("\n")
+                                        
+      )
+
 
       val obtained = TestSemanticTokens.semanticString(
         base,

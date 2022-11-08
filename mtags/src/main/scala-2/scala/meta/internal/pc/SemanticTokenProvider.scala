@@ -271,7 +271,8 @@ final class SemanticTokenProvider(
             if (ident.symbol == NoSymbol) 
               if(ident.tpe != null){
                 logString +=  "tpe "
-                ident.tpe.typeSymbol
+                // ident.tpe.typeSymbol
+                ident.tpe.underlying.typeSymbolDirect
               }
               else {
                 logString +=  "context "
@@ -294,6 +295,7 @@ final class SemanticTokenProvider(
           logString += linSep + "tpe,"
           tpe.original.children.foldLeft(
             nodes :+ NodeInfo(tpe.original, typePos(tpe))
+            // nodes :+ NodeInfo(tpe, typePos(tpe))
           )(traverse(_, _))
         /**
          * All select statements such as:
@@ -606,7 +608,8 @@ final class SemanticTokenProvider(
     ret += strSep + "sym:" + sym.toString
     ret += strSep + "keyStr:" + sym.keyString
     ret += strSep + "name:@" + sym.nameString + "@"
-    ret += strSep + "name2:@" + sym.name + "@"
+    ret += strSep + "isClass:" + sym.isClass.toString 
+    // ret += strSep + "name2:@" + sym.name + "@"
     ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
     // ret += strSep + "SymKnd:" + sym.accurateKindString
     // ret += linSep
