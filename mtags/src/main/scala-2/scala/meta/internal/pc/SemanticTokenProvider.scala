@@ -109,7 +109,7 @@ final class SemanticTokenProvider(
       lastToken: Option[SingleLineToken]
   ) {
     var endOffset: Int = 0
-    var crCount: Int =0
+    var crCount: Int = 0
     def charSize: Int = endOffset - startOffset - crCount
     def deltaLine: Int =
       line.number - this.lastToken.map(_.line.number).getOrElse(0)
@@ -120,7 +120,7 @@ final class SemanticTokenProvider(
       else
         startOffset - line.startOffset
     }
-    def countCR:Unit={crCount += 1}
+    def countCR: Unit = { crCount += 1 }
   }
 
   /**
@@ -392,7 +392,6 @@ final class SemanticTokenProvider(
       case _ => (typeOfNonIdentToken(tk), 0)
     }
   }
-
 
   /**
    * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
