@@ -27,43 +27,43 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin,
   )
 
-  check(
-  "Enum",
-  s"""|
-      |<<package>>/*keyword*/ <<example>>/*namespace*/
-      |<<import>>/*keyword*/ java.nio.file.<<AccessMode>>/*enum*/
-      |<<import>>/*keyword*/ java.nio.file.AccessMode.<<READ>>/*enumMember*/
-      |<<import>>/*keyword*/ java.nio.file.AccessMode.<<WRITE>>/*enumMember*/
-      |<<import>>/*keyword*/ java.nio.file.AccessMode.<<EXECUTE>>/*enumMember*/
-      |<<object>>/*keyword*/ <<Main>>/*class*/ {
-      |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
-      |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
-      |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
-      |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
-      |  }
-      |}
-      |""".stripMargin,
-  )
+  // check(
+  // "Enum",
+  // s"""|
+  //     |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //     |<<import>>/*keyword*/ java.nio.file.<<AccessMode>>/*enum*/
+  //     |<<import>>/*keyword*/ java.nio.file.AccessMode.<<READ>>/*enumMember*/
+  //     |<<import>>/*keyword*/ java.nio.file.AccessMode.<<WRITE>>/*enumMember*/
+  //     |<<import>>/*keyword*/ java.nio.file.AccessMode.<<EXECUTE>>/*enumMember*/
+  //     |<<object>>/*keyword*/ <<Main>>/*class*/ {
+  //     |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
+  //     |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
+  //     |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
+  //     |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
+  //     |  }
+  //     |}
+  //     |""".stripMargin,
+  // )
 
-  check(
-    "number literal, Static",
-    s"""|
-        |<<object>>/*keyword*/ <<ab>>/*class*/ {
-        |  <<var>>/*keyword*/  <<iVar>>/*variable*/:<<Int>>/*class,abstract*/ = <<1>>/*number*/
-        |  <<val>>/*keyword*/  <<iVal>>/*variable,readonly*/:<<Double>>/*class,abstract*/ = <<4.94065645841246544e-324d>>/*number*/
-        |  <<val>>/*keyword*/  <<fVal>>/*variable,readonly*/:<<Float>>/*class,abstract*/ = <<1.40129846432481707e-45>>/*number*/
-        |  <<val>>/*keyword*/  <<lVal>>/*variable,readonly*/:<<Long>>/*class,abstract*/ = <<9223372036854775807L>>/*number*/
-        |}
-        |
-        |<<object>>/*keyword*/ <<sample10>>/*class*/ {
-        |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
-        |    <<println>>/*method*/(
-        |     (<<ab>>/*class*/.<<iVar>>/*variable*/ <<+>>/*method,abstract*/ <<ab>>/*class*/.<<iVal>>/*variable,readonly*/).<<toString>>/*method*/
-        |    )
-        |  }
-        |}
-        |""".stripMargin,
-  )
+  // check(
+  //   "number literal, Static",
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<ab>>/*class*/ {
+  //       |  <<var>>/*keyword*/  <<iVar>>/*variable*/:<<Int>>/*class,abstract*/ = <<1>>/*number*/
+  //       |  <<val>>/*keyword*/  <<iVal>>/*variable,readonly*/:<<Double>>/*class,abstract*/ = <<4.94065645841246544e-324d>>/*number*/
+  //       |  <<val>>/*keyword*/  <<fVal>>/*variable,readonly*/:<<Float>>/*class,abstract*/ = <<1.40129846432481707e-45>>/*number*/
+  //       |  <<val>>/*keyword*/  <<lVal>>/*variable,readonly*/:<<Long>>/*class,abstract*/ = <<9223372036854775807L>>/*number*/
+  //       |}
+  //       |
+  //       |<<object>>/*keyword*/ <<sample10>>/*class*/ {
+  //       |  <<def>>/*keyword*/ <<main>>/*method*/(<<args>>/*parameter*/: <<Array>>/*class*/[<<String>>/*type*/]) ={
+  //       |    <<println>>/*method*/(
+  //       |     (<<ab>>/*class*/.<<iVar>>/*variable*/ <<+>>/*method,abstract*/ <<ab>>/*class*/.<<iVal>>/*variable,readonly*/).<<toString>>/*method*/
+  //       |    )
+  //       |  }
+  //       |}
+  //       |""".stripMargin,
+  // )
 
 
   def check(

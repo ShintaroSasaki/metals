@@ -1,4 +1,4 @@
-package scala.meta.internal.pc
+  package scala.meta.internal.pc
 import java.{util => ju}
 
 import scala.annotation.switch
@@ -66,19 +66,19 @@ final class SemanticTokenProvider(
       tokenDescriber(tk)
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
-
-      if (tk.text.toString=="nested") {
-        logString += linSep + "nested:" +tokenType.toString +","+ tokeModifier.toString
-      }
-
       var cOffset = tk.pos.start // Current Offset
       var providing = SingleLineToken(cLine, cOffset, Some(lastProvided.copy()))
 
       // If a meta-Token is over multiline,
       // semantic-token is provided by each line.
       // For ecample, Comment or Literal String.
-      for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
+      logString += linSep + "TokenInt:"
+      for (c <- tk.text.toCharArray.toList) {  
+      // for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {  
+        val wkStr = c.toString
+        if (wkStr == "\r") providing.countCR
         cOffset += 1
+        logString += c.toInt.toString + " "
 
         // Token Break
         if (wkStr == "\n" | cOffset == tk.pos.end) {
@@ -125,7 +125,8 @@ final class SemanticTokenProvider(
       lastToken: Option[SingleLineToken]
   ) {
     var endOffset: Int = 0
-    def charSize: Int = endOffset - startOffset
+    var crCount: Int =0
+    def charSize: Int = endOffset - startOffset - crCount
     def deltaLine: Int =
       line.number - this.lastToken.map(_.line.number).getOrElse(0)
 
@@ -135,7 +136,7 @@ final class SemanticTokenProvider(
       else
         startOffset - line.startOffset
     }
-
+    def countCR:Unit={crCount += 1}
   }
 
   /**
@@ -619,16 +620,23 @@ final class SemanticTokenProvider(
   }
 
   def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
-    tk match {
-      case _:Token.Space|_:Token.LF => return
-      case _ => //pass
-    }
+    // tk match {
+    //   case _:Token.Space|_:Token.LF => return
+    //   case _ => //pass
+    // }
 
       
     logString += linSep //+ linSep
 
-    logString += "token: " + tk.getClass.toString.substring(29)
+    logString += "token: " 
+    
+    val strClass = if (tk.getClass.toString.size > 0) {tk.getClass.toString.substring(29)}
+                      else {"Null"}
+    logString += strClass
     logString += strSep + "text: " + tk.text.toString()
+    // logString += strSep + "name: " + tk.name
+    // logString += strSep + "str: " + tk.toString()
+
     logString += strSep + "stt,end:(" + tk.pos.start.toString
     logString += strSep + tk.pos.end.toString + ")"
     logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
