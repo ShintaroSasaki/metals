@@ -1,4 +1,4 @@
-  package scala.meta.internal.pc
+package scala.meta.internal.pc
 import java.{util => ju}
 
 import scala.annotation.switch
@@ -37,19 +37,14 @@ final class SemanticTokenProvider(
   val (root, source) = (unit.lastBody, unit.source)
 
   def unitPos(offset: Int): Position = unit.position(offset)
-  var nodes:List[NodeInfo] =null
-
-  // val nodes: List[NodeInfo] = traverser
-  //   .traverse(List.empty[NodeInfo], root)
-  //   .sortBy(_.pos.start)
+  val nodes: List[NodeInfo] = traverser
+    .traverse(List.empty[NodeInfo], root)
+    .sortBy(_.pos.start)
 
   /**
    * main method
    */
   def provide(): ju.List[Integer] = {
-    nodes = traverser
-    .traverse(List.empty[NodeInfo], root)
-    .sortBy(_.pos.start)
 
     val buffer = ListBuffer.empty[Integer]
 
@@ -57,13 +52,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    // pprint.log(root);Thread.sleep(4000)
-    treeDescriber(root)
-    nodesDscrib()
-
     for (tk <- params.text().tokenize.toOption.get) yield {
-
-      tokenDescriber(tk)
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
@@ -72,13 +61,8 @@ final class SemanticTokenProvider(
       // If a meta-Token is over multiline,
       // semantic-token is provided by each line.
       // For ecample, Comment or Literal String.
-      logString += linSep + "TokenInt:"
-      for (c <- tk.text.toCharArray.toList) {  
-      // for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {  
-        val wkStr = c.toString
-        if (wkStr == "\r") providing.countCR
+      for (wkStr <- tk.text.toCharArray.toList.map(c => c.toString)) {
         cOffset += 1
-        logString += c.toInt.toString + " "
 
         // Token Break
         if (wkStr == "\n" | cOffset == tk.pos.end) {
@@ -109,7 +93,6 @@ final class SemanticTokenProvider(
 
     } // end for-tk
 
-    logIt
     buffer.toList.asJava
 
   }
@@ -125,8 +108,7 @@ final class SemanticTokenProvider(
       lastToken: Option[SingleLineToken]
   ) {
     var endOffset: Int = 0
-    var crCount: Int =0
-    def charSize: Int = endOffset - startOffset - crCount
+    def charSize: Int = endOffset - startOffset
     def deltaLine: Int =
       line.number - this.lastToken.map(_.line.number).getOrElse(0)
 
@@ -136,7 +118,7 @@ final class SemanticTokenProvider(
       else
         startOffset - line.startOffset
     }
-    def countCR:Unit={crCount += 1}
+
   }
 
   /**
@@ -153,9 +135,9 @@ final class SemanticTokenProvider(
       // Alphanumeric keywords
       case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
       case _: Token.Keyword => getTypeId(SemanticTokenTypes.Keyword)
-      case _: Token.KwNull   => getTypeId(SemanticTokenTypes.Keyword)
-      case _: Token.KwTrue   => getTypeId(SemanticTokenTypes.Keyword)
-      case _: Token.KwFalse   => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwNull => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwTrue => getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.KwFalse => getTypeId(SemanticTokenTypes.Keyword)
 
       // extends Symbolic keywords
       case _: Token.Hash => getTypeId(SemanticTokenTypes.Keyword)
@@ -180,15 +162,12 @@ final class SemanticTokenProvider(
       // Comment
       case _: Token.Comment => getTypeId(SemanticTokenTypes.Comment)
 
-      // Interpolation 
-      case _: Token.Interpolation.Id
-          |_: Token.Interpolation.SpliceStart
-             => getTypeId(SemanticTokenTypes.Keyword)
-      case _: Token.Interpolation.Start
-          |_: Token.Interpolation.Part
-          |_: Token.Interpolation.SpliceEnd
-          |_: Token.Interpolation.End
-             => getTypeId(SemanticTokenTypes.String)  // $ symbol
+      // Interpolation
+      case _: Token.Interpolation.Id | _: Token.Interpolation.SpliceStart =>
+        getTypeId(SemanticTokenTypes.Keyword)
+      case _: Token.Interpolation.Start | _: Token.Interpolation.Part |
+          _: Token.Interpolation.SpliceEnd | _: Token.Interpolation.End =>
+        getTypeId(SemanticTokenTypes.String) // $ symbol
 
       // Default
       case _ => -1
@@ -197,25 +176,23 @@ final class SemanticTokenProvider(
   }
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
 
-
-    def adjustEnd(tk:Token):Int = {
-      var ret:Int=0
-
-      val cName= tk.text.toCharArray()
-      if (cName.size >= 2 ){
-        if (  cName(0)==96.toChar //backtick
-          &&  cName(cName.size-1)==96.toChar 
-          ) ret = 2
+    val adjustForBacktick: Int = {
+      var ret: Int = 0
+      val cName = tk.text.toCharArray()
+      if (cName.size >= 2) {
+        if (
+          cName(0) == 96.toChar // backtick
+          && cName(cName.size - 1) == 96.toChar
+        ) ret = 2
       }
-
-      ret 
+      ret
     }
 
     val buffer = ListBuffer.empty[NodeInfo]
     for (node <- nodes) {
       if (
         node.pos.start == tk.pos.start &&
-        node.pos.end + adjustEnd(tk) == tk.pos.end
+        node.pos.end + adjustForBacktick == tk.pos.end
       ) buffer.++=(List(node))
     }
 
@@ -227,22 +204,11 @@ final class SemanticTokenProvider(
       pos: scala.reflect.api.Position
   )
   object NodeInfo {
-    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo ={
-      logString = logString + linSep + " ### Traversing... pos( " 
-      logString = logString + pos.start.toString + ","+pos.end.toString 
-      logString = logString + ") "
-      logString = logString + ", "+ tree.getClass.getName.substring(29)
+    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(tree.symbol), pos)
 
-    }
-
-    def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo ={
-      logString = logString + linSep + " ### Traversing... pos( " 
-      logString = logString + pos.start.toString + ","+pos.end.toString 
-      logString = logString + ") "
-      logString = logString + ", "+ sym.getClass.getName.substring(29)
+    def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(sym), pos)
-    }
   }
 
   /**
@@ -266,44 +232,35 @@ final class SemanticTokenProvider(
          * val a = <<b>>
          */
         case ident: cp.Ident if ident.pos.isRange =>
-          logString += linSep + "Ident,"
-
           val symbol =
-            if (ident.symbol == NoSymbol) 
-              if(ident.tpe != null){
-                logString +=  "tpe "
-                // ident.tpe.typeSymbol
+            if (ident.symbol == NoSymbol)
+              if (ident.tpe != null) {
                 ident.tpe.underlying.typeSymbolDirect
-              }
-              else {
-                logString +=  "context "
+              } else {
                 val context = doLocateContext(ident.pos)
                 context.lookupSymbol(ident.name, _ => true) match {
-                   case LookupSucceeded(_, symbol) => symbol
-                   case _ => NoSymbol
+                  case LookupSucceeded(_, symbol) => symbol
+                  case _ => NoSymbol
                 }
               }
             else {
-              logString +=  "context "
               ident.symbol
             }
           nodes :+ NodeInfo(symbol, ident.pos)
+
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
          */
-        case tpe : cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
-          logString += linSep + "tpe,"
+        case tpe: cp.TypeTree if tpe.original != null && tpe.pos.isRange =>
           tpe.original.children.foldLeft(
             nodes :+ NodeInfo(tpe.original, typePos(tpe))
-            // nodes :+ NodeInfo(tpe, typePos(tpe))
           )(traverse(_, _))
         /**
          * All select statements such as:
          * val a = hello.<<b>>
          */
         case sel: cp.Select if sel.pos.isRange =>
-          logString += linSep + "sel,"
           traverse(
             nodes :+ NodeInfo(sel, sel.namePos),
             sel.qualifier
@@ -313,7 +270,6 @@ final class SemanticTokenProvider(
          * val Some(<<a>>) = Some(2)
          */
         case bnd: cp.Bind =>
-          logString += linSep + "Bind:" + bnd.pos.start + "," + bnd.pos.end
           bnd.children.foldLeft(nodes :+ NodeInfo(bnd, bnd.pos))(traverse(_, _))
 
         /* all definitions:
@@ -322,7 +278,6 @@ final class SemanticTokenProvider(
          * etc.
          */
         case df: cp.MemberDef if df.pos.isRange =>
-          logString = logString + linSep + "memberDef," + df.name.dropLocal.decoded
           (annotationChildren(df) ++ df.children)
             .foldLeft(
               nodes :+ NodeInfo(df, df.namePos)
@@ -333,18 +288,15 @@ final class SemanticTokenProvider(
          * etc.
          */
         case appl: cp.Apply =>
-          logString += linSep + "Apply," 
-          logString += appl.args.size.toString()
           val named = appl.args
             .flatMap { arg =>
               namedArgCache.get(arg.pos.start)
             }
             .collect { case cp.AssignOrNamedArg(i @ cp.Ident(_), _) =>
-      logString = logString + linSep + " ### Traversing... pos( " 
-      logString = logString + i.pos.start.toString + ","+i.pos.end.toString 
-      logString = logString + ") "
-      logString = logString + ", "+ tree.getClass.getName.substring(29)
-              NodeInfo(appl.symbol.paramss.flatten.find(_.name == i.name), i.pos)
+              NodeInfo(
+                appl.symbol.paramss.flatten.find(_.name == i.name),
+                i.pos
+              )
             }
 
           tree.children.foldLeft(nodes ++ named)(traverse(_, _))
@@ -354,21 +306,18 @@ final class SemanticTokenProvider(
          * val opt: Option[<<String>>] =
          */
         case tpe: cp.TypeTree if tpe.original != null =>
-          logString += linSep + "tpe2,"
           tpe.original.children.foldLeft(nodes)(traverse(_, _))
         /**
          * Some type trees don't have symbols attached such as:
          * type A = List[_ <: <<Iterable>>[Int]]
          */
         case id: cp.Ident if id.symbol == cp.NoSymbol =>
-          logString += linSep + "ident-2,"
           fallbackSymbol(id.name, id.pos) match {
             case Some(_) => nodes :+ NodeInfo(id, id.pos)
             case _ => nodes
           }
 
         case df: cp.MemberDef =>
-          logString += linSep + "MemberDef-2,"
           (tree.children ++ annotationChildren(df))
             .foldLeft(nodes)(traverse(_, _))
         /**
@@ -376,7 +325,6 @@ final class SemanticTokenProvider(
          * import scala.util.<<Try>>
          */
         case imp: cp.Import =>
-          logString += linSep + "imp,"
           val ret = for {
             sel <- imp.selectors
           } yield {
@@ -386,7 +334,6 @@ final class SemanticTokenProvider(
           nodes ++ ret
 
         case _ =>
-          logString += linSep + "others,"
           if (tree == null) null
           else tree.children.foldLeft(nodes)(traverse(_, _))
       }
@@ -437,9 +384,6 @@ final class SemanticTokenProvider(
    * returns (SemanticTokenType, SemanticTokenModifier) of @param tk
    */
   private def getTypeAndMod(tk: scala.meta.tokens.Token): (Int, Int) = {
-    if (tk.text.toString=="nested"){
-      logString += linSep + "#### nested is passed getTypeAndMod. ##########"
-    }
 
     tk match {
       case ident: Token.Ident => IndentTypeAndMod(ident)
@@ -453,10 +397,6 @@ final class SemanticTokenProvider(
    */
   private def IndentTypeAndMod(ident: Token.Ident): (Int, Int) = {
     val default = (-1, 0)
-    if (ident.text.toString=="nested"){
-      logString += linSep + "#### nested is passed here. ##########"
-      logString += pickFromTraversed(ident).getOrElse("None")
-    }
 
     val isOperatorName = (ident.name.last: @switch) match {
       case '~' | '!' | '@' | '#' | '%' | '^' | '*' | '+' | '-' | '<' | '>' |
@@ -475,10 +415,6 @@ final class SemanticTokenProvider(
           val place: Int = getModifierId(tokenID)
           if (place != -1) mod += (1 << place)
         }
-    if (ident.text.toString=="nested"){
-      logString += linSep + "#### nested is passed here. ##########"
-    }
-
 
         // get Type
         val typ =
@@ -487,7 +423,10 @@ final class SemanticTokenProvider(
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
           // Java Enum
-          else if (sym.companion.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
+          else if (
+            sym.companion
+              .hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM)
+          )
             getTypeId(SemanticTokenTypes.Enum)
           else if (sym.hasFlag(scala.reflect.internal.ModifierFlags.JAVA_ENUM))
             getTypeId(SemanticTokenTypes.EnumMember)
@@ -511,8 +450,7 @@ final class SemanticTokenProvider(
           else if (sym.isTerm && (!sym.isParameter || sym.isParamAccessor)) {
             addPwrToMod(SemanticTokenModifiers.Readonly)
             getTypeId(SemanticTokenTypes.Variable) // "val"
-          }
-          else -1
+          } else -1
 
         // Modifiers except by ReadOnly
         if (sym.isAbstract) addPwrToMod(SemanticTokenModifiers.Abstract)
@@ -526,135 +464,4 @@ final class SemanticTokenProvider(
     ret.getOrElse(default)
 
   }
-
-
-
-
-  //////////////////////////////////////////////////
-  // log tools
-  //////////////////////////////////////////////////
-  import java.util.logging.Logger
-  val logger: Logger = Logger.getLogger("SemanticTokenProvider")
-  var logString:String=""
-  def logIt :Unit ={logger.info(logString)}
-  val strSep = ", "
-  val linSep = "\n"
-  val spcr= "    "
-  import scala.reflect.internal.util.Position
-  private def namePos(t: cp.Tree): Position = {
-    try {
-      val wkStart = t.pos.point
-      val wkEnd = wkStart + t.symbol.name.length() // - 1
-      Position.range(t.pos.source, wkStart, wkStart, wkEnd)
-    } catch {
-      case _ => null
-    }
-  }
-
-  var counter = 0
-
-  /** makes string to logging tree construction. */
-  def treeDescriber(t: cp.Tree, doRecurse: Boolean = true): Unit = {
-    // logString +=  linSep +  linSep
-    // logString += ("************ treeDescriber ************") + linSep
-    if (t == null) return 
-    
-
-    var ret = ""
-    if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
-
-    counter += 1
-    ret += linSep
-    ret += "  Tree:" + ("000" + counter.toString()).takeRight(3) + "  "
-      
-    // Position
-    try {
-      val wkNamePos = namePos(t)
-      ret += "namePos:(" + wkNamePos.start.toString()
-      ret += "," + wkNamePos.end.toString() + ")"
-    } catch { case _ => }
-    ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
-
-    // symbol
-    try {
-      ret = ret + SymDescriber(t.symbol)
-
-    } catch { case _ => return "" }
-
-    // recursive
-    if (doRecurse)
-      ret += t.children
-        .map(treeDescriber(_, true))
-        .mkString(linSep)
-
-    // end
-    logString += ret 
-
-  }
- 
-  def nodesDscrib():Unit={
-    logString += linSep + linSep + "#### Traversed is  #########"
-    
-    for ((node,i) <- nodes.zipWithIndex){
-      logString += linSep +  ("00000" + i.toString).takeRight(4)
-      logString += "  pos:("+ node.pos.start + ","+ node.pos.end
-      logString += "),  sym:"+ node.sym.map(SymDescriber(_) )
-    }
-  }
-
-  
-  def SymDescriber(sym: cp.Symbol): String = {
-    var ret = ""
-    if (sym==null) return ""
-    ret += strSep + "sym:" + sym.toString
-    ret += strSep + "keyStr:" + sym.keyString
-    ret += strSep + "name:@" + sym.nameString + "@"
-    ret += strSep + "isClass:" + sym.isClass.toString 
-    // ret += strSep + "name2:@" + sym.name + "@"
-    ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
-    // ret += strSep + "SymKnd:" + sym.accurateKindString
-    // ret += linSep
-
-    ret
-
-  }
-
-  def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
-    // tk match {
-    //   case _:Token.Space|_:Token.LF => return
-    //   case _ => //pass
-    // }
-
-      
-    logString += linSep //+ linSep
-
-    logString += "token: " 
-    
-    val strClass = if (tk.getClass.toString.size > 0) {tk.getClass.toString.substring(29)}
-                      else {"Null"}
-    logString += strClass
-    logString += strSep + "text: " + tk.text.toString()
-    // logString += strSep + "name: " + tk.name
-    // logString += strSep + "str: " + tk.toString()
-
-    logString += strSep + "stt,end:(" + tk.pos.start.toString
-    logString += strSep + tk.pos.end.toString + ")"
-    logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
-    logString += "," + tk.pos.endLine.toString + ")"
-
-    counter = 0
-    val nodeInfo = pickFromTraversed(tk)
-    if (nodeInfo != None){
-      nodeInfo.get.sym match {
-        case Some(symbol) =>
-          logString = logString + linSep + SymDescriber(symbol) + linSep
-        case None =>
-      }
-    }
-
-  }
-
-
-
-
 }
