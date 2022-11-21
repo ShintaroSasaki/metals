@@ -5,7 +5,7 @@ import scala.annotation.switch
 import scala.collection.mutable.ListBuffer
 
 import scala.meta.internal.jdk.CollectionConverters._
-import scala.meta.internal.pc.SemanticTokenCapability._
+import scala.meta.internal.pc.SemanticTokens._
 import scala.meta.pc.VirtualFileParams
 import scala.meta.tokens._
 
@@ -40,6 +40,7 @@ final class SemanticTokenProvider(
   val nodes: List[NodeInfo] = traverser
     .traverse(List.empty[NodeInfo], root)
     .sortBy(_.pos.start)
+  var nodesIterator = nodes.iterator
 
   /**
    * main method
@@ -52,7 +53,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    for (tk <- params.text().tokenize.toOption.get) yield {
+    for (tk <- params.text().tokenize.toOption.getOrElse(Nil)) yield {
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
@@ -71,7 +72,7 @@ final class SemanticTokenProvider(
             if (wkStr == "\n") cOffset - 1
             else cOffset
 
-          if ((tokenType, tokeModifier) != (-1, 0)) {
+          if (tokenType!= -1) {
             buffer.++=(
               List(
                 providing.deltaLine,
@@ -132,8 +133,6 @@ final class SemanticTokenProvider(
       tk: scala.meta.tokens.Token
   ): Integer = {
     tk match {
-      // case _: Token.Ident => // in case of Ident is
-
       // Alphanumeric keywords
       case _: Token.ModifierKeyword => getTypeId(SemanticTokenTypes.Modifier)
       case _: Token.Keyword => getTypeId(SemanticTokenTypes.Keyword)
@@ -183,22 +182,43 @@ final class SemanticTokenProvider(
       val cName = tk.text.toCharArray()
       if (cName.size >= 2) {
         if (
-          cName(0) == 96.toChar // backtick
-          && cName(cName.size - 1) == 96.toChar
+          cName(0) == '`' 
+          && cName(cName.size - 1) == '`'
         ) ret = 2
       }
       ret
     }
 
-    val buffer = ListBuffer.empty[NodeInfo]
-    for (node <- nodes) {
-      if (
-        node.pos.start == tk.pos.start &&
-        node.pos.end + adjustForBacktick == tk.pos.end
-      ) buffer.++=(List(node))
-    }
+    // val nodesIterator = nodes.iterator
+    val saveItelator = nodesIterator.duplicate
+    nodesIterator = saveItelator._1
+    var currentNode =  nodesIterator.next()
+    // while (currentNode.pos.start < tk.pos.start && nodesIterator.hasNext) 
+    while (
+      !( currentNode.pos.start == tk.pos.start &&
+          currentNode.pos.end + adjustForBacktick == tk.pos.end   
+      ) 
+       && nodesIterator.hasNext
+    )
+      currentNode = nodesIterator.next()
 
-    buffer.toList.headOption
+    if (  currentNode.pos.start == tk.pos.start &&
+          currentNode.pos.end + adjustForBacktick == tk.pos.end
+    ) Some(currentNode)
+    else {
+      nodesIterator = saveItelator._2
+      None
+    }
+    
+    // val buffer = ListBuffer.empty[NodeInfo]
+    // for (node <- nodes) {
+    //   if (
+    //     node.pos.start == tk.pos.start &&
+    //     node.pos.end + adjustForBacktick == tk.pos.end
+    //   ) buffer.++=(List(node))
+    // }
+
+    // buffer.toList.headOption
   }
 
   case class NodeInfo(
@@ -206,8 +226,12 @@ final class SemanticTokenProvider(
       pos: scala.reflect.api.Position
   )
   object NodeInfo {
-    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo =
-      new NodeInfo(Some(tree.symbol), pos)
+    def apply(tree: Tree, pos: scala.reflect.api.Position): NodeInfo = {
+      val sym = tree.symbol
+      if (sym != NoSymbol && sym != null)
+        NodeInfo(Some(tree.symbol), pos)
+      else NodeInfo(None, pos)      
+    }
 
     def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
       new NodeInfo(Some(sym), pos)
