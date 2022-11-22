@@ -40,7 +40,6 @@ final class SemanticTokenProvider(
   val nodes: List[NodeInfo] = traverser
     .traverse(List.empty[NodeInfo], root)
     .sortBy(_.pos.start)
-  var nodesIterator = nodes.iterator
 
   /**
    * main method
@@ -175,6 +174,10 @@ final class SemanticTokenProvider(
     }
 
   }
+
+  /**
+    * The position of @param tk must be incremented from the previous call. 
+    */
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
 
     val adjustForBacktick: Int = {
@@ -189,24 +192,28 @@ final class SemanticTokenProvider(
       ret
     }
 
-    // val nodesIterator = nodes.iterator
-    val saveItelator = nodesIterator.duplicate
-    nodesIterator = saveItelator._1
+    val nodesIterator = nodes.iterator
     var currentNode =  nodesIterator.next()
-    // while (currentNode.pos.start < tk.pos.start && nodesIterator.hasNext) 
-    while (
-      !( currentNode.pos.start == tk.pos.start &&
-          currentNode.pos.end + adjustForBacktick == tk.pos.end   
-      ) 
-       && nodesIterator.hasNext
-    )
-      currentNode = nodesIterator.next()
 
-    if (  currentNode.pos.start == tk.pos.start &&
-          currentNode.pos.end + adjustForBacktick == tk.pos.end
-    ) Some(currentNode)
+    def isTarget:Boolean= 
+        currentNode.pos.start == tk.pos.start &&
+        currentNode.pos.end + adjustForBacktick == tk.pos.end
+
+    def continueItelation:Boolean = 
+      // Goes ahead for appropriate position
+      if (currentNode.pos.start < tk.pos.start) true
+      // Stops if the position is exceeded
+      else if (currentNode.pos.start > tk.pos.start) false
+      // Ends successfully if Target is found
+      else if (isTarget) false
+      // Continues seeking on the appropriate position
+      else true
+
+    while (continueItelation && nodesIterator.hasNext)
+    currentNode = nodesIterator.next()
+
+    if (isTarget) Some(currentNode)
     else {
-      nodesIterator = saveItelator._2
       None
     }
     
