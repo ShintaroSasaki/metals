@@ -71,7 +71,7 @@ final class SemanticTokenProvider(
             if (wkStr == "\n") cOffset - 1
             else cOffset
 
-          if (tokenType!= -1) {
+          if (tokenType != -1) {
             buffer.++=(
               List(
                 providing.deltaLine,
@@ -176,8 +176,8 @@ final class SemanticTokenProvider(
   }
 
   /**
-    * The position of @param tk must be incremented from the previous call. 
-    */
+   * The position of @param tk must be incremented from the previous call.
+   */
   def pickFromTraversed(tk: scala.meta.tokens.Token): Option[NodeInfo] = {
 
     val adjustForBacktick: Int = {
@@ -185,7 +185,7 @@ final class SemanticTokenProvider(
       val cName = tk.text.toCharArray()
       if (cName.size >= 2) {
         if (
-          cName(0) == '`' 
+          cName(0) == '`'
           && cName(cName.size - 1) == '`'
         ) ret = 2
       }
@@ -193,13 +193,13 @@ final class SemanticTokenProvider(
     }
 
     val nodesIterator = nodes.iterator
-    var currentNode =  nodesIterator.next()
+    var currentNode = nodesIterator.next()
 
-    def isTarget:Boolean= 
-        currentNode.pos.start == tk.pos.start &&
+    def isTarget: Boolean =
+      currentNode.pos.start == tk.pos.start &&
         currentNode.pos.end + adjustForBacktick == tk.pos.end
 
-    def continueItelation:Boolean = 
+    def continueItelation: Boolean =
       // Goes ahead for appropriate position
       if (currentNode.pos.start < tk.pos.start) true
       // Stops if the position is exceeded
@@ -210,7 +210,7 @@ final class SemanticTokenProvider(
       else true
 
     while (continueItelation && nodesIterator.hasNext)
-    currentNode = nodesIterator.next()
+      currentNode = nodesIterator.next()
 
     if (isTarget) Some(currentNode)
     else None
@@ -225,7 +225,7 @@ final class SemanticTokenProvider(
       val sym = tree.symbol
       if (sym != NoSymbol && sym != null)
         NodeInfo(Some(tree.symbol), pos)
-      else NodeInfo(None, pos)      
+      else NodeInfo(None, pos)
     }
 
     def apply(sym: Symbol, pos: scala.reflect.api.Position): NodeInfo =
@@ -268,6 +268,7 @@ final class SemanticTokenProvider(
               ident.symbol
             }
           nodes :+ NodeInfo(symbol, ident.pos)
+
         /**
          * Needed for type trees such as:
          * type A = [<<b>>]
@@ -320,6 +321,7 @@ final class SemanticTokenProvider(
             }
 
           tree.children.foldLeft(nodes ++ named)(traverse(_, _))
+
         /**
          * We don't automatically traverser types like:
          * val opt: Option[<<String>>] =
@@ -350,8 +352,7 @@ final class SemanticTokenProvider(
             val symbol = imp.expr.symbol.info.member(sel.name)
             NodeInfo(symbol, sel.namePosition(source))
           }
-          traverse(nodes ++ ret,imp.expr)
-          
+          traverse(nodes ++ ret, imp.expr)
 
         case _ =>
           if (tree == null) null
@@ -438,7 +439,7 @@ final class SemanticTokenProvider(
         // get Type
         val typ =
           if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
-          else if (sym.isTypeParameter||sym.isTypeSkolem)
+          else if (sym.isTypeParameter || sym.isTypeSkolem)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
           // Java Enum
@@ -485,4 +486,3 @@ final class SemanticTokenProvider(
   }
 
 }
-
