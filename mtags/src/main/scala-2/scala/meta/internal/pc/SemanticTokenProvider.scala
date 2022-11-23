@@ -52,7 +52,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    pprint.log(root);Thread.sleep(2000)
+    // pprint.log(root);Thread.sleep(2000)
     treeDescriber(root)
     nodesDscrib()
 
@@ -460,7 +460,7 @@ final class SemanticTokenProvider(
         // get Type
         val typ =
           if (sym.isValueParameter) getTypeId(SemanticTokenTypes.Parameter)
-          else if (sym.isTypeParameter)
+          else if (sym.isTypeParameter||sym.isTypeSkolem)
             getTypeId(SemanticTokenTypes.TypeParameter)
           else if (isOperatorName) getTypeId(SemanticTokenTypes.Operator)
           // Java Enum
