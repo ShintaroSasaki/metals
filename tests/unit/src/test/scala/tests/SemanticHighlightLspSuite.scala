@@ -47,7 +47,6 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin,
   )
 
-
   def check(
       name: TestOptions,
       expected: String,
