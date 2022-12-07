@@ -484,5 +484,4 @@ final class SemanticTokenProvider(
     ret.getOrElse(default)
 
   }
-
 }
