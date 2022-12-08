@@ -380,13 +380,12 @@ class Compilers(
     val path = params.getTextDocument.getUri.toAbsolutePath
 
   scribe.info("\n\n\n userConfig().enableSemanticHighlighting : " +userConfig().enableSemanticHighlighting.toString() + "\n\n\n")
-
-    // if (!userConfig().enableSemanticHighlighting) {
-    //   Future { new SemanticTokens() }
-    // } 
-    // else
-       if (path.isScalaScript || path.isSbt) {
-      Future { new SemanticTokens() }
+    val zeroToken = scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
+    if (!userConfig().enableSemanticHighlighting) {
+      Future { new SemanticTokens(zeroToken) }
+    } 
+    else if (path.isScalaScript || path.isSbt) {
+      Future { new SemanticTokens(zeroToken) }
     } else {
       val uri = path.toNIO.toUri()
       val input = path.toInputFromBuffers(buffers)
