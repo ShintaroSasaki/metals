@@ -379,7 +379,13 @@ class Compilers(
 
     val path = params.getTextDocument.getUri.toAbsolutePath
 
-    if (path.isScalaScript || path.isSbt) {
+  scribe.info("\n\n\n userConfig().enableSemanticHighlighting : " +userConfig().enableSemanticHighlighting.toString() + "\n\n\n")
+
+    // if (!userConfig().enableSemanticHighlighting) {
+    //   Future { new SemanticTokens() }
+    // } 
+    // else
+       if (path.isScalaScript || path.isSbt) {
       Future { new SemanticTokens() }
     } else {
       val uri = path.toNIO.toUri()

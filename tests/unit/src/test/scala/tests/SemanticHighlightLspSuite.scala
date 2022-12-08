@@ -9,43 +9,61 @@ import munit.TestOptions
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
   check(
-    "Comment(Single-Line, Multi-Line)",
+    "Imports",
     s"""|
-        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |<<package>>/*keyword*/ <<example>>/*namespace*/
         |
-        |   <</**>>/*comment*/
-        |<<   * Test of Comment Block>>/*comment*/
-        |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
+        |<<import>>/*keyword*/ <<util>>/*namespace*/.{<<Failure>>/*class*/ <<=>>>/*operator*/ <<NotGood>>/*class*/}
+        |<<import>>/*keyword*/ <<math>>/*namespace*/.{<<floor>>/*method*/ <<=>>>/*operator*/ <<_>>/*variable*/, <<_>>/*variable*/}
         |
-        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-        |    <<// Single Line Comment>>/*comment*/
-        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
-        |   }
+        |<<class>>/*keyword*/ <<Imports>>/*class*/ {
+        |  <<// rename reference>>/*comment*/
+        |  <<NotGood>>/*class*/(<<null>>/*keyword*/)
+        |  <<max>>/*method*/(<<1>>/*number*/, <<2>>/*number*/)
         |}
         |
         |
         |""".stripMargin,
   )
 
-  check(
-    "Enum,true,false",
-    s"""|
-        |<<package>>/*keyword*/ <<example>>/*namespace*/
-        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/
-        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<READ>>/*enumMember*/
-        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<WRITE>>/*enumMember*/
-        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<EXECUTE>>/*enumMember*/
-        |<<object>>/*keyword*/ <<Main>>/*class*/ {
-        |  <<val>>/*keyword*/ <<vTrue>>/*variable,readonly*/ = <<true>>/*keyword*/
-        |  <<val>>/*keyword*/ <<vFalse>>/*variable,readonly*/ = <<false>>/*keyword*/
-        |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
-        |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
-        |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
-        |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
-        |  }
-        |}
-        |""".stripMargin,
-  )
+  // check(
+  //   "Comment(Single-Line, Multi-Line)",
+  //   s"""|
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
+  //       |
+  //       |   <</**>>/*comment*/
+  //       |<<   * Test of Comment Block>>/*comment*/
+  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
+  //       |
+  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+  //       |    <<// Single Line Comment>>/*comment*/
+  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
+  //       |   }
+  //       |}
+  //       |
+  //       |
+  //       |""".stripMargin,
+  // )
+
+  // check(
+  //   "Enum,true,false",
+  //   s"""|
+  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
+  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/
+  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<READ>>/*enumMember*/
+  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<WRITE>>/*enumMember*/
+  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<EXECUTE>>/*enumMember*/
+  //       |<<object>>/*keyword*/ <<Main>>/*class*/ {
+  //       |  <<val>>/*keyword*/ <<vTrue>>/*variable,readonly*/ = <<true>>/*keyword*/
+  //       |  <<val>>/*keyword*/ <<vFalse>>/*variable,readonly*/ = <<false>>/*keyword*/
+  //       |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
+  //       |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
+  //       |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
+  //       |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
+  //       |  }
+  //       |}
+  //       |""".stripMargin,
+  // )
 
   def check(
       name: TestOptions,
