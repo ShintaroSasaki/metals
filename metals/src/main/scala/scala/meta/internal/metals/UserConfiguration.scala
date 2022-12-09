@@ -485,7 +485,8 @@ object UserConfiguration {
       getBooleanKey("enable-strip-margin-on-type-formatting").getOrElse(true)
     val enableIndentOnPaste =
       getBooleanKey("enable-indent-on-paste").getOrElse(true)
-    val enableSemanticHighlighting = false
+    val enableSemanticHighlighting = 
+      getBooleanKey("enable-semantic-highlighting").getOrElse(false)
     val excludedPackages =
       getStringListKey("excluded-packages")
     // `automatic` should be treated as None

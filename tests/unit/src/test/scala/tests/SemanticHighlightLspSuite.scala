@@ -85,6 +85,12 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
              |""".stripMargin,
           expectError = true,
         )
+        _ <- server.didChangeConfiguration(
+          """{
+            |  "enable-semantic-highlighting": true
+            |}
+            |""".stripMargin
+        )
         _ <- server.didOpen("a/src/main/scala/a/Main.scala")
         // _ = assertEmpty(client.workspaceDiagnostics)
         _ <- server.assertSemanticHighlight(
