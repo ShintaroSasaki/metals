@@ -8,71 +8,95 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
+
   check(
-    "Imports",
+    "Imappropriate extention 1 (shouldn't be tokenized)",
     s"""|
-        |<<package>>/*keyword*/ <<example>>/*namespace*/
         |
-        |<<import>>/*keyword*/ <<util>>/*namespace*/.{<<Failure>>/*class*/ <<=>>>/*operator*/ <<NotGood>>/*class*/}
-        |<<import>>/*keyword*/ <<math>>/*namespace*/.{<<floor>>/*method*/ <<=>>>/*operator*/ <<_>>/*variable*/, <<_>>/*variable*/}
+        |package example
         |
-        |<<class>>/*keyword*/ <<Imports>>/*class*/ {
-        |  <<// rename reference>>/*comment*/
-        |  <<NotGood>>/*class*/(<<null>>/*keyword*/)
-        |  <<max>>/*method*/(<<1>>/*number*/, <<2>>/*number*/)
+        |import util.{Failure => NotGood}
+        |import math.{floor => _, _}
+        |
+        |class Imports {
+        |  // rename reference
+        |  NotGood(null)
+        |  max(1, 2)
+        |}
+        |
+        |""".stripMargin,
+    "build.sc",
+  )
+
+  check(
+    "Imappropriate extention 2 (shouldn't be tokenized)",
+    s"""|
+        |
+        |package example
+        |
+        |import util.{Failure => NotGood}
+        |import math.{floor => _, _}
+        |
+        |class Imports {
+        |  // rename reference
+        |  NotGood(null)
+        |  max(1, 2)
+        |}
+        |
+        |""".stripMargin,
+    "build.sbt",
+  )
+
+  check(
+    "Comment(Single-Line, Multi-Line)",
+    s"""|
+        |<<object>>/*keyword*/ <<Main>>/*class*/{
+        |
+        |   <</**>>/*comment*/
+        |<<   * Test of Comment Block>>/*comment*/
+        |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
+        |
+        |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
+        |    <<// Single Line Comment>>/*comment*/
+        |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
+        |   }
         |}
         |
         |
         |""".stripMargin,
   )
 
-  // check(
-  //   "Comment(Single-Line, Multi-Line)",
-  //   s"""|
-  //       |<<object>>/*keyword*/ <<Main>>/*class*/{
-  //       |
-  //       |   <</**>>/*comment*/
-  //       |<<   * Test of Comment Block>>/*comment*/
-  //       |<<   */>>/*comment*/  <<val>>/*keyword*/ <<x>>/*variable,readonly*/ = <<1>>/*number*/
-  //       |
-  //       |  <<def>>/*keyword*/ <<add>>/*method*/(<<a>>/*parameter*/ : <<Int>>/*class,abstract*/) = {
-  //       |    <<// Single Line Comment>>/*comment*/
-  //       |    <<a>>/*parameter*/ <<+>>/*method,abstract*/ <<1>>/*number*/ <<// com = 1>>/*comment*/
-  //       |   }
-  //       |}
-  //       |
-  //       |
-  //       |""".stripMargin,
-  // )
 
-  // check(
-  //   "Enum,true,false",
-  //   s"""|
-  //       |<<package>>/*keyword*/ <<example>>/*namespace*/
-  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/
-  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<READ>>/*enumMember*/
-  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<WRITE>>/*enumMember*/
-  //       |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<EXECUTE>>/*enumMember*/
-  //       |<<object>>/*keyword*/ <<Main>>/*class*/ {
-  //       |  <<val>>/*keyword*/ <<vTrue>>/*variable,readonly*/ = <<true>>/*keyword*/
-  //       |  <<val>>/*keyword*/ <<vFalse>>/*variable,readonly*/ = <<false>>/*keyword*/
-  //       |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
-  //       |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
-  //       |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
-  //       |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
-  //       |  }
-  //       |}
-  //       |""".stripMargin,
-  // )
+  check(
+    "Enum,true,false",
+    s"""|
+        |<<package>>/*keyword*/ <<example>>/*namespace*/
+        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/
+        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<READ>>/*enumMember*/
+        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<WRITE>>/*enumMember*/
+        |<<import>>/*keyword*/ <<java>>/*namespace*/.<<nio>>/*namespace*/.<<file>>/*namespace*/.<<AccessMode>>/*enum*/.<<EXECUTE>>/*enumMember*/
+        |<<object>>/*keyword*/ <<Main>>/*class*/ {
+        |  <<val>>/*keyword*/ <<vTrue>>/*variable,readonly*/ = <<true>>/*keyword*/
+        |  <<val>>/*keyword*/ <<vFalse>>/*variable,readonly*/ = <<false>>/*keyword*/
+        |  (<<null>>/*keyword*/: <<AccessMode>>/*enumMember,abstract*/) <<match>>/*keyword*/ {
+        |    <<case>>/*keyword*/ <<READ>>/*enumMember*/ <<=>>>/*operator*/ <<0>>/*number*/
+        |    <<case>>/*keyword*/ <<WRITE>>/*enumMember*/ <<=>>>/*operator*/
+        |    <<case>>/*keyword*/ <<EXECUTE>>/*enumMember*/ <<=>>>/*operator*/
+        |  }
+        |}
+        |""".stripMargin,
+  )
 
   def check(
       name: TestOptions,
       expected: String,
+      fileName: String="Main.scala",
   ): Unit = {
     val fileContent =
       expected.replaceAll(raw"/\*[\w,]+\*/", "").replaceAll(raw"\<\<|\>\>", "")
 
-    val fileName = "/a/src/main/scala/a/Main.scala"
+    val filePath = "a/src/main/scala/a/" + fileName
+    val absFilePath = "/" + filePath
 
     test(name) {
       for {
@@ -80,7 +104,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         _ <- initialize(
           s"""/metals.json
              |{"a":{}}
-             |${fileName.trim()}
+             |${absFilePath.trim()}
              |${fileContent}
              |""".stripMargin,
           expectError = true,
@@ -91,10 +115,9 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
             |}
             |""".stripMargin
         )
-        _ <- server.didOpen("a/src/main/scala/a/Main.scala")
-        // _ = assertEmpty(client.workspaceDiagnostics)
+        _ <- server.didOpen(filePath)
         _ <- server.assertSemanticHighlight(
-          "a/src/main/scala/a/Main.scala",
+          filePath,
           expected,
           fileContent,
         )

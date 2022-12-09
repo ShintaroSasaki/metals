@@ -378,9 +378,8 @@ class Compilers(
   ): Future[SemanticTokens] = {
 
     val path = params.getTextDocument.getUri.toAbsolutePath
-
-  scribe.info("\n\n\n userConfig().enableSemanticHighlighting : " +userConfig().enableSemanticHighlighting.toString() + "\n\n\n")
     val zeroToken = scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
+    
     if (!userConfig().enableSemanticHighlighting) {
       Future { new SemanticTokens(zeroToken) }
     } 

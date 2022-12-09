@@ -1707,7 +1707,10 @@ class MetalsLanguageServer(
       compilers.semanticTokens(
         params,
         token,
-      )
+      ).map{ tokens =>
+        if (tokens eq None) null
+        else tokens
+      }
     }
   }
 

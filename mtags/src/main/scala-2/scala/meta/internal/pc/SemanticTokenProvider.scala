@@ -103,7 +103,6 @@ final class SemanticTokenProvider(
 
     } // end for-tk
 
-    logIt
     buffer.toList.asJava
 
   }
