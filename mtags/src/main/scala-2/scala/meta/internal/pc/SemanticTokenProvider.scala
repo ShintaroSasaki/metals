@@ -357,7 +357,7 @@ final class SemanticTokenProvider(
                 NodeInfo(symbol, sel.namePosition(source))
               )
             )
-            if (sel.isRename){
+            if (sel.isRename) {
               buffer.++=(
                 List(
                   NodeInfo(symbol, sel.renamePosition(source))
@@ -366,7 +366,7 @@ final class SemanticTokenProvider(
             }
             buffer.toList
           }
-          traverse(nodes ++ ret.flatten , imp.expr)
+          traverse(nodes ++ ret.flatten, imp.expr)
 
         case _ =>
           if (tree == null) null

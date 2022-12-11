@@ -1704,13 +1704,15 @@ class MetalsLanguageServer(
       params: SemanticTokensParams
   ): CompletableFuture[SemanticTokens] = {
     CancelTokens.future { token =>
-      compilers.semanticTokens(
-        params,
-        token,
-      ).map{ tokens =>
-        if (tokens eq None) null
-        else tokens
-      }
+      compilers
+        .semanticTokens(
+          params,
+          token,
+        )
+        .map { tokens =>
+          if (tokens eq None) null
+          else tokens
+        }
     }
   }
 

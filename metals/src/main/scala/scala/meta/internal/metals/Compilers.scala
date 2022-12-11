@@ -378,12 +378,12 @@ class Compilers(
   ): Future[SemanticTokens] = {
 
     val path = params.getTextDocument.getUri.toAbsolutePath
-    val zeroToken = scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
-    
+    val zeroToken =
+      scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
+
     if (!userConfig().enableSemanticHighlighting) {
       Future { new SemanticTokens(zeroToken) }
-    } 
-    else if (path.isScalaScript || path.isSbt) {
+    } else if (path.isScalaScript || path.isSbt) {
       Future { new SemanticTokens(zeroToken) }
     } else {
       val uri = path.toNIO.toUri()
