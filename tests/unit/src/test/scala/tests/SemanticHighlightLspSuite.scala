@@ -8,9 +8,8 @@ import munit.TestOptions
  */
 class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
 
-
   check(
-    "Imappropriate extention 1 (shouldn't be tokenized)",
+    "Invalid ext (shouldn't be tokenized) 1",
     s"""|
         |
         |package example
@@ -29,7 +28,7 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
   )
 
   check(
-    "Imappropriate extention 2 (shouldn't be tokenized)",
+    "Invalid ext (shouldn't be tokenized) 2",
     s"""|
         |
         |package example
