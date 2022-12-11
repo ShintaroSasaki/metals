@@ -37,18 +37,14 @@ final class SemanticTokenProvider(
   val (root, source) = (unit.lastBody, unit.source)
 
   def unitPos(offset: Int): Position = unit.position(offset)
-  var nodes: List[NodeInfo] =null
-  // val nodes: List[NodeInfo] = traverser
-  //   .traverse(List.empty[NodeInfo], root)
-  //   .sortBy(_.pos.start)
+  val nodes: List[NodeInfo] = traverser
+    .traverse(List.empty[NodeInfo], root)
+    .sortBy(_.pos.start)
 
   /**
    * main method
    */
   def provide(): ju.List[Integer] = {
-  nodes = traverser
-    .traverse(List.empty[NodeInfo], root)
-    .sortBy(_.pos.start)
 
     val buffer = ListBuffer.empty[Integer]
 
@@ -56,12 +52,7 @@ final class SemanticTokenProvider(
     var cLine = Line(0, 0) // Current Line
     var lastProvided = SingleLineToken(cLine, 0, None)
 
-    // pprint.log(root);Thread.sleep(2000)
-    treeDescriber(root)
-    nodesDscrib()
-
     for (tk <- params.text().tokenize.toOption.getOrElse(Nil)) yield {
-      tokenDescriber(tk)
 
       val (tokenType, tokeModifier) = getTypeAndMod(tk)
       var cOffset = tk.pos.start // Current Offset
@@ -169,7 +160,7 @@ final class SemanticTokenProvider(
       case _: Token.Constant.Symbol => getTypeId(SemanticTokenTypes.Property)
 
       // Comment
-      case _: Token.Comment => getTypeId(SemanticTokenTypes.Comment)  
+      case _: Token.Comment => getTypeId(SemanticTokenTypes.Comment)
 
       // Interpolation
       case _: Token.Interpolation.Id | _: Token.Interpolation.SpliceStart =>
@@ -198,7 +189,7 @@ final class SemanticTokenProvider(
           && cName(cName.size - 1) == '`'
         ) ret = 2
       }
-      ret 
+      ret
     }
 
     val nodesIterator = nodes.iterator
@@ -507,134 +498,4 @@ final class SemanticTokenProvider(
     ret.getOrElse(default)
 
   }
-
-
-
-  //////////////////////////////////////////////////
-  // log tools
-  //////////////////////////////////////////////////
-  import java.util.logging.Logger
-  val logger: Logger = Logger.getLogger("SemanticTokenProvider")
-  var logString:String=""
-  def logIt :Unit ={logger.info(logString)}
-  val strSep = ", "
-  val linSep = "\n"
-  val spcr= "    "
-  import scala.reflect.internal.util.Position
-  private def namePos(t: cp.Tree): Position = {
-    try {
-      val wkStart = t.pos.point
-      val wkEnd = wkStart + t.symbol.name.length() // - 1
-      Position.range(t.pos.source, wkStart, wkStart, wkEnd)
-    } catch {
-      case _ => null
-    }
-  }
-
-  var counter = 0
-
-  /** makes string to logging tree construction. */
-  def treeDescriber(t: cp.Tree, doRecurse: Boolean = true): Unit = {
-    // logString +=  linSep +  linSep
-    // logString += ("************ treeDescriber ************") + linSep
-    if (t == null) return 
-    
-
-    var ret = ""
-    if (counter == 0 && doRecurse) ret += "\nNodesNum: " + t.id.toString
-
-    counter += 1
-    ret += linSep
-    ret += "  Tree:" + ("000" + counter.toString()).takeRight(3) + "  "
-      
-    // Position
-    try {
-      val wkNamePos = namePos(t)
-      ret += "namePos:(" + wkNamePos.start.toString()
-      ret += "," + wkNamePos.end.toString() + ")"
-    } catch { case _ => }
-    ret += strSep + "-> TreeCls:" + t.getClass.getName.substring(29)
-
-    // symbol
-    try {
-      ret = ret + SymDescriber(t.symbol)
-
-    } catch { case _ => return "" }
-
-    // recursive
-    if (doRecurse)
-      ret += t.children
-        .map(treeDescriber(_, true))
-        .mkString(linSep)
-
-    // end
-    logString += ret 
-
-  }
- 
-  def nodesDscrib():Unit={
-    logString += linSep + linSep + "#### Traversed is  #########"
-    
-    for ((node,i) <- nodes.zipWithIndex){
-      logString += linSep +  ("00000" + i.toString).takeRight(4)
-      logString += "  pos:("+ node.pos.start + ","+ node.pos.end
-      logString += "),  sym:"+ node.sym.map(SymDescriber(_) )
-    }
-  }
-
-  
-  def SymDescriber(sym: cp.Symbol): String = {
-    var ret = ""
-    if (sym==null) return ""
-    ret += strSep + "sym:" + sym.toString
-    ret += strSep + "keyStr:" + sym.keyString
-    ret += strSep + "name:@" + sym.nameString + "@"
-    ret += strSep + "isClass:" + sym.isClass.toString 
-    // ret += strSep + "name2:@" + sym.name + "@"
-    ret += strSep + "SymCls:" + sym.getClass.getName.substring(31)
-    // ret += strSep + "SymKnd:" + sym.accurateKindString
-    // ret += linSep
-
-    ret
-
-  }
-
-  def tokenDescriber(tk: scala.meta.tokens.Token) : Unit= {
-    // tk match {
-    //   case _:Token.Space|_:Token.LF => return
-    //   case _ => //pass
-    // }
-
-      
-    logString += linSep //+ linSep
-
-    logString += "token: " 
-    
-    val strClass = if (tk.getClass.toString.size > 0) {tk.getClass.toString.substring(29)}
-                      else {"Null"}
-    logString += strClass
-    logString += strSep + "text: " + tk.text.toString()
-    // logString += strSep + "name: " + tk.name
-    // logString += strSep + "str: " + tk.toString()
-
-    logString += strSep + "stt,end:(" + tk.pos.start.toString
-    logString += strSep + tk.pos.end.toString + ")"
-    logString += strSep + "LnStt,End:(" + tk.pos.startLine.toString
-    logString += "," + tk.pos.endLine.toString + ")"
-
-    counter = 0
-    val nodeInfo = pickFromTraversed(tk)
-    if (nodeInfo != None){
-      nodeInfo.get.sym match {
-        case Some(symbol) =>
-          logString = logString + linSep + SymDescriber(symbol) + linSep
-        case None =>
-      }
-    }
-
-  }
-
-
-
-
 }

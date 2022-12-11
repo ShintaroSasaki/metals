@@ -65,7 +65,6 @@ class SemanticHighlightLspSuite extends BaseLspSuite("SemanticHighlight") {
         |""".stripMargin,
   )
 
-
   check(
     "Enum,true,false",
     s"""|

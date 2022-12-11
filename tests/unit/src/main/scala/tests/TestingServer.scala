@@ -1294,22 +1294,6 @@ final case class TestingServer(
         obtainedTokens.getData().map(_.toInt).asScala.toList,
       )
 
-      val msg = s"""|
-                    |fileContent:
-                    | $fileContent
-                    |
-                    |expected:
-                    | $expected
-                    |
-                    |obtained:
-                    | $obtained
-                    |
-                    |""".stripMargin
-
-      scribe.info(msg)
-
-
-
       Assertions.assertNoDiff(
         obtained,
         expected,
