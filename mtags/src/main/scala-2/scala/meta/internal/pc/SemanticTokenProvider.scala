@@ -357,10 +357,10 @@ final class SemanticTokenProvider(
                 NodeInfo(symbol, sel.namePosition(source))
               )
             )
-            def isRename(sel : cp.ImportSelector):Boolean =
-               sel.rename != null && 
-               sel.rename != nme.WILDCARD && 
-               sel.name != sel.rename
+            def isRename(sel: cp.ImportSelector): Boolean =
+              sel.rename != null &&
+                sel.rename != nme.WILDCARD &&
+                sel.name != sel.rename
             if (isRename(sel)) {
               buffer.++=(
                 List(
