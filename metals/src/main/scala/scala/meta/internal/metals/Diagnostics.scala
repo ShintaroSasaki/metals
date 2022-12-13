@@ -261,12 +261,18 @@ final class Diagnostics(
       snapshot: Input,
   ): Option[Diagnostic] = {
     val result = edit.toRevised(d.getRange).map { range =>
-      new l.Diagnostic(
+      val ld = new l.Diagnostic(
         range,
         d.getMessage,
         d.getSeverity,
         d.getSource,
       )
+      // Scala 3 sets the diagnostic code to -1 for NoExplanation Messages. Ideally
+      // this will change and we won't need this check in the future, but for now
+      // let's not forward them.
+      if (d.getCode() != null && d.getCode() != "-1") ld.setCode(d.getCode())
+      ld.setData(d.getData)
+      ld
     }
     if (result.isEmpty) {
       d.getRange.toMeta(snapshot).foreach { pos =>

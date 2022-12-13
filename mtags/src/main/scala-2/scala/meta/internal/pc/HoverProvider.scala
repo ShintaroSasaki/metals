@@ -2,27 +2,23 @@ package scala.meta.internal.pc
 
 import scala.reflect.internal.util.Position
 import scala.reflect.internal.{Flags => gf}
-import scala.util.control.NonFatal
 
 import scala.meta.internal.mtags.MtagsEnrichments._
+import scala.meta.pc.HoverSignature
 import scala.meta.pc.OffsetParams
 import scala.meta.pc.RangeParams
-
-import org.eclipse.lsp4j.Hover
-import org.eclipse.lsp4j.MarkupContent
-import org.eclipse.lsp4j.MarkupKind
 
 class HoverProvider(val compiler: MetalsGlobal, params: OffsetParams) {
   import compiler._
 
-  def hover(): Option[Hover] = params match {
+  def hover(): Option[HoverSignature] = params match {
     case range: RangeParams =>
       range.trimWhitespaceInRange.flatMap(hoverOffset)
     case _ if params.isWhitespace => None
     case _ => hoverOffset(params)
   }
 
-  def hoverOffset(params: OffsetParams): Option[Hover] = {
+  def hoverOffset(params: OffsetParams): Option[HoverSignature] = {
     val unit = addCompilationUnit(
       code = params.text(),
       filename = params.uri().toString(),
@@ -129,66 +125,10 @@ class HoverProvider(val compiler: MetalsGlobal, params: OffsetParams) {
     }
   }
 
-  def seenFromType(tree0: Tree, symbol: Symbol): Type = {
-    def qual(t: Tree): Tree =
-      t match {
-        case TreeApply(q, _) => qual(q)
-        case Select(q, _) => q
-        case Import(q, _) => q
-        case t => t
-      }
-    try {
-      val tree = qual(tree0)
-      val pre = stabilizedType(tree)
-      val memberType = pre.memberType(symbol)
-      if (memberType.isErroneous) symbol.info
-      else memberType
-    } catch {
-      case NonFatal(_) => symbol.info
-    }
-  }
-
-  /**
-   * Traverses up the parent tree nodes to the largest enclosing application node.
-   *
-   * Example: {{{
-   *   original = println(List(1).map(_.toString))
-   *   pos      = List(1).map
-   *   expanded = List(1).map(_.toString)
-   * }}}
-   */
-  def expandRangeToEnclosingApply(pos: Position): Tree = {
-    def tryTail(enclosing: List[Tree]): Option[Tree] =
-      enclosing match {
-        case Nil => None
-        case head :: tail =>
-          head match {
-            case TreeApply(qual, _) if qual.pos.includes(pos) =>
-              tryTail(tail).orElse(Some(head))
-            case New(_) =>
-              tail match {
-                case Nil => None
-                case Select(_, _) :: next =>
-                  tryTail(next)
-                case _ =>
-                  None
-              }
-            case _ =>
-              None
-          }
-      }
-    lastVisitedParentTrees match {
-      case head :: tail =>
-        tryTail(tail).getOrElse(head)
-      case _ =>
-        EmptyTree
-    }
-  }
-
   def toHover(
       symbol: Symbol,
       pos: Position
-  ): Option[Hover] = {
+  ): Option[HoverSignature] = {
     toHover(symbol, symbol.keyString, symbol.info, symbol.info, pos, pos)
   }
 
@@ -199,7 +139,7 @@ class HoverProvider(val compiler: MetalsGlobal, params: OffsetParams) {
       tpe: Type,
       pos: Position,
       range: Position
-  ): Option[Hover] = {
+  ): Option[HoverSignature] = {
     if (tpe == null || tpe.isErroneous || tpe == NoType) None
     else if (
       pos.start != pos.end && (symbol == null || symbol == NoSymbol || symbol.isErroneous)
@@ -209,20 +149,14 @@ class HoverProvider(val compiler: MetalsGlobal, params: OffsetParams) {
         lookupSymbol = name => context.lookupSymbol(name, _ => true) :: Nil
       )
       val prettyType = metalsToLongString(tpe.widen.finalResultType, history)
-      val hover = new Hover(HoverMarkup(prettyType).toMarkupContent)
-      if (range.isRange) {
-        hover.setRange(range.toLsp)
-      }
-      Some(hover)
+      val lspRange = if (range.isRange) Some(range.toLsp) else None
+      Some(new ScalaHover(expressionType = Some(prettyType), range = lspRange))
     } else if (symbol == null || tpe.typeSymbol.isAnonymousClass) None
     else if (symbol.hasPackageFlag || symbol.hasModuleFlag) {
       Some(
-        new Hover(
-          new MarkupContent(
-            MarkupKind.MARKDOWN,
-            HoverMarkup(
-              s"${symbol.javaClassSymbol.keyString} ${symbol.fullName}"
-            )
+        new ScalaHover(
+          expressionType = Some(
+            s"${symbol.javaClassSymbol.keyString} ${symbol.fullName}"
           )
         )
       )
@@ -257,17 +191,16 @@ class HoverProvider(val compiler: MetalsGlobal, params: OffsetParams) {
         } else {
           ""
         }
-      val markdown = HoverMarkup(
-        prettyType,
-        prettySignature,
-        docstring,
-        pos.start != pos.end || !prettySignature.endsWith(prettyType)
+      Some(
+        ScalaHover(
+          expressionType = Some(prettyType),
+          symbolSignature = Some(prettySignature),
+          docstring = Some(docstring),
+          forceExpressionType =
+            pos.start != pos.end || !prettySignature.endsWith(prettyType),
+          range = if (range.isRange) Some(range.toLsp) else None
+        )
       )
-      val hover = new Hover(markdown.toMarkupContent)
-      if (range.isRange) {
-        hover.setRange(range.toLsp)
-      }
-      Some(hover)
     }
   }
 

@@ -22,6 +22,7 @@ import scala.meta.internal.worksheets.WorksheetProvider
 import scala.meta.io.AbsolutePath
 import scala.meta.pc.AutoImportsResult
 import scala.meta.pc.CancelToken
+import scala.meta.pc.HoverSignature
 import scala.meta.pc.OffsetParams
 import scala.meta.pc.PresentationCompiler
 import scala.meta.pc.SymbolSearch
@@ -34,12 +35,10 @@ import org.eclipse.lsp4j.CompletionList
 import org.eclipse.lsp4j.CompletionParams
 import org.eclipse.lsp4j.Diagnostic
 import org.eclipse.lsp4j.DocumentHighlight
-import org.eclipse.lsp4j.Hover
 import org.eclipse.lsp4j.InitializeParams
+import org.eclipse.lsp4j.RenameParams
 import org.eclipse.lsp4j.SelectionRange
 import org.eclipse.lsp4j.SelectionRangeParams
-import org.eclipse.lsp4j.SemanticTokens
-import org.eclipse.lsp4j.SemanticTokensParams
 import org.eclipse.lsp4j.SignatureHelp
 import org.eclipse.lsp4j.TextDocumentIdentifier
 import org.eclipse.lsp4j.TextDocumentPositionParams
@@ -193,7 +192,7 @@ class Compilers(
                 "object Ma\n",
                 "object Ma".length(),
               )
-            )
+            ).thenApply(_.map(_.toLsp()))
           }
         }
       }
@@ -372,37 +371,6 @@ class Compilers(
       .getOrElse(Future.successful(Nil))
   }
 
-  def semanticTokens(
-      params: SemanticTokensParams,
-      token: CancelToken,
-  ): Future[SemanticTokens] = {
-
-    val path = params.getTextDocument.getUri.toAbsolutePath
-    val zeroToken =
-      scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
-
-    if (!userConfig().enableSemanticHighlighting) {
-      Future { new SemanticTokens(zeroToken) }
-    } else if (path.isScalaScript || path.isSbt) {
-      Future { new SemanticTokens(zeroToken) }
-    } else {
-      val uri = path.toNIO.toUri()
-      val input = path.toInputFromBuffers(buffers)
-      val vFile = CompilerVirtualFileParams(uri, input.value)
-
-      loadCompiler(path)
-        .map { pc =>
-          pc.semanticTokens(vFile)
-            .asScala
-            .map { plist =>
-              new SemanticTokens(plist)
-            }
-        }
-        .getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
-    }
-
-  }
-
   def completions(
       params: CompletionParams,
       token: CancelToken,
@@ -513,7 +481,7 @@ class Compilers(
   def hover(
       params: HoverExtParams,
       token: CancelToken,
-  ): Future[Option[Hover]] = {
+  ): Future[Option[HoverSignature]] = {
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
       pc.hover(CompilerRangeParams.offsetOrRange(pos, token))
         .asScala
@@ -521,13 +489,61 @@ class Compilers(
     }
   }.getOrElse(Future.successful(None))
 
+  def prepareRename(
+      params: TextDocumentPositionParams,
+      token: CancelToken,
+  ): Future[ju.Optional[LspRange]] = {
+    withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
+      pc.prepareRename(
+        CompilerRangeParams.offsetOrRange(pos, token)
+      ).asScala
+        .map { range =>
+          range.map(adjust.adjustRange(_))
+        }
+    }
+  }.getOrElse(Future.successful(None.asJava))
+
+  def rename(
+      params: RenameParams,
+      token: CancelToken,
+  ): Future[ju.List[TextEdit]] = {
+    withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
+      pc.rename(
+        CompilerRangeParams.offsetOrRange(pos, token),
+        params.getNewName(),
+      ).asScala
+        .map { edits =>
+          adjust.adjustTextEdits(edits)
+        }
+    }
+  }.getOrElse(Future.successful(Nil.asJava))
+
   def definition(
       params: TextDocumentPositionParams,
       token: CancelToken,
+  ): Future[DefinitionResult] = {
+    definition(params = params, token = token, findTypeDef = false)
+  }
+
+  def typeDefinition(
+      params: TextDocumentPositionParams,
+      token: CancelToken,
+  ): Future[DefinitionResult] = {
+    definition(params = params, token = token, findTypeDef = true)
+  }
+
+  private def definition(
+      params: TextDocumentPositionParams,
+      token: CancelToken,
+      findTypeDef: Boolean,
   ): Future[DefinitionResult] =
     withPCAndAdjustLsp(params) { (pc, pos, adjust) =>
-      pc.definition(CompilerOffsetParams.fromPos(pos, token))
-        .asScala
+      val params = CompilerOffsetParams.fromPos(pos, token)
+      val defResult =
+        if (findTypeDef) pc.typeDefinition(params)
+        else
+          pc.definition(CompilerOffsetParams.fromPos(pos, token))
+      defResult.asScala
         .map { c =>
           adjust.adjustLocations(c.locations())
           val definitionPaths = c

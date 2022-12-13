@@ -68,6 +68,21 @@ class RenameLspSuite extends BaseRenameLspSuite(s"rename") {
   )
 
   renamed(
+    "renamed-import-object",
+    """|/a/src/main/scala/a/Main.scala
+       |package a
+       |
+       |import scala.util.{Try => <<StdLibTry>>}
+       |
+       |object Renaming {
+       |  def foo(n: Int): <<StdLib@@Try>>[Int] = 
+       |    <<StdLibTry>>(n)
+       |}
+       |""".stripMargin,
+    newName = "OtherM",
+  )
+
+  renamed(
     "case",
     """|/a/src/main/scala/a/Main.scala
        |package a
@@ -859,6 +874,24 @@ class RenameLspSuite extends BaseRenameLspSuite(s"rename") {
        |}
        |""".stripMargin,
     newName = "NewSymbol",
+  )
+
+  // NON COMPILING TESTS
+
+  renamed(
+    "not-compiling",
+    """|/a/src/main/scala/a/Main.scala
+       |package a
+       |object Main {
+       |  def method() = {
+       |    List(1) + 2
+       |    val <<abc>>: Option[Int] = ???
+       |    <<ab@@c>>.map(_ + 1)
+       |  }
+       |}
+       |""".stripMargin,
+    newName = "NewSymbol",
+    expectedError = true,
   )
 
   override protected def libraryDependencies: List[String] =

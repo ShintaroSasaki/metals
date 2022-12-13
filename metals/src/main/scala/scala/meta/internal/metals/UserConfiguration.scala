@@ -1,5 +1,6 @@
 package scala.meta.internal.metals
 
+import java.nio.file.Paths
 import java.util.Properties
 
 import scala.collection.mutable.ListBuffer
@@ -47,7 +48,6 @@ case class UserConfiguration(
     remoteLanguageServer: Option[String] = None,
     enableStripMarginOnTypeFormatting: Boolean = true,
     enableIndentOnPaste: Boolean = false,
-    enableSemanticHighlighting: Boolean = false,
     excludedPackages: Option[List[String]] = None,
     fallbackScalaVersion: Option[String] = None,
     testUserInterface: TestUserInterfaceKind = TestUserInterfaceKind.CodeLenses,
@@ -59,6 +59,13 @@ case class UserConfiguration(
   def currentBloopVersion: String =
     bloopVersion.getOrElse(BuildInfo.bloopVersion)
 
+  def usedJavaBinary(): Option[AbsolutePath] = {
+    javaHome
+      .orElse(
+        JdkSources.defaultJavaHome
+      )
+      .map(home => AbsolutePath(Paths.get(home).resolve("bin/java")))
+  }
 }
 
 object UserConfiguration {
@@ -485,8 +492,6 @@ object UserConfiguration {
       getBooleanKey("enable-strip-margin-on-type-formatting").getOrElse(true)
     val enableIndentOnPaste =
       getBooleanKey("enable-indent-on-paste").getOrElse(true)
-    val enableSemanticHighlighting =
-      getBooleanKey("enable-semantic-highlighting").getOrElse(false)
     val excludedPackages =
       getStringListKey("excluded-packages")
     // `automatic` should be treated as None
@@ -539,7 +544,6 @@ object UserConfiguration {
           remoteLanguageServer,
           enableStripMarginOnTypeFormatting,
           enableIndentOnPaste,
-          enableSemanticHighlighting,
           excludedPackages,
           defaultScalaVersion,
           disableTestCodeLenses,

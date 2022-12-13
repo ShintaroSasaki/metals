@@ -79,7 +79,6 @@ import scala.meta.internal.parsing.DocumentSymbolProvider
 import scala.meta.internal.parsing.FoldingRangeProvider
 import scala.meta.internal.parsing.TokenEditDistance
 import scala.meta.internal.parsing.Trees
-import scala.meta.internal.pc.SemanticTokens._
 import scala.meta.internal.remotels.RemoteLanguageServer
 import scala.meta.internal.rename.RenameProvider
 import scala.meta.internal.semver.SemVer
@@ -96,6 +95,7 @@ import ch.epfl.scala.bsp4j.CompileReport
 import ch.epfl.scala.{bsp4j => b}
 import com.google.gson.Gson
 import com.google.gson.JsonElement
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
 import io.undertow.server.HttpServerExchange
@@ -279,8 +279,7 @@ class MetalsLanguageServer(
   private var referencesProvider: ReferenceProvider = _
   private var callHierarchyProvider: CallHierarchyProvider = _
   private var workspaceSymbols: WorkspaceSymbolProvider = _
-  private val packageProvider: PackageProvider =
-    new PackageProvider(buildTargets)
+  private var packageProvider: PackageProvider = _
   private var newFileProvider: NewFileProvider = _
   private var debugProvider: DebugProvider = _
   private var symbolSearch: MetalsSymbolSearch = _
@@ -554,13 +553,6 @@ class MetalsLanguageServer(
           () => userConfig,
           buildTargets,
         )
-        newFileProvider = new NewFileProvider(
-          workspace,
-          languageClient,
-          packageProvider,
-          () => focusedDocument,
-          scalaVersionSelector,
-        )
         referencesProvider = new ReferenceProvider(
           workspace,
           semanticdbs,
@@ -569,6 +561,15 @@ class MetalsLanguageServer(
           remote,
           trees,
           buildTargets,
+        )
+        packageProvider =
+          new PackageProvider(buildTargets, trees, referencesProvider)
+        newFileProvider = new NewFileProvider(
+          workspace,
+          languageClient,
+          packageProvider,
+          () => focusedDocument,
+          scalaVersionSelector,
         )
         callHierarchyProvider = new CallHierarchyProvider(
           workspace,
@@ -622,22 +623,28 @@ class MetalsLanguageServer(
           clientConfig.commandInHtmlFormat(),
         )
         val worksheetCodeLens = new WorksheetCodeLens(clientConfig)
+        testProvider = new TestSuitesProvider(
+          buildTargets,
+          buildTargetClasses,
+          trees,
+          definitionIndex,
+          semanticdbs,
+          buffers,
+          clientConfig,
+          () => userConfig,
+          languageClient,
+        )
         codeLensProvider = new CodeLensProvider(
-          List(runTestLensProvider, goSuperLensProvider, worksheetCodeLens),
+          List(
+            runTestLensProvider,
+            goSuperLensProvider,
+            worksheetCodeLens,
+            testProvider,
+          ),
           semanticdbs,
           stacktraceAnalyzer,
         )
-        renameProvider = new RenameProvider(
-          referencesProvider,
-          implementationProvider,
-          definitionProvider,
-          workspace,
-          languageClient,
-          buffers,
-          compilations,
-          clientConfig,
-          trees,
-        )
+
         syntheticsDecorator = new SyntheticsDecorationProvider(
           workspace,
           semanticdbs,
@@ -649,17 +656,6 @@ class MetalsLanguageServer(
           clientConfig,
           () => userConfig,
           trees,
-        )
-        testProvider = new TestSuitesProvider(
-          buildTargets,
-          buildTargetClasses,
-          trees,
-          definitionIndex,
-          semanticdbs,
-          buffers,
-          clientConfig,
-          () => userConfig,
-          languageClient,
         )
         semanticDBIndexer = new SemanticdbIndexer(
           List(
@@ -703,22 +699,33 @@ class MetalsLanguageServer(
             sourceMapper,
           )
         )
+        renameProvider = new RenameProvider(
+          referencesProvider,
+          implementationProvider,
+          definitionProvider,
+          workspace,
+          languageClient,
+          buffers,
+          compilations,
+          compilers,
+          clientConfig,
+          trees,
+        )
         debugProvider = register(
           new DebugProvider(
             workspace,
-            definitionProvider,
             buildTargets,
             buildTargetClasses,
             compilations,
             languageClient,
             buildClient,
-            classFinder,
             definitionIndex,
             stacktraceAnalyzer,
             clientConfig,
             semanticdbs,
             compilers,
             statusBar,
+            sourceMapper,
           )
         )
         scalafixProvider = ScalafixProvider(
@@ -874,21 +881,9 @@ class MetalsLanguageServer(
         )
         capabilities.setFoldingRangeProvider(true)
         capabilities.setSelectionRangeProvider(true)
-        capabilities.setSemanticTokensProvider(
-          new org.eclipse.lsp4j.SemanticTokensWithRegistrationOptions(
-            new SemanticTokensLegend(
-              TokenTypes.asJava,
-              TokenModifiers.asJava,
-            ), // legend used in this server.
-            new SemanticTokensServerFull(
-              false
-            ), // Method 'full' is supported, but 'full/delta' is not.
-            false, // Method 'range' is not supported.
-            // Dynamic registration is not supported.
-          )
-        )
         capabilities.setCodeLensProvider(new CodeLensOptions(false))
         capabilities.setDefinitionProvider(true)
+        capabilities.setTypeDefinitionProvider(true)
         capabilities.setImplementationProvider(true)
         capabilities.setHoverProvider(true)
         capabilities.setReferencesProvider(true)
@@ -933,6 +928,25 @@ class MetalsLanguageServer(
         textDocumentSyncOptions.setChange(TextDocumentSyncKind.Full)
         textDocumentSyncOptions.setSave(new SaveOptions(true))
         textDocumentSyncOptions.setOpenClose(true)
+
+        val scalaFilesPattern = new FileOperationPattern("**/*.scala")
+        scalaFilesPattern.setMatches(FileOperationPatternKind.File)
+        val folderFilesPattern = new FileOperationPattern("**/")
+        folderFilesPattern.setMatches(FileOperationPatternKind.Folder)
+        val fileOperationOptions = new FileOperationOptions(
+          List(
+            new FileOperationFilter(scalaFilesPattern),
+            new FileOperationFilter(folderFilesPattern),
+          ).asJava
+        )
+        val fileOperationsServerCapabilities =
+          new FileOperationsServerCapabilities()
+        fileOperationsServerCapabilities.setWillRename(fileOperationOptions)
+        val workspaceCapabilities = new WorkspaceServerCapabilities()
+        workspaceCapabilities.setFileOperations(
+          fileOperationsServerCapabilities
+        )
+        capabilities.setWorkspace(workspaceCapabilities)
 
         capabilities.setTextDocumentSync(textDocumentSyncOptions)
 
@@ -1135,13 +1149,6 @@ class MetalsLanguageServer(
       }
     } else {
       buildServerPromise.future.flatMap { _ =>
-        val triggeredImportOpt =
-          if (
-            path.isAmmoniteScript && buildTargets.inverseSources(path).isEmpty
-          )
-            maybeImportScript(path)
-          else
-            None
         def load(): Future[Unit] = {
           val compileAndLoad =
             Future.sequence(
@@ -1159,7 +1166,7 @@ class MetalsLanguageServer(
             )
             .ignoreValue
         }
-        triggeredImportOpt.getOrElse(load())
+        maybeImportScript(path).getOrElse(load())
       }.asJava
     }
   }
@@ -1289,7 +1296,10 @@ class MetalsLanguageServer(
           renameProvider.runSave(),
           parseTrees(path),
           onChange(List(path)),
-        )
+        ) ++ // if we fixed the script, we might need to retry connection
+          maybeImportScript(
+            path
+          )
       )
       .ignoreValue
       .asJava
@@ -1424,7 +1434,8 @@ class MetalsLanguageServer(
    */
   private def fileWatchFilter(path: Path): Boolean = {
     val abs = AbsolutePath(path)
-    abs.isScalaOrJava || abs.isSemanticdb || abs.isBuild || abs.isBsp
+    abs.isScalaOrJava || abs.isSemanticdb || abs.isBuild ||
+    abs.isInBspDirectory(workspace)
   }
 
   /**
@@ -1442,7 +1453,9 @@ class MetalsLanguageServer(
     val isScalaOrJava = path.isScalaOrJava
 
     event.eventType match {
-      case EventType.CreateOrModify if path.isBsp =>
+      case EventType.CreateOrModify
+          if path.isInBspDirectory(workspace) && path.extension == "json" =>
+        scribe.info(s"Detected new build tool in $path")
         quickConnectToBuildServer()
       case _ =>
     }
@@ -1513,14 +1526,12 @@ class MetalsLanguageServer(
       definitionOrReferences(position, token).map(_.locations)
     }
 
-  @nowarn("msg=parameter value position")
   @JsonRequest("textDocument/typeDefinition")
   def typeDefinition(
       position: TextDocumentPositionParams
   ): CompletableFuture[util.List[Location]] =
-    CancelTokens { _ =>
-      scribe.warn("textDocument/typeDefinition is not supported.")
-      null
+    CancelTokens.future { token =>
+      compilers.typeDefinition(position, token).map(_.locations)
     }
 
   @JsonRequest("textDocument/implementation")
@@ -1537,7 +1548,7 @@ class MetalsLanguageServer(
       compilers
         .hover(params, token)
         .map { hover =>
-          syntheticsDecorator.addSyntheticsHover(params, hover)
+          syntheticsDecorator.addSyntheticsHover(params, hover.map(_.toLsp()))
         }
         .map(
           _.orElse {
@@ -1617,7 +1628,9 @@ class MetalsLanguageServer(
   def rename(
       params: RenameParams
   ): CompletableFuture[WorkspaceEdit] =
-    CancelTokens.future { token => renameProvider.rename(params, token) }
+    CancelTokens.future { token =>
+      renameProvider.rename(params, token)
+    }
 
   @JsonRequest("textDocument/references")
   def references(
@@ -1696,24 +1709,6 @@ class MetalsLanguageServer(
       compileAndLookForNewReferences(params, results)
     }
     results
-  }
-
-  /** Requesting semantic tokens for a whole file in order to highlight */
-  @JsonRequest("textDocument/semanticTokens/full")
-  def semanticTokensFull(
-      params: SemanticTokensParams
-  ): CompletableFuture[SemanticTokens] = {
-    CancelTokens.future { token =>
-      compilers
-        .semanticTokens(
-          params,
-          token,
-        )
-        .map { tokens =>
-          if (tokens eq None) null
-          else tokens
-        }
-    }
   }
 
   @JsonRequest("textDocument/prepareCallHierarchy")
@@ -2012,10 +2007,7 @@ class MetalsLanguageServer(
           params <- debugSessionParams
           server <- statusBar.trackFuture(
             "Starting debug server",
-            debugProvider.start(
-              params,
-              scalaVersionSelector,
-            ),
+            debugProvider.start(params),
           )
         } yield {
           statusBar.addMessage("Started debug server!")
@@ -2131,6 +2123,20 @@ class MetalsLanguageServer(
         Future.successful(()).asJavaObject
     }
   }
+
+  @JsonRequest("workspace/willRenameFiles")
+  def willRenameFiles(
+      params: RenameFilesParams
+  ): CompletableFuture[WorkspaceEdit] =
+    CancelTokens.future { _ =>
+      val moves = params.getFiles.asScala.toSeq.map { rename =>
+        packageProvider.willMovePath(
+          rename.getOldUri().toAbsolutePath,
+          rename.getNewUri().toAbsolutePath,
+        )
+      }
+      Future.sequence(moves).map(_.mergeChanges)
+    }
 
   @JsonNotification("metals/doctorVisibilityDidChange")
   def doctorVisibilityDidChange(
@@ -2310,7 +2316,12 @@ class MetalsLanguageServer(
             case Some(digest) if isBloopOrEmpty =>
               slowConnectToBloopServer(forceImport, buildTool, digest)
             case Some(digest) =>
-              indexer.reloadWorkspaceAndIndex(forceImport, buildTool, digest)
+              indexer.reloadWorkspaceAndIndex(
+                forceImport,
+                buildTool,
+                digest,
+                importBuild,
+              )
           }
         case None =>
           Future.successful(BuildChange.None)
@@ -2468,15 +2479,8 @@ class MetalsLanguageServer(
     }
   }
 
-  private def connectToNewBuildServer(
-      session: BspSession
-  ): Future[BuildChange] = {
-    scribe.info(
-      s"Connected to Build server: ${session.main.name} v${session.version}"
-    )
-    cancelables.add(session)
+  private def importBuild(session: BspSession) = {
     compilers.cancel()
-    bspSession = Some(session)
     val importedBuilds0 = timerProvider.timed("Imported build") {
       session.importBuilds()
     }
@@ -2489,16 +2493,26 @@ class MetalsLanguageServer(
           targets.map(t => (t.getId(), bspBuild.connection))
         }
         mainBuildTargetsData.resetConnections(idToConnection)
-        lastImportedBuilds = bspBuilds.map(_.build)
       }
+    } yield ()
+  }
+
+  private def connectToNewBuildServer(
+      session: BspSession
+  ): Future[BuildChange] = {
+    scribe.info(
+      s"Connected to Build server: ${session.main.name} v${session.version}"
+    )
+    cancelables.add(session)
+    bspSession = Some(session)
+    for {
+      _ <- importBuild(session)
       _ <- indexer.profiledIndexWorkspace(() => doctor.check())
       _ = if (session.main.isBloop) checkRunningBloopVersion(session.version)
     } yield {
       BuildChange.Reconnected
     }
   }
-
-  private var lastImportedBuilds = List.empty[ImportedBuild]
 
   val scalaCli: ScalaCli = register(
     new ScalaCli(
@@ -2534,7 +2548,9 @@ class MetalsLanguageServer(
         Indexer.BuildTool(
           "main",
           mainBuildTargetsData,
-          ImportedBuild.fromList(lastImportedBuilds),
+          ImportedBuild.fromList(
+            bspSession.map(_.lastImportedBuild).getOrElse(Nil)
+          ),
         ),
         Indexer.BuildTool(
           "ammonite",
@@ -2750,7 +2766,9 @@ class MetalsLanguageServer(
         .configuration(params)
         .asScala
         .flatMap { items =>
-          items.asScala.headOption match {
+          items.asScala.headOption.flatMap(item =>
+            Option.unless(item.isInstanceOf[JsonNull])(item)
+          ) match {
             case Some(item) =>
               val json = item.asInstanceOf[JsonElement].getAsJsonObject()
               updateConfiguration(json)
@@ -2790,36 +2808,42 @@ class MetalsLanguageServer(
   def maybeImportScript(path: AbsolutePath): Option[Future[Unit]] = {
     val scalaCliPath = scalaCliDirOrFile(path)
     if (
-      ammonite.loaded(path) || scalaCli.loaded(scalaCliPath) || isMillBuildSc(
-        path
-      )
+      !path.isAmmoniteScript ||
+      !buildTargets.inverseSources(path).isEmpty ||
+      ammonite.loaded(path) ||
+      scalaCli.loaded(scalaCliPath) ||
+      isMillBuildSc(path)
     )
       None
     else {
-      def doImportScalaCli(): Unit =
-        scalaCli.start(scalaCliPath).onComplete {
-          case Failure(e) =>
+      def doImportScalaCli(): Future[Unit] =
+        scalaCli
+          .start(scalaCliPath)
+          .map { _ =>
+            languageClient.showMessage(
+              Messages.ImportScalaScript.ImportedScalaCli
+            )
+          }
+          .recover { e =>
             languageClient.showMessage(
               Messages.ImportScalaScript.ImportFailed(path.toString)
             )
             scribe.warn(s"Error importing Scala CLI project $scalaCliPath", e)
-          case Success(_) =>
+          }
+      def doImportAmmonite(): Future[Unit] =
+        ammonite
+          .start(Some(path))
+          .map { _ =>
             languageClient.showMessage(
-              Messages.ImportScalaScript.ImportedScalaCli
+              Messages.ImportScalaScript.ImportedAmmonite
             )
-        }
-      def doImportAmmonite(): Unit =
-        ammonite.start(Some(path)).onComplete {
-          case Failure(e) =>
+          }
+          .recover { e =>
             languageClient.showMessage(
               Messages.ImportScalaScript.ImportFailed(path.toString)
             )
             scribe.warn(s"Error importing Ammonite script $path", e)
-          case Success(_) =>
-            languageClient.showMessage(
-              Messages.ImportScalaScript.ImportedAmmonite
-            )
-        }
+          }
 
       val autoImportAmmonite =
         tables.dismissedNotifications.AmmoniteImportAuto.isDismissed
@@ -2846,35 +2870,34 @@ class MetalsLanguageServer(
       val futureRes =
         if (autoImportAmmonite) {
           doImportAmmonite()
-          Future.unit
         } else if (autoImportScalaCli) {
           doImportScalaCli()
-          Future.unit
         } else {
-          val futureResp = languageClient
+          languageClient
             .showMessageRequest(Messages.ImportScalaScript.params())
             .asScala
-          futureResp.onComplete {
-            case Failure(e) =>
-              scribe.warn("Error requesting Scala script import", e)
-            case Success(null) =>
-              scribe.debug("Scala script import cancelled by user")
-            case Success(resp) =>
-              resp.getTitle match {
-                case Messages.ImportScalaScript.doImportAmmonite =>
-                  doImportAmmonite()
-                  askAutoImport(
-                    tables.dismissedNotifications.AmmoniteImportAuto
-                  )
-                case Messages.ImportScalaScript.doImportScalaCli =>
-                  doImportScalaCli()
-                  askAutoImport(
-                    tables.dismissedNotifications.ScalaCliImportAuto
-                  )
-                case _ =>
+            .flatMap { response =>
+              if (response != null)
+                response.getTitle match {
+                  case Messages.ImportScalaScript.doImportAmmonite =>
+                    askAutoImport(
+                      tables.dismissedNotifications.AmmoniteImportAuto
+                    )
+                    doImportAmmonite()
+                  case Messages.ImportScalaScript.doImportScalaCli =>
+                    askAutoImport(
+                      tables.dismissedNotifications.ScalaCliImportAuto
+                    )
+                    doImportScalaCli()
+                  case _ => Future.unit
+                }
+              else {
+                Future.unit
               }
-          }
-          futureResp.ignoreValue
+            }
+            .recover { e =>
+              scribe.warn("Error requesting Scala script import", e)
+            }
         }
       Some(futureRes)
     }

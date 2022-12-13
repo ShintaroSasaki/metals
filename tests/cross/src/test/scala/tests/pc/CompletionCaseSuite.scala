@@ -184,12 +184,6 @@ class CompletionCaseSuite extends BaseCompletionSuite {
     """|case scala.util.Left(value) =>
        |case Right(value) => scala.util
        |""".stripMargin,
-    compat = Map(
-      "3" ->
-        """|case Left(value) => scala.util
-           |case Right(value) => scala.util
-           |""".stripMargin
-    ),
   )
 
   checkEdit(
@@ -606,6 +600,17 @@ class CompletionCaseSuite extends BaseCompletionSuite {
       |}""".stripMargin,
     """|case A.B =>
        |case A.C =>""".stripMargin,
+  )
+
+  check(
+    "same-line",
+    """
+      |object A {
+      |  Option(1) match {
+      |    case Some(a) => cas@@
+      |  }
+      |}""".stripMargin,
+    "",
   )
 
 }

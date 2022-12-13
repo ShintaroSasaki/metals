@@ -15,14 +15,12 @@ object SaveExpect {
       new FoldingRangeScala2Suite,
       new FoldingRangeScala3Suite,
       new WorkspaceSymbolExpectSuite,
-      new SemanticTokensExpectSuite,
     ).foreach { suite =>
       val header = suite.suiteName.length + 2
       println("=" * header)
       println("= " + suite.suiteName)
       println("=" * header)
       suite.saveExpect()
-      suite.afterAll()
     }
   }
 }

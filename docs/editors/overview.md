@@ -61,6 +61,13 @@ functionality.
     <td align="center">✅</td>
   </tr>
   <tr>
+    <td>Goto type definition</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+    <td align="center">✅</td>
+  </tr>
+  <tr>
     <td>Completions</td>
     <td align="center">✅</td>
     <td align="center">✅*</td>
@@ -412,7 +419,7 @@ website.
 
 **Status bar**: Editor client implements the `metals/status` notification.
 
-**Decoration protocol**: Editor client impliments the
+**Decoration protocol**: Editor client implements the
 [Decoration Protocol](../integrations/decoration-protocol.md).
 
 **Tree view**: Editor client implements the

@@ -54,6 +54,8 @@ object OverrideCompletions:
       indexedContext: IndexedContext,
       search: SymbolSearch,
       config: PresentationCompilerConfig,
+      autoImportsGen: AutoImportsGenerator,
+      fallbackName: Option[Name],
   ): List[CompletionValue] =
     import indexedContext.ctx
     val clazz = td.symbol.asClass
@@ -86,6 +88,7 @@ object OverrideCompletions:
     // because they are not method definitions (not starting from `def`).
     val flags = completing.map(_.flags & interestingFlags).getOrElse(EmptyFlags)
 
+    val name = completing.fold(fallbackName)(sym => Some(sym.name))
     // not using `td.tpe.abstractTermMembers` because those members includes
     // the abstract members in `td.tpe`. For example, when we type `def foo@@`,
     // `td.tpe.abstractTermMembers` contains `method foo: <error>` and it overrides the parent `foo` method.
@@ -99,8 +102,8 @@ object OverrideCompletions:
       .distinct
       .collect {
         case denot
-            if completing
-              .fold(true)(sym => denot.name.startsWith(sym.name.show)) &&
+            if name
+              .fold(true)(name => denot.name.startsWith(name.show)) &&
               !denot.symbol.isType =>
           denot.symbol
       }
@@ -116,6 +119,7 @@ object OverrideCompletions:
           search,
           shouldMoveCursor = true,
           config,
+          autoImportsGen,
           indexedContext.ctx.compilationUnit.source.content
             .startsWith("o", start),
         )
@@ -167,8 +171,13 @@ object OverrideCompletions:
     val pos = driver.sourcePosition(params)
 
     val newctx = driver.currentCtx.fresh.setCompilationUnit(unit)
+    val tpdTree = newctx.compilationUnit.tpdTree
     val path =
-      Interactive.pathTo(newctx.compilationUnit.tpdTree, pos.span)(using newctx)
+      Interactive.pathTo(tpdTree, pos.span)(using newctx) match
+        case path @ TypeDef(_, template) :: _ =>
+          template :: path
+        case path => path
+
     val indexedContext = IndexedContext(
       MetalsInteractive.contextOfPath(path)(using newctx)
     )
@@ -268,6 +277,7 @@ object OverrideCompletions:
           search,
           shouldMoveCursor = false,
           config,
+          autoImports,
           shouldAddOverrideKwd = true,
         )
       )
@@ -348,11 +358,7 @@ object OverrideCompletions:
       val edit =
         completion.value
       val edits = editsAndImports._1 :+ edit
-      val imports = completion.shortenedNames
-        .sortBy(nme => nme.name)
-        .flatMap(name => autoImports.forShortName(name))
-        .flatten
-        .toSet ++ editsAndImports._2
+      val imports = completion.additionalEdits.toSet ++ editsAndImports._2
       (edits, imports)
     }
   end toEdits
@@ -372,6 +378,7 @@ object OverrideCompletions:
       search: SymbolSearch,
       shouldMoveCursor: Boolean,
       config: PresentationCompilerConfig,
+      autoImportsGen: AutoImportsGenerator,
       shouldAddOverrideKwd: Boolean,
   )(using Context): CompletionValue.Override =
     val renames = AutoImport.renameConfigMap(config)
@@ -396,7 +403,12 @@ object OverrideCompletions:
     val signature =
       // `iterator` method in `new Iterable[Int] { def iterato@@ }`
       // should be completed as `def iterator: Iterator[Int]` instead of `Iterator[A]`.
-      val seenFrom = defn.tpe.memberInfo(sym.symbol)
+      val seenFrom =
+        val memInfo = defn.tpe.memberInfo(sym.symbol)
+        if memInfo.isErroneous || memInfo.finalResultType.isAny then
+          sym.info.widenTermRefExpr
+        else memInfo
+
       if sym.is(Method) then
         printer.defaultMethodSignature(
           sym.symbol,
@@ -411,6 +423,7 @@ object OverrideCompletions:
           additionalMods =
             if overrideKeyword.nonEmpty then List(overrideKeyword) else Nil,
         )
+      end if
     end signature
 
     val label = s"$overrideDefLabel$signature"
@@ -418,14 +431,18 @@ object OverrideCompletions:
       if config.isCompletionSnippetsEnabled && shouldMoveCursor then "${0:???}"
       else "???"
     val value = s"$signature = $stub"
-    val filterText = signature
+    val additionalEdits =
+      printer.shortenedNames
+        .sortBy(nme => nme.name)
+        .flatMap(name => autoImportsGen.forShortName(name))
+        .flatten
     CompletionValue.Override(
       label,
       value,
       sym.symbol,
-      printer.shortenedNames,
-      Some(filterText),
-      start,
+      additionalEdits,
+      Some(signature),
+      Some(autoImportsGen.pos.withStart(start).toLsp),
     )
   end toCompletionValue
 
@@ -470,5 +487,84 @@ object OverrideCompletions:
     if offset > 0 && offset < defn.span.end then Some(offset)
     else None
   end hasBraces
+
+  object OverrideExtractor:
+    def unapply(path: List[Tree])(using Context) =
+      path match
+        // class FooImpl extends Foo:
+        //   def x|
+        case (dd: (DefDef | ValDef)) :: (t: Template) :: (td: TypeDef) :: _
+            if t.parents.nonEmpty =>
+          val completing =
+            if dd.symbol.name == StdNames.nme.ERROR then None
+            else Some(dd.symbol)
+          Some(
+            (
+              td,
+              completing,
+              dd.sourcePos.start,
+              true,
+              None,
+            )
+          )
+
+        // class FooImpl extends Foo:
+        //   ov|
+        case (ident: Ident) :: (t: Template) :: (td: TypeDef) :: _
+            if t.parents.nonEmpty && "override".startsWith(ident.name.show) =>
+          Some(
+            (
+              td,
+              None,
+              ident.sourcePos.start,
+              false,
+              None,
+            )
+          )
+
+        // class Main extends Val:
+        //    def @@
+        case (t: Template) :: (td: TypeDef) :: _ if t.parents.nonEmpty =>
+          Some(
+            (
+              td,
+              None,
+              t.sourcePos.start,
+              true,
+              None,
+            )
+          )
+
+        // class Main extends Val:
+        //    hello@@
+        case (sel: Select) :: (t: Template) :: (td: TypeDef) :: _
+            if t.parents.nonEmpty =>
+          Some(
+            (
+              td,
+              Some(sel.symbol),
+              sel.sourcePos.start,
+              false,
+              None,
+            )
+          )
+
+        // class Main extends Val:
+        //    he@@ // incomplete symbol
+        case (id: Ident) :: (t: Template) :: (td: TypeDef) :: _
+            if t.parents.nonEmpty =>
+          Some(
+            (
+              td,
+              None,
+              id.sourcePos.start,
+              false,
+              Some(id.name),
+            )
+          )
+
+        case _ => None
+
+  end OverrideExtractor
 
 end OverrideCompletions

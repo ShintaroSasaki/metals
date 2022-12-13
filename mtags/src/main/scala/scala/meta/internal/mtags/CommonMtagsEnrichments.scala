@@ -299,9 +299,10 @@ trait CommonMtagsEnrichments {
   protected def filenameToLanguage(filename: String): Language = {
     if (filename.endsWith(".java")) Language.JAVA
     else if (
-      filename.endsWith(".scala") || (filename.endsWith(".sc") && !filename
-        .endsWith(".worksheet.sc"))
-    ) Language.SCALA
+      filename.endsWith(".scala") || filename.endsWith(".sc")
+      || filename.endsWith(".sbt")
+    )
+      Language.SCALA
     else Language.UNKNOWN_LANGUAGE
   }
 
@@ -358,6 +359,8 @@ trait CommonMtagsEnrichments {
       doc.endsWith(".amm.sc.scala")
     def isAmmoniteScript: Boolean =
       isScalaScript && !isWorksheet && !doc.endsWith("/build.sc")
+    def isMill: Boolean =
+      doc.endsWith("/build.sc")
     def asSymbol: Symbol = Symbol(doc)
     def endsWithAt(value: String, offset: Int): Boolean = {
       val start = offset - value.length
@@ -484,8 +487,8 @@ trait CommonMtagsEnrichments {
     def isBuild: Boolean =
       path.filename.startsWith("BUILD")
 
-    def isBsp: Boolean =
-      path.filename.startsWith(".bsp")
+    def isInBspDirectory(workspace: AbsolutePath): Boolean =
+      path.toNIO.startsWith(workspace.resolve(".bsp").toNIO)
 
     def isScalaOrJava: Boolean = {
       toLanguage match {
