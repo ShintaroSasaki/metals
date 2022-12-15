@@ -29,9 +29,7 @@ sealed trait IndexedContext:
     findSymbol(sym.decodedName) match
       case Some(symbols) if symbols.exists(_ == sym) =>
         Result.InScope
-      case Some(symbols)
-          if symbols
-            .exists(s => isTypeAliasOf(s, sym) || isTermAliasOf(s, sym)) =>
+      case Some(symbols) if symbols.exists(isTypeAliasOf(_, sym)) =>
         Result.InScope
       // when all the conflicting symbols came from an old version of the file
       case Some(symbols) if symbols.nonEmpty && symbols.forall(_.isStale) =>
@@ -45,17 +43,7 @@ sealed trait IndexedContext:
       case Some(v) => v == as
       case None => false
 
-  // detects import scope aliases like
-  // object Predef:
-  //   val Nil = scala.collection.immutable.Nil
-  private def isTermAliasOf(termAlias: Symbol, sym: Symbol): Boolean =
-    termAlias.isTerm && (
-      sym.info match
-        case clz: ClassInfo => clz.appliedRef =:= termAlias.info.resultType
-        case _ => false
-    )
-
-  private def isTypeAliasOf(alias: Symbol, sym: Symbol): Boolean =
+  private def isTypeAliasOf(alias: Symbol, sym: Symbol) =
     alias.isAliasType && alias.info.dealias.typeSymbol == sym
 
   final def isEmpty: Boolean = this match

@@ -250,7 +250,7 @@ object Embedded {
       BuildInfo.scalametaVersion,
     )
 
-  def downloadDependency(
+  private def downloadDependency(
       dep: Dependency,
       scalaVersion: Option[String],
       classfiers: Seq[String] = Seq.empty,

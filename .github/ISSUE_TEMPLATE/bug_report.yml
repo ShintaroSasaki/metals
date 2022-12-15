@@ -41,6 +41,7 @@ body:
       options:
         - VS Code
         - Sublime
+        - Nvim/Vim (coc-metals)
         - Nvim (nvim-metals)
         - Nvim/Vim (other)
         - Emacs (lsp-metals)

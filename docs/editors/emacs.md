@@ -73,10 +73,7 @@ To use Metals in Emacs, place this snippet in your Emacs configuration (for exam
   ;; (setq lsp-idle-delay 0.500)
   ;; (setq lsp-log-io nil)
   ;; (setq lsp-completion-provider :capf)
-  (setq lsp-prefer-flymake nil)
-  ;; Makes LSP shutdown the metals server when all buffers in the project are closed.
-  ;; https://emacs-lsp.github.io/lsp-mode/page/settings/mode/#lsp-keep-workspace-alive
-  (setq lsp-keep-workspace-alive nil))
+  (setq lsp-prefer-flymake nil))
 
 ;; Add metals backend for lsp-mode
 (use-package lsp-metals)
@@ -142,7 +139,7 @@ This will open a new Scala buffer that has code lenses annotations:
 just click on the small "open" annotation to navigate to the source
 code relative to your stack trace.
 
-This will work as long as the buffer you are marking your stack trace
+This will work as long as the buffer your are marking your stack trace
 on exists within the project directory tracked by `lsp-mode`, because
 `lsp-metals-analyze-stacktrace` needs the `lsp` workspace to find the
 location of your errors.

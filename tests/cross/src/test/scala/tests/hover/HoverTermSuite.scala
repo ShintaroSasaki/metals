@@ -59,6 +59,9 @@ class HoverTermSuite extends BaseHoverSuite {
       |""".stripMargin,
     """|def apply(name: String): Person
        |""".stripMargin.hover,
+    compat = Map(
+      "3" -> "case class Person: Person".hover
+    ),
   )
 
   check(
@@ -503,20 +506,4 @@ class HoverTermSuite extends BaseHoverSuite {
     "val second: Boolean".hover,
     automaticPackage = false,
   )
-
-  check(
-    "annot".tag(IgnoreScalaVersion.for3LessThan("3.2.2-RC1")),
-    """|import scala.annotation.tailrec
-       |
-       |object O {
-       |  @<<tail@@rec>>
-       |  def hello(n: Int): Int = {
-       |    if (i == 0) 0
-       |    else hello( n - 1)
-       |  }
-       |}
-       |""".stripMargin,
-    "def this(): tailrec".hover,
-  )
-
 }

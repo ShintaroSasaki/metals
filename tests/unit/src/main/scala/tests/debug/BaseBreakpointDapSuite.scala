@@ -116,7 +116,6 @@ abstract class BaseBreakpointDapSuite(
                 |  def main(args: Array[String]): Unit = {
                 |    this match {
                 |      case Bar() =>
-                |      case _ =>
                 |    }
                 |    System.exit(0)
                 |  }

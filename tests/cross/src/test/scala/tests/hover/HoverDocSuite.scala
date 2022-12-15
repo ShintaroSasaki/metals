@@ -100,7 +100,7 @@ class HoverDocSuite extends BaseHoverSuite {
   )
 
   check(
-    "java-method".tag(IgnoreScalaVersion(_ => isJava8)),
+    "java-method",
     """|import java.nio.file.Paths
        |
        |object O{

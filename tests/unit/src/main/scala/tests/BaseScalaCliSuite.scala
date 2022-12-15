@@ -101,12 +101,35 @@ abstract class BaseScalaCliSuite(scalaVersion: String)
        |}
        |
        |""".stripMargin
+
+  private def escape(s: String): String =
+    s.replace("\\", "\\\\")
   private def bspLayout =
     s"""/.bsp/scala-cli.json
-       |${BaseScalaCliSuite.scalaCliBspJsonContent()}
+       |{
+       |  "name": "scala-cli",
+       |  "argv": [
+       |    "${escape(ScalaCli.javaCommand)}",
+       |    "-cp",
+       |    "${escape(ScalaCli.scalaCliClassPath().mkString(File.pathSeparator))}",
+       |    "${ScalaCli.scalaCliMainClass}",
+       |    "bsp",
+       |    "."
+       |  ],
+       |  "version": "${BuildInfo.scalaCliVersion}",
+       |  "bspVersion": "2.0.0",
+       |  "languages": [
+       |    "scala",
+       |    "java"
+       |  ]
+       |}
        |
        |/.scala-build/ide-inputs.json
-       |${BaseScalaCliSuite.scalaCliIdeInputJson(".")}
+       |{
+       |  "args": [
+       |    "."
+       |  ]
+       |}
        |
        |""".stripMargin
 
@@ -329,33 +352,5 @@ abstract class BaseScalaCliSuite(scalaVersion: String)
         0,
       )
     } yield ()
-  }
-}
-
-object BaseScalaCliSuite {
-  def scalaCliBspJsonContent(args: List[String] = Nil): String = {
-    val argv = List(
-      ScalaCli.javaCommand,
-      "-cp",
-      ScalaCli.scalaCliClassPath().mkString(File.pathSeparator),
-      ScalaCli.scalaCliMainClass,
-      "bsp",
-      ".",
-    ) ++ args
-    val bsjJson = ujson.Obj(
-      "name" -> "scala-cli",
-      "argv" -> argv,
-      "version" -> BuildInfo.scalaCliVersion,
-      "bspVersion" -> "2.0.0",
-      "languages" -> List("scala", "java"),
-    )
-    ujson.write(bsjJson)
-  }
-
-  def scalaCliIdeInputJson(args: String*): String = {
-    val ideInputJson = ujson.Obj(
-      "args" -> args
-    )
-    ujson.write(ideInputJson)
   }
 }

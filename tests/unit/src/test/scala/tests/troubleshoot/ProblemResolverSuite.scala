@@ -199,13 +199,6 @@ class ProblemResolverSuite extends FunSuite {
     classpath = List("org/scalameta/munit_2.13/1.0.1/"),
   )
 
-  checkRecommendation(
-    "main.sc",
-    scalaVersion = BuildInfo.scala213,
-    "",
-    classpath = List("org/scalameta/munit_2.13/1.0.1/"),
-  )
-
   def checkRecommendation(
       name: TestOptions,
       scalaVersion: String,
@@ -268,7 +261,6 @@ class ProblemResolverSuite extends FunSuite {
         /* dependencies = */ Nil.asJava,
         /* capabilities = */ new BuildTargetCapabilities(true, true, true),
       )
-    buildTarget.setDisplayName(id)
     val scalaBuildTarget = new ScalaBuildTarget(
       "org.scala-lang",
       scalaVersion,

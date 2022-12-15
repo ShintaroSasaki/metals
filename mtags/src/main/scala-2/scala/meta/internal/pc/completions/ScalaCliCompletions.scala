@@ -14,14 +14,9 @@ trait ScalaCliCompletions {
           CoursierComplete.isScalaCliDep(
             pos.lineContent.replace(CURSOR, "").take(pos.column - 1)
           )
-        // generated script file will end with .sc.scala
-        case (_: Template) :: (_: ModuleDef) :: _
-            if pos.source.file.path.endsWith(".sc.scala") =>
+        case (_: PackageDef) :: Nil if pos.source.file.path.endsWith(".sc") =>
           CoursierComplete.isScalaCliDep(
-            pos.lineContent
-              .stripPrefix("/*<script>*/")
-              .replace(CURSOR, "")
-              .take(pos.column - 1)
+            pos.lineContent.replace(CURSOR, "").take(pos.column - 1)
           )
         case _ => None
       }

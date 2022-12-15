@@ -4,7 +4,6 @@ import java.{util => ju}
 
 import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.pc.AutoImportsResult
-import scala.meta.pc.HoverSignature
 
 import org.eclipse.lsp4j.CompletionList
 import org.eclipse.lsp4j.Diagnostic
@@ -64,9 +63,6 @@ trait AdjustLspData {
       newHover.setRange(newRange)
       newHover
     }
-
-  def adjustHoverResp(hover: HoverSignature): HoverSignature =
-    hover.getRange().map(rng => hover.withRange(adjustRange(rng))).orElse(hover)
 
   def adjustCompletionListInPlace(list: CompletionList): Unit = {
     for (item <- list.getItems.asScala) {

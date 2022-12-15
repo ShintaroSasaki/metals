@@ -122,7 +122,7 @@ final class Trees(
       text <- buffers.get(path).orElse(path.readTextOpt)
     } yield {
       val input = Input.VirtualFile(path.toURI.toString(), text)
-      if (path.isAmmoniteScript || path.isMill) {
+      if (path.isAmmoniteScript) {
         val ammoniteInput = Input.Ammonite(input)
         dialect(ammoniteInput).parse(Parse.parseAmmonite)
       } else {

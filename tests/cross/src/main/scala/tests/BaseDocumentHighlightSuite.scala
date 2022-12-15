@@ -8,7 +8,6 @@ import scala.meta.internal.metals.EmptyCancelToken
 
 import munit.Location
 import munit.TestOptions
-import org.eclipse.lsp4j.DocumentHighlight
 
 class BaseDocumentHighlightSuite extends BasePCSuite with RangeReplace {
 
@@ -36,8 +35,6 @@ class BaseDocumentHighlightSuite extends BasePCSuite with RangeReplace {
         .get()
         .asScala
         .toList
-        .sortWith(compareHighlights)
-        .reverse
 
       assertEquals(
         renderHighlightsAsString(base, highlights),
@@ -45,13 +42,4 @@ class BaseDocumentHighlightSuite extends BasePCSuite with RangeReplace {
       )
 
     }
-  private def compareHighlights(
-      h1: DocumentHighlight,
-      h2: DocumentHighlight,
-  ) = {
-    val r1 = h1.getRange().getStart()
-    val r2 = h2.getRange().getStart()
-    r1.getLine() < r2.getLine() || (r1.getLine() == r2.getLine() && r1
-      .getCharacter() < r2.getCharacter())
-  }
 }

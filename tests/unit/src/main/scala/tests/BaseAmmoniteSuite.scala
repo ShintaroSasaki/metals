@@ -17,15 +17,14 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
   override def munitIgnore: Boolean =
     !isValidScalaVersionForEnv(scalaVersion)
 
-  override def beforeEach(context: BeforeEach): Unit = {
-    super.beforeEach(context)
+  override def newServer(workspaceName: String): Unit = {
+    super.newServer(workspaceName)
     server.client.showMessageRequestHandler = { params =>
       if (params == Messages.ImportScalaScript.params())
         Some(new MessageActionItem(Messages.ImportScalaScript.dismiss))
       else
         None
     }
-
   }
 
   test("simple-script") {
@@ -114,62 +113,41 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
             |
             |val schema = Schema.loadFromString("{}")
             |println(schema.isSuccess)
-            |
-            |/build.sc
-            |
-            |// this part may contain some config
-            |@
-            |import mill._
-            |import mill.scalalib._
-            |object demo extends ScalaModule {
-            |  def scalaVersion: T[String] = T("2.13.10")
-            |}
             |""".stripMargin
       )
       _ <- server.didOpen("main.sc")
       _ <- server.executeCommand(ServerCommands.StartAmmoniteBuildServer)
       _ <- server.didSave("main.sc")(identity)
       _ = assertNoDiagnostics()
-      _ <- server.didOpen("build.sc")
-      _ = assertNoDiagnostics()
     } yield ()
   }
 
   test("invalid-version") {
-    cleanWorkspace()
     val fakeScalaVersion = "30.3.4"
-    server.client.showMessageRequestHandler = { params =>
-      if (params == Messages.ImportScalaScript.params())
-        Some(new MessageActionItem(Messages.ImportScalaScript.doImportAmmonite))
-      else if (params == Messages.ImportAllScripts.params())
-        Some(new MessageActionItem(Messages.ImportAllScripts.importAll))
-      else
-        None
-    }
     for {
       _ <- initialize(
-        s"""|/main.sc
-            | // scala ${fakeScalaVersion}
-            |
-            |val cantStandTheHeat = "stay off the street"
-            |""".stripMargin,
-        expectError = true,
+        s"""
+           |/metals.json
+           |{
+           |  "a": {
+           |    "scalaVersion": "$scalaVersion"
+           |  }
+           |}
+           |/main.sc
+           | // scala ${fakeScalaVersion}
+           |
+           |val cantStandTheHeat = "stay off the street"
+           |""".stripMargin
       )
       _ <- server.didOpen("main.sc")
-      _ = assertEquals(
-        server.client.workspaceShowMessages,
-        s"Error importing Scala script ${workspace.resolve("main.sc")}. See the logs for more details.",
+      _ <- server.didSave("main.sc")(identity)
+      _ <- server.executeCommand(ServerCommands.StartAmmoniteBuildServer)
+    } yield {
+      assertNoDiff(
+        client.workspaceErrorShowMessages,
+        s"Error fetching Ammonite ${V.ammoniteVersion} for scala ${fakeScalaVersion}",
       )
-      _ <- server.didSave("main.sc") { text =>
-        text.replace(fakeScalaVersion, scalaVersion)
-      }
-      _ <- server.server.indexingPromise.future
-      targets <- server.executeCommand(ServerCommands.ListBuildTargets)
-      _ = assertEquals(
-        targets.toString(),
-        "[main.sc]",
-      )
-    } yield ()
+    }
   }
 
   // https://github.com/scalameta/metals/issues/1801
@@ -607,69 +585,4 @@ abstract class BaseAmmoniteSuite(scalaVersion: String)
     } yield ()
   }
 
-  test("ivy-completion") {
-    for {
-      _ <- initialize(
-        s"""
-           |/metals.json
-           |{
-           |  "a": {
-           |    "scalaVersion": "$scalaVersion"
-           |  }
-           |}
-           |/main.sc
-           |import $$ivy.`io.cir`
-           |import $$ivy.`io.circe::circe-ref`
-           |import $$ivy.`com.lihaoyi::upickle:1.4`
-           |""".stripMargin
-      )
-      _ <- server.didOpen("main.sc")
-      _ <- server.didSave("main.sc")(identity)
-      _ <- server.executeCommand(ServerCommands.StartAmmoniteBuildServer)
-
-      groupExpectedCompletionList = "io.circe"
-      groupCompletionList <- server.completion(
-        "main.sc",
-        "import $ivy.`io.cir@@`",
-      )
-      _ = assertNoDiff(groupCompletionList, groupExpectedCompletionList)
-      artefactCompletionList <- server.completion(
-        "main.sc",
-        "import $ivy.`io.circe::circe-ref@@`",
-      )
-      artefactExpectedCompletionList = getExpected(
-        """|circe-refined
-           |circe-refined_native0.4
-           |circe-refined_sjs0.6
-           |circe-refined_sjs1
-           |""".stripMargin,
-        Map(
-          "3" -> """|circe-refined
-                    |circe-refined_native0.4
-                    |circe-refined_sjs1
-                    |""".stripMargin
-        ),
-        scalaVersion,
-      )
-      _ = assertNoDiff(artefactCompletionList, artefactExpectedCompletionList)
-
-      versionExpectedCompletionList =
-        List("1.4.4", "1.4.3", "1.4.2", "1.4.1", "1.4.0")
-      response <- server.completionList(
-        "main.sc",
-        "import $ivy.`com.lihaoyi::upickle:1.4@@`",
-      )
-      versionCompletionList = response
-        .getItems()
-        .asScala
-        .map(_.getLabel())
-        .toList
-      _ = assertEquals(versionCompletionList, versionExpectedCompletionList)
-      noCompletions <- server.completion(
-        "main.sc",
-        "import $ivy.`com.lihaoyi::upickle:1.4`@@",
-      )
-      _ = assertNoDiff(noCompletions, "")
-    } yield ()
-  }
 }

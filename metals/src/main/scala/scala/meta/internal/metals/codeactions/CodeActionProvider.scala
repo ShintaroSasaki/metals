@@ -29,7 +29,6 @@ final class CodeActionProvider(
     new ImplementAbstractMembers(compilers),
     new ImportMissingSymbol(compilers, buildTargets),
     new CreateNewSymbol(),
-    new ActionableDiagnostic(),
     new StringActions(buffers),
     extractMemberAction,
     new SourceOrganizeImports(

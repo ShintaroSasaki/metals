@@ -3,7 +3,6 @@ package tests
 import scala.concurrent.Promise
 
 import scala.meta.internal.metals.InitializationOptions
-import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals.ScalaVersions
 import scala.meta.internal.metals.UserConfiguration
 import scala.meta.internal.metals.clients.language.MetalsSlowTaskResult
@@ -756,69 +755,5 @@ abstract class BaseWorksheetLspSuite(
       )
     } yield ()
 
-  }
-
-  test("ivy-completion") {
-    for {
-      _ <- initialize(
-        s"""
-           |/metals.json
-           |{
-           |  "a": {
-           |    "scalaVersion": "${scalaVersion}"
-           |  }
-           |}
-           |/a/src/main/scala/foo/Main.worksheet.sc
-           |import $$ivy.`io.cir`
-           |import $$dep.`io.circe::circe-ref`
-           |import $$dep.`com.lihaoyi::upickle:1.4`
-           |""".stripMargin
-      )
-      _ <- server.didOpen("a/src/main/scala/foo/Main.worksheet.sc")
-      groupExpectedCompletionList = "io.circe"
-      groupCompletionList <- server.completion(
-        "a/src/main/scala/foo/Main.worksheet.sc",
-        "import $ivy.`io.cir@@`",
-      )
-      _ = assertNoDiff(groupCompletionList, groupExpectedCompletionList)
-
-      artefactExpectedCompletionList = getExpected(
-        """|circe-refined
-           |circe-refined_native0.4
-           |circe-refined_sjs0.6
-           |circe-refined_sjs1
-           |""".stripMargin,
-        Map(
-          "3" -> """|circe-refined
-                    |circe-refined_native0.4
-                    |circe-refined_sjs1
-                    |""".stripMargin
-        ),
-        scalaVersion,
-      )
-      artefactCompletionList <- server.completion(
-        "a/src/main/scala/foo/Main.worksheet.sc",
-        "import $dep.`io.circe::circe-ref@@`",
-      )
-      _ = assertNoDiff(artefactCompletionList, artefactExpectedCompletionList)
-
-      versionExpectedCompletionList =
-        List("1.4.4", "1.4.3", "1.4.2", "1.4.1", "1.4.0")
-      response <- server.completionList(
-        "a/src/main/scala/foo/Main.worksheet.sc",
-        "import $dep.`com.lihaoyi::upickle:1.4@@`",
-      )
-      versionCompletionList = response
-        .getItems()
-        .asScala
-        .map(_.getLabel())
-        .toList
-      _ = assertEquals(versionCompletionList, versionExpectedCompletionList)
-      noCompletions <- server.completion(
-        "a/src/main/scala/foo/Main.worksheet.sc",
-        "import $dep.`com.lihaoyi::upickle:1.4`@@",
-      )
-      _ = assertNoDiff(noCompletions, "")
-    } yield ()
   }
 }

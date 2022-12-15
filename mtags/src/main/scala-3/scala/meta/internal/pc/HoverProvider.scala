@@ -6,7 +6,6 @@ import scala.util.control.NonFatal
 
 import scala.meta.internal.mtags.MtagsEnrichments.*
 import scala.meta.internal.pc.printer.MetalsPrinter
-import scala.meta.pc.HoverSignature
 import scala.meta.pc.OffsetParams
 import scala.meta.pc.ParentSymbols
 import scala.meta.pc.SymbolDocumentation
@@ -36,7 +35,7 @@ object HoverProvider:
       params: OffsetParams,
       driver: InteractiveDriver,
       search: SymbolSearch,
-  ): ju.Optional[HoverSignature] =
+  ): ju.Optional[Hover] =
     val uri = params.uri
     val sourceFile = CompilerInterfaces.toSource(params.uri, params.text)
     driver.run(uri, sourceFile)
@@ -54,7 +53,7 @@ object HoverProvider:
     val tp = typeFromPath(path)
     val tpw = tp.widenTermRefExpr
     // For expression we need to find all enclosing applies to get the exact generic type
-    val enclosing = path.expandRangeToEnclosingApply(pos)
+    val enclosing = expandRangeToEnclosingApply(path, pos)
 
     if tp.isError || tpw == NoType || tpw.isError || path.isEmpty
     then ju.Optional.empty()
@@ -116,14 +115,13 @@ object HoverProvider:
                     !symbol.is(Module) &&
                     !symbol.flags.isAllOf(EnumCase)
                 )
-              ju.Optional.of(
-                new ScalaHover(
-                  expressionType = Some(expressionType),
-                  symbolSignature = Some(hoverString),
-                  docstring = Some(docString),
-                  forceExpressionType = forceExpressionType,
-                )
+              val content = HoverMarkup(
+                expressionType,
+                hoverString,
+                docString,
+                forceExpressionType,
               )
+              ju.Optional.of(new Hover(content.toMarkupContent))
             case _ =>
               ju.Optional.empty
           end match
@@ -137,23 +135,24 @@ object HoverProvider:
   private def fallbackToDynamics(
       path: List[Tree],
       printer: MetalsPrinter,
-  )(using Context): ju.Optional[HoverSignature] = path match
+  )(using Context): ju.Optional[Hover] = path match
     case Apply(
           Select(sel, n),
           List(Literal(Constant(name: String))),
         ) :: _ if n == nme.selectDynamic || n == nme.applyDynamic =>
-      def findRefinement(tp: Type): ju.Optional[HoverSignature] =
+      def findRefinement(tp: Type): ju.Optional[Hover] =
         tp match
           case RefinedType(info, refName, tpe) if name == refName.toString() =>
             val tpeString =
               if n == nme.selectDynamic then s": ${printer.tpe(tpe.resultType)}"
               else printer.tpe(tpe)
-            ju.Optional.of(
-              new ScalaHover(
-                expressionType = Some(tpeString),
-                symbolSignature = Some(s"def $name$tpeString"),
-              )
+            val content = HoverMarkup(
+              tpeString,
+              s"def $name$tpeString",
+              "",
             )
+            ju.Optional.of(new Hover(content.toMarkupContent))
+
           case RefinedType(info, _, _) =>
             findRefinement(info)
           case _ => ju.Optional.empty()
@@ -161,5 +160,35 @@ object HoverProvider:
       findRefinement(sel.tpe.termSymbol.info)
     case _ =>
       ju.Optional.empty()
+
+  private def expandRangeToEnclosingApply(
+      path: List[Tree],
+      pos: SourcePosition,
+  )(using Context): List[Tree] =
+    def tryTail(enclosing: List[Tree]): Option[List[Tree]] =
+      enclosing match
+        case Nil => None
+        case head :: tail =>
+          head match
+            case t: GenericApply
+                if t.fun.srcPos.span.contains(pos.span) && !t.tpe.isErroneous =>
+              tryTail(tail).orElse(Some(enclosing))
+            case in: Inlined =>
+              tryTail(tail).orElse(Some(enclosing))
+            case New(_) =>
+              tail match
+                case Nil => None
+                case Select(_, _) :: next =>
+                  tryTail(next)
+                case _ =>
+                  None
+            case _ =>
+              None
+    path match
+      case head :: tail =>
+        tryTail(tail).getOrElse(path)
+      case _ =>
+        List(EmptyTree)
+  end expandRangeToEnclosingApply
 
 end HoverProvider

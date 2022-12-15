@@ -38,26 +38,18 @@ case class MillBuildTool(userConfig: () => UserConfiguration)
 
   private val predefScriptName = "predef.sc"
 
-  private def embeddedMillWrapper(workspace: AbsolutePath): AbsolutePath = {
+  private lazy val embeddedMillWrapper: AbsolutePath = {
     val millWrapper =
       if (Properties.isWin) "millw.bat"
       else "millw"
-    val out =
-      BuildTool.copyFromResource(
-        workspace.resolve(".metals").toNIO,
-        millWrapper,
-      )
+    val out = BuildTool.copyFromResource(tempDir, millWrapper)
     out.toFile.setExecutable(true)
     AbsolutePath(out)
   }
 
   override def redirectErrorOutput: Boolean = true
 
-  private def putTogetherArgs(
-      cmd: List[String],
-      millVersion: String,
-      workspace: AbsolutePath,
-  ) = {
+  private def putTogetherArgs(cmd: List[String], millVersion: String) = {
     // In some environments (such as WSL or cygwin), mill must be run using interactive mode (-i)
     val fullcmd = if (Properties.isWin) "-i" :: cmd else cmd
 
@@ -65,7 +57,7 @@ case class MillBuildTool(userConfig: () => UserConfiguration)
       case Some(script) =>
         script :: cmd
       case None =>
-        embeddedMillWrapper(workspace)
+        embeddedMillWrapper
           .toString() :: "--mill-version" :: millVersion :: fullcmd
     }
 
@@ -87,7 +79,7 @@ case class MillBuildTool(userConfig: () => UserConfiguration)
     val millVersion = getMillVersion(workspace)
     val cmd =
       bloopImportArgs(millVersion) ::: "mill.contrib.Bloop/install" :: Nil
-    putTogetherArgs(cmd, millVersion, workspace)
+    putTogetherArgs(cmd, millVersion)
   }
 
   override def digest(workspace: AbsolutePath): Option[String] =
@@ -112,7 +104,7 @@ case class MillBuildTool(userConfig: () => UserConfiguration)
 
   override def createBspFileArgs(workspace: AbsolutePath): List[String] = {
     val cmd = "mill.bsp.BSP/install" :: Nil
-    putTogetherArgs(cmd, getMillVersion(workspace), workspace)
+    putTogetherArgs(cmd, getMillVersion(workspace))
   }
 
   override def workspaceSupportsBsp(workspace: AbsolutePath): Boolean = {

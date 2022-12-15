@@ -453,10 +453,6 @@ trait Completions { this: MetalsGlobal =>
     }
 
     latestEnclosingArg match {
-      case MillIvyExtractor(dep) =>
-        MillIvyCompletion(pos, text, dep)
-      case SbtLibExtractor(pos, dep) if pos.source.path.isSbt =>
-        SbtLibCompletion(pos, dep)
       case ScalaCliExtractor(dep) =>
         ScalaCliCompletion(pos, text, dep)
       case _ if isScaladocCompletion(pos, text) =>
@@ -484,11 +480,32 @@ trait Completions { this: MetalsGlobal =>
             isPossibleInterpolatorMember(lit, head, text, pos)
               .getOrElse(NoneCompletion)
         }
-
+      case (_: Ident) ::
+          Select(Ident(TermName("scala")), TypeName("Unit")) ::
+          (defdef: DefDef) ::
+          (t: Template) :: _ if defdef.name.endsWith(CURSOR) =>
+        OverrideCompletion(
+          defdef.name,
+          t,
+          pos,
+          text,
+          defdef.pos.start,
+          !_.isGetter
+        )
+      case (valdef @ ValDef(_, name, _, Literal(Constant(null)))) ::
+          (t: Template) :: _ if name.endsWith(CURSOR) =>
+        OverrideCompletion(
+          name,
+          t,
+          pos,
+          text,
+          valdef.pos.start,
+          _ => true
+        )
       case (m @ Match(_, Nil)) :: parent :: _ =>
         CaseKeywordCompletion(m.selector, editRange, pos, text, parent)
-      case Ident(name) :: (cd: CaseDef) :: (m: Match) :: parent :: _
-          if isCasePrefix(name) && pos.line != cd.pos.line =>
+      case Ident(name) :: (_: CaseDef) :: (m: Match) :: parent :: _
+          if isCasePrefix(name) =>
         CaseKeywordCompletion(m.selector, editRange, pos, text, parent)
       case (ident @ Ident(name)) :: Block(
             _,
@@ -498,24 +515,24 @@ trait Completions { this: MetalsGlobal =>
         CaseKeywordCompletion(m.selector, editRange, pos, text, parent)
       case (c: DefTree) :: (p: PackageDef) :: _ if c.namePos.includes(pos) =>
         FilenameCompletion(c, p, pos, editRange)
-      case OverrideExtractor(name, template, start, isCandidate) =>
+      case (ident: Ident) :: (t: Template) :: _ =>
         OverrideCompletion(
-          name,
-          template,
+          ident.name,
+          t,
           pos,
           text,
-          start,
-          isCandidate
+          ident.pos.start,
+          _ => true
         )
       case (imp @ Import(select, selector)) :: _
           if isAmmoniteFileCompletionPosition(imp, pos) =>
-        AmmoniteFileCompletion(select, selector, pos, editRange)
+        AmmoniteFileCompletions(select, selector, pos, editRange)
       case (imp @ Import(select, selector)) :: _
           if isAmmoniteIvyCompletionPosition(
             imp,
             pos
           ) || isWorksheetIvyCompletionPosition(imp, pos) =>
-        AmmoniteIvyCompletion(select, selector, pos, editRange, text)
+        AmmoniteIvyCompletions(select, selector, pos, editRange)
       case _ =>
         inferCompletionPosition(
           pos,
@@ -551,9 +568,9 @@ trait Completions { this: MetalsGlobal =>
   def isWorksheetIvyCompletionPosition(tree: Tree, pos: Position): Boolean =
     tree match {
       case Import(select, _) =>
-        pos.source.file.name.isWorksheet &&
-        (select.toString().startsWith("<$ivy: error>") ||
-          select.toString().startsWith("<$dep: error>"))
+        pos.source.file.name.isWorksheet && (select
+          .toString() == "<$ivy: error>" || select
+          .toString() == "<$dep: error>")
       case _ => false
     }
 
@@ -667,9 +684,6 @@ trait Completions { this: MetalsGlobal =>
         t match {
           // new User(age = 42, name = "") becomes transparent, which doesn't happen with normal methods
           case Apply(Select(_: New, _), _) => true
-          // for named args apply becomes transparent but fun doesn't
-          case Apply(fun, args) =>
-            !fun.pos.isTransparent && args.forall(_.pos.isOffset)
           case _ => false
         }
       }

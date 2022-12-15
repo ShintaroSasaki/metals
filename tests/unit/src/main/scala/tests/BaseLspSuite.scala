@@ -87,30 +87,18 @@ abstract class BaseLspSuite(
     assertNoDiff(obtained, expectedName)
   }
 
-  def test(
-      testOpts: TestOptions,
-      withoutVirtualDocs: Boolean,
-      maxRetry: Int = 0,
-  )(
+  def test(testOpts: TestOptions, withoutVirtualDocs: Boolean)(
       fn: => Future[Unit]
   )(implicit loc: Location): Unit = {
-    def functionRetry(retry: Int): Future[Unit] = {
-      fn.recoverWith {
-        case _ if retry > 0 => functionRetry(retry - 1)
-        case e => Future.failed(e)
-      }
-    }
     if (withoutVirtualDocs) {
-      test(testOpts.withName(s"${testOpts.name}-readonly")) {
-        functionRetry(maxRetry)
-      }
+      test(testOpts.withName(s"${testOpts.name}-readonly")) { fn }
       test(
         testOpts
           .withName(s"${testOpts.name}-virtualdoc")
           .withTags(Set(TestingServer.virtualDocTag))
-      ) { functionRetry(maxRetry) }
+      ) { fn }
     } else {
-      test(testOpts)(functionRetry(maxRetry))
+      test(testOpts)(fn)
     }
   }
 

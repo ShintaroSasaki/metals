@@ -29,6 +29,7 @@ import scala.meta.internal.metals.DebugDiscoveryParams
 import scala.meta.internal.metals.DebugUnresolvedAttachRemoteParams
 import scala.meta.internal.metals.DebugUnresolvedMainClassParams
 import scala.meta.internal.metals.DebugUnresolvedTestClassParams
+import scala.meta.internal.metals.DefinitionProvider
 import scala.meta.internal.metals.JsonParser
 import scala.meta.internal.metals.JsonParser._
 import scala.meta.internal.metals.Messages
@@ -38,7 +39,7 @@ import scala.meta.internal.metals.MetalsEnrichments._
 import scala.meta.internal.metals.MutableCancelable
 import scala.meta.internal.metals.ScalaTestSuites
 import scala.meta.internal.metals.ScalaTestSuitesDebugRequest
-import scala.meta.internal.metals.SourceMapper
+import scala.meta.internal.metals.ScalaVersionSelector
 import scala.meta.internal.metals.StacktraceAnalyzer
 import scala.meta.internal.metals.StatusBar
 import scala.meta.internal.metals.clients.language.MetalsLanguageClient
@@ -51,6 +52,7 @@ import scala.meta.internal.mtags.DefinitionAlternatives.GlobalSymbol
 import scala.meta.internal.mtags.OnDemandSymbolIndex
 import scala.meta.internal.mtags.Semanticdbs
 import scala.meta.internal.mtags.Symbol
+import scala.meta.internal.parsing.ClassFinder
 import scala.meta.internal.semanticdb.Scala.Descriptor
 import scala.meta.internal.semanticdb.SymbolOccurrence
 import scala.meta.internal.semanticdb.TextDocument
@@ -71,18 +73,19 @@ import org.eclipse.lsp4j.MessageType
  */
 class DebugProvider(
     workspace: AbsolutePath,
+    definitionProvider: DefinitionProvider,
     buildTargets: BuildTargets,
     buildTargetClasses: BuildTargetClasses,
     compilations: Compilations,
     languageClient: MetalsLanguageClient,
     buildClient: MetalsBuildClient,
+    classFinder: ClassFinder,
     index: OnDemandSymbolIndex,
     stacktraceAnalyzer: StacktraceAnalyzer,
     clientConfig: ClientConfiguration,
     semanticdbs: Semanticdbs,
     compilers: Compilers,
     statusBar: StatusBar,
-    sourceMapper: SourceMapper,
 ) extends Cancelable {
 
   import DebugProvider._
@@ -98,7 +101,8 @@ class DebugProvider(
   )
 
   def start(
-      parameters: b.DebugSessionParams
+      parameters: b.DebugSessionParams,
+      scalaVersionSelector: ScalaVersionSelector,
   )(implicit ec: ExecutionContext): Future[DebugServer] = {
     for {
       sessionName <- Future.fromTry(parseSessionName(parameters))
@@ -107,7 +111,12 @@ class DebugProvider(
         .fold[Future[BuildServerConnection]](BuildServerUnavailableError)(
           Future.successful
         )
-      debugServer <- start(sessionName, jvmOptionsTranslatedParams, buildServer)
+      debugServer <- start(
+        sessionName,
+        jvmOptionsTranslatedParams,
+        buildServer,
+        scalaVersionSelector,
+      )
     } yield debugServer
   }
 
@@ -115,6 +124,7 @@ class DebugProvider(
       sessionName: String,
       parameters: b.DebugSessionParams,
       buildServer: BuildServerConnection,
+      scalaVersionSelector: ScalaVersionSelector,
   )(implicit ec: ExecutionContext): Future[DebugServer] = {
     val inetAddress = InetAddress.getByName("127.0.0.1")
     val proxyServer = new ServerSocket(0, 50, inetAddress)
@@ -151,17 +161,20 @@ class DebugProvider(
       val targets = parameters.getTargets.asScala.toSeq
         .map(_.getUri)
         .map(new BuildTargetIdentifier(_))
-
       val debugAdapter =
         if (buildServer.usesScalaDebugAdapter2x) {
-          MetalsDebugAdapter(
+          MetalsDebugAdapter.`2.x`(
             buildTargets,
             targets,
             supportVirtualDocuments = clientConfig.isVirtualDocumentSupported(),
           )
         } else {
-          throw new IllegalArgumentException(
-            s"${buildServer.name} ${buildServer.version} does not support scala-debug-adapter 2.x"
+          MetalsDebugAdapter.`1.x`(
+            definitionProvider,
+            buildTargets,
+            classFinder,
+            scalaVersionSelector,
+            targets,
           )
         }
       DebugProxy.open(
@@ -174,7 +187,6 @@ class DebugProvider(
         workspace,
         clientConfig.disableColorOutput(),
         statusBar,
-        sourceMapper,
       )
     }
     val server = new DebugServer(sessionName, uri, proxyFactory)

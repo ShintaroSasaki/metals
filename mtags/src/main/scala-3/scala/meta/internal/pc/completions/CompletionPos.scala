@@ -1,11 +1,8 @@
 package scala.meta.internal.pc
 package completions
 
-import java.net.URI
-
 import scala.meta.internal.mtags.MtagsEnrichments.*
 import scala.meta.internal.tokenizers.Chars
-import scala.meta.pc.OffsetParams
 
 import dotty.tools.dotc.ast.tpd.*
 import dotty.tools.dotc.core.Contexts.*
@@ -23,7 +20,6 @@ case class CompletionPos(
     end: Int,
     query: String,
     cursorPos: SourcePosition,
-    sourceUri: URI,
 ):
 
   def sourcePos: SourcePosition = cursorPos.withSpan(Spans.Span(start, end))
@@ -37,14 +33,6 @@ object CompletionPos:
 
   def infer(
       cursorPos: SourcePosition,
-      offsetParams: OffsetParams,
-      treePath: List[Tree],
-  )(using Context): CompletionPos =
-    infer(cursorPos, offsetParams.uri, offsetParams.text, treePath)
-
-  def infer(
-      cursorPos: SourcePosition,
-      uri: URI,
       text: String,
       treePath: List[Tree],
   )(using Context): CompletionPos =
@@ -64,7 +52,6 @@ object CompletionPos:
       end,
       query,
       cursorPos,
-      uri,
     )
   end infer
 

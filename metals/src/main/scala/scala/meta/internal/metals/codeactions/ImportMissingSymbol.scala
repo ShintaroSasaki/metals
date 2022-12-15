@@ -1,7 +1,5 @@
 package scala.meta.internal.metals.codeactions
 
-import java.util.Collections
-
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
@@ -36,16 +34,9 @@ class ImportMissingSymbol(compilers: Compilers, buildTargets: BuildTargets)
         )
       } yield isScala3).getOrElse(false)
 
-    def getChanges(codeAction: l.CodeAction): IterableOnce[l.TextEdit] =
-      codeAction
-        .getEdit()
-        .getChanges()
-        .getOrDefault(uri, Collections.emptyList)
-        .asScala
-
     def joinActionEdits(actions: Seq[l.CodeAction]) = {
       actions
-        .flatMap(getChanges)
+        .flatMap(_.getEdit().getChanges().get(uri).asScala)
         .distinct
         .groupBy(_.getRange())
         .values

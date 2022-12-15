@@ -146,7 +146,7 @@ object ShellRunner {
       additionalEnv: Map[String, String] = Map.empty,
       processErr: String => Unit = scribe.error(_),
       propagateError: Boolean = false,
-      maybeJavaHome: Option[String] = None,
+      maybeJavaHome: Option[String],
   )(implicit ec: ExecutionContext): Option[String] = {
 
     val sbOut = new StringBuilder()

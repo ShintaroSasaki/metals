@@ -10,7 +10,7 @@ class FileWatcherLspSuite extends BaseLspSuite("file-watcher") {
   override protected def initializationOptions: Option[InitializationOptions] =
     Some(TestingServer.TestDefault)
 
-  test("basic", withoutVirtualDocs = true, maxRetry = 3) {
+  test("basic", withoutVirtualDocs = true) {
     cleanCompileCache("a")
     cleanCompileCache("b")
     cleanCompileCache("c")

@@ -12,8 +12,6 @@ abstract class BaseCodeLensLspSuite(name: String) extends BaseLspSuite(name) {
       library: Option[String] = None,
       scalaVersion: Option[String] = None,
       printCommand: Boolean = false,
-      extraInitialization: (TestingServer, String) => Future[Unit] = (_, _) =>
-        Future.unit,
   )(
       expected: => String
   )(implicit loc: Location): Unit = {
@@ -47,27 +45,10 @@ abstract class BaseCodeLensLspSuite(name: String) extends BaseLspSuite(name) {
               |$original
               |""".stripMargin
         )
-        _ <- extraInitialization(server, sourceFile)
         _ <- assertCodeLenses(sourceFile, expected, printCommand = printCommand)
       } yield ()
     }
   }
-
-  def checkTestCases(
-      name: TestOptions,
-      library: Option[String] = None,
-      scalaVersion: Option[String] = None,
-      printCommand: Boolean = false,
-  )(
-      expected: => String
-  )(implicit loc: Location): Unit = check(
-    name,
-    library,
-    scalaVersion,
-    printCommand,
-    (server, sourceFile) =>
-      server.discoverTestSuites(List(sourceFile)).map(_ => ()),
-  )(expected)
 
   protected def assertCodeLenses(
       relativeFile: String,
@@ -76,7 +57,7 @@ abstract class BaseCodeLensLspSuite(name: String) extends BaseLspSuite(name) {
       printCommand: Boolean = false,
   )(implicit loc: Location): Future[Unit] = {
     val obtained =
-      server.codeLensesText(relativeFile, printCommand)(maxRetries).recover {
+      server.codeLenses(relativeFile, printCommand)(maxRetries).recover {
         case _: NoSuchElementException =>
           server.textContents(relativeFile)
       }
@@ -88,7 +69,7 @@ abstract class BaseCodeLensLspSuite(name: String) extends BaseLspSuite(name) {
       relativeFile: String,
       maxRetries: Int = 4,
   ): Future[Unit] = {
-    server.codeLensesText(relativeFile)(maxRetries).failed.flatMap {
+    server.codeLenses(relativeFile)(maxRetries).failed.flatMap {
       case _: NoSuchElementException => Future.unit
       case e => Future.failed(e)
     }

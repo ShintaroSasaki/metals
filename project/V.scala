@@ -5,43 +5,43 @@ object V {
   val scala211 = "2.11.12"
   val scala212 = "2.12.17"
   val scala213 = "2.13.10"
-  val scala3 = "3.2.1"
-  val nextScala3RC = "3.2.2-RC1"
+  val scala3 = "3.2.0"
+  val nextScala3RC = "3.2.1-RC2"
   val sbtScala = "2.12.16"
   val ammonite212Version = "2.12.17"
-  val ammonite213Version = "2.13.10"
+  val ammonite213Version = "2.13.9"
   val ammonite3Version = "3.1.3"
 
-  val ammonite = "2.5.5"
+  val ammonite = "2.5.4-34-1c7b3c38"
   val betterMonadicFor = "0.3.1"
-  val bloop = "1.5.6"
-  val bloopConfig = "1.5.5"
-  val bsp = "2.1.0-M3"
-  val coursier = "2.1.0-RC2"
-  val coursierInterfaces = "1.0.11"
-  val debugAdapter = "3.0.4"
+  val bloop = "1.5.4"
+  val bloopNightly = bloop
+  val bsp = "2.1.0-M1"
+  val coursier = "2.1.0-M7"
+  val coursierInterfaces = "1.0.9"
+  val debugAdapter = "2.2.0"
   val genyVersion = "0.7.1"
   val gradleBloop = bloop
   val java8Compat = "1.0.2"
   val javaSemanticdb = "0.7.4"
   val jsoup = "1.15.3"
   val kindProjector = "0.13.2"
-  val lsp4jV = "0.19.0"
+  val lsp4jV = "0.15.0"
   val mavenBloop = bloop
-  val mill = "0.10.10"
+  val mill = "0.10.7"
   val mdoc = "2.3.6"
-  val munit = "1.0.0-M7"
+  val munit = "1.0.0-M6"
   val organizeImportRule = "0.6.0"
   val pprint = "0.7.3"
   val sbtBloop = bloop
   val sbtJdiTools = "1.1.1"
-  val scalaCli = "0.1.18"
-  val scalafix = "0.10.4"
+  val scalaCli = "0.1.15"
+  val scalafix = "0.10.3"
   val scalafmt = "3.5.3"
   val scalameta = "4.6.0"
-  val scribe = "3.10.5"
+  val scribe = "3.10.3"
   val semanticdb = scalameta
-  val qdox = "2.0.3"
+  val qdox = "2.0.2"
 
   val guava = "com.google.guava" % "guava" % "31.1-jre"
   val lsp4j = "org.eclipse.lsp4j" % "org.eclipse.lsp4j" % lsp4jV
@@ -96,9 +96,9 @@ object V {
 
   // Scala 3
   def nonDeprecatedScala3Versions =
-    Seq(nextScala3RC, scala3, "3.2.0", "3.1.3", "3.1.2", "3.1.1")
+    Seq(nextScala3RC, "3.2.1-RC1", scala3, "3.1.3", "3.1.2", "3.1.1")
   def deprecatedScala3Versions =
-    Seq("3.1.0", "3.0.2", "3.0.1", "3.0.0")
+    Seq("3.2.0-RC4", "3.2.0-RC3", "3.1.0", "3.0.2", "3.0.1", "3.0.0")
   def scala3Versions = nonDeprecatedScala3Versions ++ deprecatedScala3Versions
 
   lazy val nightlyScala3DottyVersions = {
@@ -126,6 +126,5 @@ object V {
       ammonite213Version,
       scala3,
       ammonite3Version,
-      nextScala3RC,
     ).toList
 }

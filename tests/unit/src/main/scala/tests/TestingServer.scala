@@ -68,7 +68,6 @@ import scala.meta.internal.{semanticdb => s}
 import scala.meta.io.AbsolutePath
 import scala.meta.io.RelativePath
 
-import _root_.org.eclipse.lsp4j.DocumentSymbolCapabilities
 import ch.epfl.scala.{bsp4j => b}
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -93,6 +92,7 @@ import org.eclipse.lsp4j.DidSaveTextDocumentParams
 import org.eclipse.lsp4j.DocumentFormattingParams
 import org.eclipse.lsp4j.DocumentOnTypeFormattingParams
 import org.eclipse.lsp4j.DocumentRangeFormattingParams
+import org.eclipse.lsp4j.DocumentSymbolCapabilities
 import org.eclipse.lsp4j.DocumentSymbolParams
 import org.eclipse.lsp4j.ExecuteCommandParams
 import org.eclipse.lsp4j.FoldingRangeCapabilities
@@ -682,13 +682,12 @@ final case class TestingServer(
   }
 
   def startDebuggingUnresolved(
-      params: AnyRef,
-      stoppageHandler: Stoppage.Handler = Stoppage.Handler.Continue,
+      params: AnyRef
   ): Future[TestDebugger] = {
     assertSystemExit(params)
     executeCommandUnsafe(ServerCommands.StartDebugAdapter.id, Seq(params))
       .collect { case DebugSession(_, uri) =>
-        TestDebugger(URI.create(uri), stoppageHandler)
+        TestDebugger(URI.create(uri), Stoppage.Handler.Continue)
       }
   }
 
@@ -784,30 +783,6 @@ final case class TestingServer(
 
     val params = new DidChangeConfigurationParams(didChangeJson)
     server.didChangeConfiguration(params).asScala
-  }
-
-  def willRenameFiles(
-      workspaceFiles: Set[String],
-      fileRenames: Map[String, String],
-  ): Future[Map[String, String]] = {
-    val lspRenames = fileRenames.toList.map { case (oldFilename, newFilename) =>
-      val oldUri = workspace.resolve(oldFilename).toURI.toString
-      val newUri = workspace.resolve(newFilename).toURI.toString
-      new l.FileRename(oldUri, newUri)
-    }.asJava
-    val params = new l.RenameFilesParams(lspRenames)
-    for {
-      editsOrNull <- server.willRenameFiles(params).asScala
-      edits = Option(editsOrNull).getOrElse(new WorkspaceEdit)
-      updatedSources = workspaceFiles.map { file =>
-        val path = workspace.resolve(file)
-        val code = path.readText
-        val updatedCode = TestRanges
-          .renderEditAsString(file, code, edits)
-          .getOrElse(code)
-        file -> updatedCode
-      }.toMap
-    } yield updatedSources
   }
 
   def completionList(
@@ -993,19 +968,9 @@ final case class TestingServer(
     } yield classes
   }
 
-  def codeLensesText(filename: String, printCommand: Boolean = false)(
+  def codeLenses(filename: String, printCommand: Boolean = false)(
       maxRetries: Int
   ): Future[String] = {
-    for {
-      lenses <- codeLenses(filename, maxRetries)
-      textEdits = CodeLensesTextEdits(lenses, printCommand)
-    } yield TextEdits.applyEdits(textContents(filename), textEdits.toList)
-  }
-
-  def codeLenses(
-      filename: String,
-      maxRetries: Int = 4,
-  ): Future[List[l.CodeLens]] = {
     val path = toPath(filename)
     val uri = path.toURI.toString
     val params = new CodeLensParams(new TextDocumentIdentifier(uri))
@@ -1044,7 +1009,8 @@ final case class TestingServer(
       // first compilation, to trigger the handler
       _ <- server.compilations.compileFile(path)
       lenses <- codeLenses.future
-    } yield lenses
+      textEdits = CodeLensesTextEdits(lenses, printCommand)
+    } yield TextEdits.applyEdits(textContents(filename), textEdits.toList)
   }
 
   def formatCompletion(

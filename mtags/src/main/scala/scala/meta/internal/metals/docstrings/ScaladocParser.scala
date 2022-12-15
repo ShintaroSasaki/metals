@@ -272,13 +272,12 @@ object ScaladocParser {
     for {
       (start, end) <- ScaladocUtils.tagIndex(docstring).iterator
       if ScaladocUtils.startsWithTag(docstring, start, "@define")
-      List(tag, key, value) <- List(
+      List("@define", key, value) <- List(
         docstring
           .substring(start, end)
           .split("\\s", 3)
           .toList
       )
-      if tag == "@define"
       cleaned = value.linesIterator.map(cleanLine).mkString("\n").trim
     } yield key -> cleaned
   }
@@ -1045,13 +1044,12 @@ object ScaladocParser {
       }
 
       // TODO: Abandon table parsing when the delimiter is missing instead of fixing and continuing.
-      val (delimiterRow, dataRows) =
-        rows.toList match {
-          case Nil =>
-            reportError(pos, "Fixing missing delimiter row")
-            (Row(Cell(Paragraph(Text("-")) :: Nil) :: Nil), Nil)
-          case head :: tail =>
-            (head, tail)
+      val delimiterRow :: dataRows =
+        if (rows.nonEmpty)
+          rows.toList
+        else {
+          reportError(pos, "Fixing missing delimiter row")
+          Row(Cell(Paragraph(Text("-")) :: Nil) :: Nil) :: Nil
         }
 
       if (delimiterRow.cells.isEmpty)

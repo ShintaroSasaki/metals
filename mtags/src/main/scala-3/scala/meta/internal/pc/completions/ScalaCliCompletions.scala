@@ -7,15 +7,10 @@ import dotty.tools.dotc.ast.tpd.*
 import dotty.tools.dotc.util.SourcePosition
 class ScalaCliCompletions(pos: SourcePosition, text: String):
   def unapply(path: List[Tree]) =
-    def scalaCliDep = CoursierComplete.isScalaCliDep(
-      pos.lineContent.take(pos.column).stripPrefix("/*<script>*/")
-    )
     path match
-      case Nil => scalaCliDep
-      // generated script file will end with .sc.scala
-      case (_: TypeDef) :: Nil if pos.source.file.path.endsWith(".sc.scala") =>
-        scalaCliDep
       case head :: next => None
+      case Nil =>
+        CoursierComplete.isScalaCliDep(pos.lineContent.take(pos.column))
 
   def contribute(dependency: String) =
     val completions = CoursierComplete.complete(dependency)
@@ -23,7 +18,7 @@ class ScalaCliCompletions(pos: SourcePosition, text: String):
     val editRange = pos.withStart(editStart).withEnd(editEnd).toLsp
     completions
       .map(insertText =>
-        CompletionValue.IvyImport(
+        CompletionValue.ScalaCLiImport(
           insertText.stripPrefix(":"),
           Some(insertText),
           Some(editRange),

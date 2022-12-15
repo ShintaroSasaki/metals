@@ -98,11 +98,11 @@ object TestGroups {
       "tests.classFinder.ClassNameResolverSuite", "tests.JavaDefinitionSuite",
       "tests.IdentifierComparatorSuite", "tests.parsing.JavaEditDistanceSuite",
       "tests.PathTrieSuite", "tests.scalafix.ScalafixProviderLspSuite",
-      "tests.MtagsScala3Suite",
+      "tests.SemanticHighlightLspSuite", "tests.MtagsScala3Suite",
       "tests.codeactions.ConvertToNamedArgumentsLspSuite",
       "tests.testProvider.TestSuitesProviderSuite", "tests.MillVersionSuite",
       "tests.FingerprintsLspSuite", "tests.JdkVersionSuite",
-      "tests.MillifyDependencyLspSuite"),
+      "tests.SemanticTokensExpectSuite", "tests.MillifyDependencyLspSuite"),
   )
 
 }

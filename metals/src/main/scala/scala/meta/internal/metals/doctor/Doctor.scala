@@ -575,7 +575,6 @@ final class Doctor(
           DoctorStatus.alert,
           problemResolver.recommendation(target, Some(scalaTarget)),
         )
-      case None if scalaTarget.isAmmonite => (DoctorStatus.info, None)
       case None => (DoctorStatus.alert, None)
     }
 
@@ -587,8 +586,6 @@ final class Doctor(
     val sbtRecommendation =
       if (scalaTarget.isSbt)
         Some("Diagnostics and debugging for sbt are not supported currently.")
-      else if (scalaTarget.isAmmonite)
-        Some("Debugging for Ammonite are not supported currently.")
       else None
     DoctorTargetInfo(
       scalaTarget.displayName,

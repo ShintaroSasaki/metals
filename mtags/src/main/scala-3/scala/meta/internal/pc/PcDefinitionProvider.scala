@@ -34,12 +34,6 @@ class PcDefinitionProvider(
 ):
 
   def definitions(): DefinitionResult =
-    definitions(findTypeDef = false)
-
-  def typeDefinitions(): DefinitionResult =
-    definitions(findTypeDef = true)
-
-  private def definitions(findTypeDef: Boolean): DefinitionResult =
     val uri = params.uri
     val filePath = Paths.get(uri)
     val diagnostics = driver.run(
@@ -54,9 +48,7 @@ class PcDefinitionProvider(
       Interactive.pathTo(driver.openedTrees(uri), pos)(using driver.currentCtx)
     given ctx: Context = driver.localContext(params)
     val indexedContext = IndexedContext(ctx)
-    if findTypeDef then
-      findTypeDefinitions(tree, path, pos, driver, indexedContext)
-    else findDefinitions(tree, path, pos, driver, indexedContext)
+    findDefinitions(tree, path, pos, driver, indexedContext)
   end definitions
 
   private def findDefinitions(
@@ -67,42 +59,7 @@ class PcDefinitionProvider(
       indexed: IndexedContext,
   ): DefinitionResult =
     import indexed.ctx
-    definitionsForSymbol(
-      MetalsInteractive.enclosingSymbols(path, pos, indexed),
-      pos,
-    )
-  end findDefinitions
-
-  private def findTypeDefinitions(
-      tree: Tree,
-      path: List[Tree],
-      pos: SourcePosition,
-      driver: InteractiveDriver,
-      indexed: IndexedContext,
-  ): DefinitionResult =
-    import indexed.ctx
-    val enclosing = path.expandRangeToEnclosingApply(pos)
-    val typeSymbols = MetalsInteractive
-      .enclosingSymbolsWithExpressionType(enclosing, pos, indexed)
-      .map { case (_, tpe) =>
-        tpe.typeSymbol
-      }
-    typeSymbols match
-      case Nil =>
-        path.headOption match
-          case Some(value: Literal) =>
-            definitionsForSymbol(List(value.tpe.widen.typeSymbol), pos)
-          case _ => DefinitionResultImpl.empty
-      case _ =>
-        definitionsForSymbol(typeSymbols, pos)
-
-  end findTypeDefinitions
-
-  private def definitionsForSymbol(
-      symbols: List[Symbol],
-      pos: SourcePosition,
-  )(using ctx: Context): DefinitionResult =
-    symbols match
+    MetalsInteractive.enclosingSymbols(path, pos, indexed) match
       case symbols @ (sym :: other) =>
         val isLocal = sym.source == pos.source
         if isLocal then
@@ -133,7 +90,7 @@ class PcDefinitionProvider(
         end if
       case Nil => DefinitionResultImpl.empty
     end match
-  end definitionsForSymbol
+  end findDefinitions
 
   def semanticSymbolsSorted(
       syms: List[Symbol]

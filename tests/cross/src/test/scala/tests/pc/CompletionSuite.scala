@@ -314,7 +314,7 @@ class CompletionSuite extends BaseCompletionSuite {
   )
 
   check(
-    "fuzzy1".tag(IgnoreScalaVersion(_ => isJava8)),
+    "fuzzy1",
     """
       |object A {
       |  new PBuil@@
@@ -439,7 +439,7 @@ class CompletionSuite extends BaseCompletionSuite {
   )
 
   check(
-    "import3".tag(IgnoreScalaVersion(_ => isJava8)),
+    "import3",
     """
       |import Path@@
       |""".stripMargin,
@@ -1526,17 +1526,4 @@ class CompletionSuite extends BaseCompletionSuite {
     ),
     topLines = Some(1),
   )
-
-  check(
-    "wildcard-param",
-    """
-      |object A {
-      |  List(1, 3, 4).map { _ =>
-      |    @@
-      |  }
-      |}""".stripMargin,
-    "",
-    filter = _.startsWith("_"),
-  )
-
 }

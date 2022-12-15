@@ -226,7 +226,7 @@ class CompletionProvider(
         case o: OverrideDefMember if o.sym.isJavaDefined =>
           CompletionItemData.OverrideKind
         case _ =>
-          CompletionItemData.None
+          null
       }
 
       val additionalSymbols = member match {
