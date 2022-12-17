@@ -73,19 +73,31 @@ final class AutoImportsProvider(
     val results = symbols.result.filter(isExactMatch(_, name))
 
     if results.nonEmpty then
-      val correctedPos = CompletionPos.infer(pos, params.text, path).sourcePos
-      val generator =
-        AutoImports.generator(
-          correctedPos,
-          params.text,
-          tree,
-          indexedContext.importContext,
-          config,
-        )
+      val correctedPos = CompletionPos.infer(pos, params, path).sourcePos
+      val mkEdit =
+        path match
+          // if we are in import section just specify full name
+          case (_: Ident) :: (_: Import) :: _ =>
+            (sym: Symbol) =>
+              val nameEdit =
+                new l.TextEdit(correctedPos.toLsp, sym.fullNameBackticked)
+              Some(List(nameEdit))
+          case _ =>
+            val generator =
+              AutoImports.generator(
+                correctedPos,
+                params.text,
+                tree,
+                indexedContext.importContext,
+                config,
+              )
+            (sym: Symbol) => generator.forSymbol(sym)
+        end match
+      end mkEdit
 
       for
         sym <- results
-        edits <- generator.forSymbol(sym)
+        edits <- mkEdit(sym)
       yield AutoImportsResultImpl(
         sym.owner.showFullName,
         edits.asJava,

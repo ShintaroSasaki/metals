@@ -9,8 +9,10 @@ import scala.collection.mutable
 import scala.meta.internal.metals.Fuzzy
 import scala.meta.internal.mtags.BuildInfo
 import scala.meta.internal.mtags.MtagsEnrichments.*
+import scala.meta.internal.pc.AutoImports.AutoImportsGenerator
 import scala.meta.internal.pc.IdentifierComparator
 import scala.meta.internal.pc.completions.KeywordsCompletions
+import scala.meta.internal.pc.completions.OverrideCompletions.OverrideExtractor
 import scala.meta.internal.semver.SemVer
 import scala.meta.pc.*
 
@@ -47,6 +49,8 @@ class Completions(
     path: List[Tree],
     config: PresentationCompilerConfig,
     workspace: Option[Path],
+    autoImports: AutoImportsGenerator,
+    options: List[String],
 ):
 
   implicit val context: Context = ctx
@@ -77,6 +81,14 @@ class Completions(
           !isNotLocalForwardReference(sym) ||
           sym.isPackageObject
 
+      def isWildcardParam(sym: Symbol) =
+        if sym.isTerm && sym.owner.isAnonymousFunction then
+          sym.name match
+            case DerivedName(under, _) =>
+              under.isEmpty
+            case _ => false
+        else false
+
       if generalExclude then false
       else
         this match
@@ -97,6 +109,7 @@ class Completions(
               sym.is(Module) &&
                 (sym.companionClass == NoSymbol && sym.info.allMembers.nonEmpty)
             allowModule
+          case Term if isWildcardParam(sym) => false
           case Term if sym.isTerm || sym.is(Package) => true
           case Import => true
           case _ => false
@@ -173,24 +186,26 @@ class Completions(
     val (all, result) =
       if exclusive then (advanced, SymbolSearch.Result.COMPLETE)
       else
+        val keywords = KeywordsCompletions.contribute(path, completionPos)
+        val allAdvanced = advanced ++ keywords
         path match
           // should not show completions for toplevel
           case Nil if pos.source.file.extension != "sc" =>
-            (advanced, SymbolSearch.Result.COMPLETE)
+            (allAdvanced, SymbolSearch.Result.COMPLETE)
           case Select(qual, _) :: _ if qual.tpe.isErroneous =>
-            (advanced, SymbolSearch.Result.COMPLETE)
+            (allAdvanced, SymbolSearch.Result.COMPLETE)
           case Select(qual, _) :: _ =>
             val (_, compilerCompletions) = Completion.completions(pos)
             val (compiler, result) = compilerCompletions
               .flatMap(toCompletionValues)
               .filterInteresting(qual.typeOpt.widenDealias)
-            (advanced ++ compiler, result)
+            (allAdvanced ++ compiler, result)
           case _ =>
             val (_, compilerCompletions) = Completion.completions(pos)
             val (compiler, result) = compilerCompletions
               .flatMap(toCompletionValues)
               .filterInteresting()
-            (advanced ++ compiler, result)
+            (allAdvanced ++ compiler, result)
         end match
 
     val application = CompletionApplication.fromPath(path)
@@ -331,8 +346,8 @@ class Completions(
       .stripSuffix(".scala")
     val MatchCaseExtractor = new MatchCaseExtractor(pos, text, completionPos)
     val ScalaCliCompletions = new ScalaCliCompletions(pos, text)
-    path match
 
+    path match
       case ScalaCliCompletions(dependency) =>
         (ScalaCliCompletions.contribute(dependency), true)
       case _ if ScaladocCompletions.isScaladocCompletion(pos, text) =>
@@ -346,6 +361,9 @@ class Completions(
             completionPos,
             indexedContext,
             config,
+            search,
+            autoImports,
+            options.contains("-no-indent"),
           ),
           false,
         )
@@ -361,7 +379,9 @@ class Completions(
             completionPos,
             indexedContext,
             config,
+            search,
             parent,
+            autoImports,
             patternOnly = Some(identName),
             hasBind = true,
           ),
@@ -379,7 +399,9 @@ class Completions(
             completionPos,
             indexedContext,
             config,
+            search,
             parent,
+            autoImports,
             patternOnly = Some(identName),
           ),
           false,
@@ -392,68 +414,29 @@ class Completions(
             completionPos,
             indexedContext,
             config,
+            search,
             parent,
+            autoImports,
           ),
           true,
         )
 
       // class FooImpl extends Foo:
       //   def x|
-      case (dd: (DefDef | ValDef)) :: (t: Template) :: (td: TypeDef) :: _
-          if t.parents.nonEmpty =>
-        val completing =
-          if dd.symbol.name == StdNames.nme.ERROR then None else Some(dd.symbol)
-        val values = OverrideCompletions.contribute(
-          td,
-          completing,
-          dd.sourcePos.start,
-          indexedContext,
-          search,
-          config,
+      case OverrideExtractor(td, completing, start, exhaustive, fallbackName) =>
+        (
+          OverrideCompletions.contribute(
+            td,
+            completing,
+            start,
+            indexedContext,
+            search,
+            config,
+            autoImports,
+            fallbackName,
+          ),
+          exhaustive,
         )
-        (values, true)
-
-      // class FooImpl extends Foo:
-      //   ov|
-      case (ident: Ident) :: (t: Template) :: (td: TypeDef) :: _
-          if t.parents.nonEmpty && ident.name.startsWith("o") =>
-        val values = OverrideCompletions.contribute(
-          td,
-          None,
-          ident.sourcePos.start,
-          indexedContext,
-          search,
-          config,
-        )
-        // include compiler-oriented completions, in case `ov` doesn't mean the prefix of `override`
-        (values, false)
-
-      // class Main extends Val:
-      //    def @@
-      case (t: Template) :: (td: TypeDef) :: _ if t.parents.nonEmpty =>
-        val values = OverrideCompletions.contribute(
-          td,
-          None,
-          t.sourcePos.start,
-          indexedContext,
-          search,
-          config,
-        )
-        (values, true)
-
-      // class Main extends Val:
-      //    hello@@
-      case (sel: Select) :: (t: Template) :: (td: TypeDef) :: _
-          if t.parents.nonEmpty =>
-        val values = OverrideCompletions.contribute(
-          td,
-          Some(sel.symbol),
-          sel.sourcePos.start,
-          indexedContext,
-          search,
-          config,
-        )
-        (values, false)
 
       // class Fo@@
       case (td: TypeDef) :: _
@@ -479,7 +462,7 @@ class Completions(
         (completions, true)
 
       case (imp @ Import(expr, selectors)) :: _
-          if isAmmoniteFileCompletionPosition(imp, rawFileName) =>
+          if isAmmoniteCompletionPosition(imp, rawFileName, "$file") =>
         (
           AmmoniteFileCompletions.contribute(
             expr,
@@ -488,6 +471,18 @@ class Completions(
             rawPath.toString(),
             workspace,
             rawFileName,
+          ),
+          true,
+        )
+
+      case (imp @ Import(_, selectors)) :: _
+          if isAmmoniteCompletionPosition(imp, rawFileName, "$ivy") ||
+            isWorksheetIvyCompletionPosition(imp, imp.sourcePos) =>
+        (
+          AmmoniteIvyCompletions.contribute(
+            selectors,
+            completionPos,
+            text,
           ),
           true,
         )
@@ -504,14 +499,14 @@ class Completions(
           indexedContext,
           config.isCompletionSnippetsEnabled,
         )
-        val keywords = KeywordsCompletions.contribute(path, completionPos)
-        (args ++ keywords, false)
+        (args, false)
     end match
   end advancedCompletions
 
-  private def isAmmoniteFileCompletionPosition(
+  private def isAmmoniteCompletionPosition(
       tree: Tree,
       fileName: String,
+      magicImport: String,
   ): Boolean =
 
     def getQualifierStart(identOrSelect: Tree): String =
@@ -524,9 +519,20 @@ class Completions(
       case Import(identOrSelect, _) =>
         fileName.isAmmoniteGeneratedFile && getQualifierStart(identOrSelect)
           .toString()
-          .startsWith("$file")
+          .startsWith(magicImport)
       case _ => false
-  end isAmmoniteFileCompletionPosition
+  end isAmmoniteCompletionPosition
+
+  def isWorksheetIvyCompletionPosition(
+      tree: Tree,
+      pos: SourcePosition,
+  ): Boolean =
+    tree match
+      case Import(Ident(ivy), _) =>
+        pos.source.file.name.isWorksheet &&
+        (ivy.decoded == "$ivy" ||
+          ivy.decoded == "$dep")
+      case _ => false
 
   private def description(sym: Symbol): String =
     if sym.isType then sym.showFullName
@@ -559,7 +565,7 @@ class Completions(
                 completionsWithSuffix(
                   sym,
                   sym.decodedName,
-                  CompletionValue.Workspace(_, _, _),
+                  CompletionValue.Workspace(_, _, _, sym),
                 ).forall(visit),
         )
         Some(search.search(query, buildTargetIdentifier, visitor))
@@ -633,7 +639,7 @@ class Completions(
               (autofill.label, true)
             case fileSysMember: CompletionValue.FileSystemMember =>
               (fileSysMember.label, true)
-            case si: CompletionValue.ScalaCLiImport => (si.label, true)
+            case ii: CompletionValue.IvyImport => (ii.label, true)
 
         if !isSeen(id) && include then
           isSeen += id
@@ -740,7 +746,7 @@ class Completions(
         // show the abstract members first
         if !ov.symbol.is(Deferred) then penalty |= MemberOrdering.IsNotAbstract
         penalty
-      case CompletionValue.Workspace(_, sym, _) =>
+      case CompletionValue.Workspace(_, sym, _, _) =>
         symbolRelevance(sym) | (IsWorkspaceSymbol + sym.name.show.length)
       case sym: CompletionValue.Symbolic =>
         symbolRelevance(sym.symbol)

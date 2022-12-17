@@ -33,6 +33,7 @@ import dotty.tools.dotc.interactive.InteractiveDriver
 import dotty.tools.dotc.reporting.StoreReporter
 import dotty.tools.dotc.util.*
 import org.eclipse.lsp4j.DocumentHighlight
+import org.eclipse.lsp4j.RenameParams
 import org.eclipse.{lsp4j as l}
 
 case class ScalaPresentationCompiler(
@@ -125,6 +126,17 @@ case class ScalaPresentationCompiler(
       PcDefinitionProvider(driver, params, search).definitions()
     }
 
+  override def typeDefinition(
+      params: OffsetParams
+  ): CompletableFuture[DefinitionResult] =
+    compilerAccess.withNonInterruptableCompiler(
+      DefinitionResultImpl.empty,
+      params.token,
+    ) { access =>
+      val driver = access.compiler()
+      PcDefinitionProvider(driver, params, search).typeDefinitions()
+    }
+
   def documentHighlight(
       params: OffsetParams
   ): CompletableFuture[ju.List[DocumentHighlight]] =
@@ -133,7 +145,7 @@ case class ScalaPresentationCompiler(
       params.token,
     ) { access =>
       val driver = access.compiler()
-      PcDocumentHighlightProvider.highlights(driver, params).asJava
+      PcDocumentHighlightProvider(driver, params).highlights.asJava
     }
 
   def shutdown(): Unit =
@@ -232,6 +244,7 @@ case class ScalaPresentationCompiler(
         extractionPos,
         pc.compiler(),
         search,
+        options.contains("-no-indent"),
       )
         .extractMethod()
         .asJava
@@ -264,15 +277,42 @@ case class ScalaPresentationCompiler(
     }
   end selectionRange
 
-  def hover(params: OffsetParams): CompletableFuture[ju.Optional[l.Hover]] =
+  def hover(
+      params: OffsetParams
+  ): CompletableFuture[ju.Optional[HoverSignature]] =
     compilerAccess.withNonInterruptableCompiler(
-      ju.Optional.empty[l.Hover](),
+      ju.Optional.empty[HoverSignature](),
       params.token,
     ) { access =>
       val driver = access.compiler()
       HoverProvider.hover(params, driver, search)
     }
   end hover
+
+  def prepareRename(
+      params: OffsetParams
+  ): CompletableFuture[ju.Optional[l.Range]] =
+    compilerAccess.withNonInterruptableCompiler(
+      Optional.empty[l.Range](),
+      params.token,
+    ) { access =>
+      val driver = access.compiler()
+      Optional.ofNullable(
+        PcRenameProvider(driver, params, None).prepareRename().orNull
+      )
+    }
+
+  def rename(
+      params: OffsetParams,
+      name: String,
+  ): CompletableFuture[ju.List[l.TextEdit]] =
+    compilerAccess.withNonInterruptableCompiler(
+      List[l.TextEdit]().asJava,
+      params.token,
+    ) { access =>
+      val driver = access.compiler()
+      PcRenameProvider(driver, params, Some(name)).rename().asJava
+    }
 
   def newInstance(
       buildTargetIdentifier: String,

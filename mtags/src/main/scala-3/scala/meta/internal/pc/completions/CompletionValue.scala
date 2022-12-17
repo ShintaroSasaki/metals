@@ -14,6 +14,7 @@ import dotty.tools.dotc.transform.SymUtils.*
 import dotty.tools.dotc.util.ParsedComment
 import org.eclipse.lsp4j.CompletionItemKind
 import org.eclipse.lsp4j.CompletionItemTag
+import org.eclipse.lsp4j.InsertTextMode
 import org.eclipse.lsp4j.Range
 import org.eclipse.lsp4j.TextEdit
 
@@ -26,6 +27,11 @@ sealed trait CompletionValue:
   def filterText: Option[String] = None
   def completionItemKind(using Context): CompletionItemKind
   def description(printer: MetalsPrinter)(using Context): String = ""
+  def insertMode: Option[InsertTextMode] = None
+  def completionData(
+      buildTargetIdentifier: String
+  )(using Context): Option[CompletionItemData] = None
+  def command: Option[String] = None
 
   /**
    * Label with potentially attached description.
@@ -40,6 +46,19 @@ object CompletionValue:
   sealed trait Symbolic extends CompletionValue:
     def symbol: Symbol
     def isFromWorkspace: Boolean = false
+    def completionItemDataKind = CompletionItemData.None
+
+    override def completionData(
+        buildTargetIdentifier: String
+    )(using Context): Option[CompletionItemData] =
+      Some(
+        CompletionItemData(
+          SemanticdbSymbols.symbolName(symbol),
+          buildTargetIdentifier,
+          kind = completionItemDataKind,
+        )
+      )
+    def importSymbol: Symbol = symbol
 
     def completionItemKind(using Context): CompletionItemKind =
       val symbol = this.symbol
@@ -80,6 +99,7 @@ object CompletionValue:
       label: String,
       symbol: Symbol,
       override val snippetSuffix: CompletionSuffix,
+      override val importSymbol: Symbol,
   ) extends Symbolic:
     override def isFromWorkspace: Boolean = true
 
@@ -108,10 +128,13 @@ object CompletionValue:
       label: String,
       value: String,
       symbol: Symbol,
-      shortenedNames: List[ShortName],
+      override val additionalEdits: List[TextEdit],
       override val filterText: Option[String],
-      start: Int,
+      override val range: Option[Range],
   ) extends Symbolic:
+    override def insertText: Option[String] = Some(value)
+    override def completionItemDataKind: Integer =
+      CompletionItemData.OverrideKind
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.Method
     override def labelWithDescription(printer: MetalsPrinter)(using
@@ -123,6 +146,7 @@ object CompletionValue:
       label: String,
       tpe: Type,
   ) extends CompletionValue:
+    override def insertText: Option[String] = Some(label.replace("$", "$$"))
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.Field
     override def description(printer: MetalsPrinter)(using Context): String =
@@ -137,6 +161,7 @@ object CompletionValue:
   ) extends CompletionValue:
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.Enum
+    override def insertText: Option[String] = Some(value)
     override def label: String = "Autofill with default values"
 
   case class Keyword(label: String, override val insertText: Option[String])
@@ -154,7 +179,7 @@ object CompletionValue:
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.File
 
-  case class ScalaCLiImport(
+  case class IvyImport(
       label: String,
       override val insertText: Option[String],
       override val range: Option[Range],
@@ -170,12 +195,14 @@ object CompletionValue:
       override val additionalEdits: List[TextEdit],
       override val range: Option[Range],
       override val filterText: Option[String],
+      override val importSymbol: Symbol,
       isWorkspace: Boolean = false,
       isExtension: Boolean = false,
   ) extends Symbolic:
     override def description(printer: MetalsPrinter)(using Context): String =
       if isExtension then s"${printer.completionSymbol(symbol)} (extension)"
       else super.description(printer)
+  end Interpolator
 
   case class MatchCompletion(
       label: String,
@@ -194,7 +221,7 @@ object CompletionValue:
       override val insertText: Option[String],
       override val additionalEdits: List[TextEdit],
       override val range: Option[Range] = None,
-      val command: Option[String] = None,
+      override val command: Option[String] = None,
   ) extends Symbolic:
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.Method
@@ -206,11 +233,15 @@ object CompletionValue:
 
   case class Document(label: String, doc: String, description: String)
       extends CompletionValue:
+    override def filterText: Option[String] = Some(description)
+
+    override def insertText: Option[String] = Some(doc)
     override def completionItemKind(using Context): CompletionItemKind =
       CompletionItemKind.Snippet
 
     override def description(printer: MetalsPrinter)(using Context): String =
       description
+    override def insertMode: Option[InsertTextMode] = Some(InsertTextMode.AsIs)
 
   def namedArg(label: String, sym: Symbol)(using
       Context

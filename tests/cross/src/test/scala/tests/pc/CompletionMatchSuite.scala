@@ -3,7 +3,6 @@ package tests.pc
 import tests.BaseCompletionSuite
 
 class CompletionMatchSuite extends BaseCompletionSuite {
-
   override def requiresScalaLibrarySources: Boolean = true
 
   check(
@@ -101,7 +100,6 @@ class CompletionMatchSuite extends BaseCompletionSuite {
       "3" -> s"""|package stale
                  |
                  |import stale.Weekday.Workday
-                 |
                  |import stale.Weekday.Weekend
                  |sealed abstract class Weekday
                  |object Weekday {
@@ -226,8 +224,8 @@ class CompletionMatchSuite extends BaseCompletionSuite {
       "3" -> s"""package sort
                 |object App {
                 |  Option(1) match
-                |\tcase None => $$0
-                |\tcase Some(value) =>
+                |\tcase Some(value) => $$0
+                |\tcase None =>
                 |
                 |}
                 |""".stripMargin,
@@ -369,8 +367,8 @@ class CompletionMatchSuite extends BaseCompletionSuite {
                 |
                 |object Main {
                 |  Option(1) match
-                |\tcase None => $$0
-                |\tcase Some(value) =>
+                |\tcase Some(value) => $$0
+                |\tcase scala.None =>
                 |
                 |}""".stripMargin
     ),
@@ -433,7 +431,7 @@ class CompletionMatchSuite extends BaseCompletionSuite {
       |sealed trait TestB
       |case object Baz extends TestB
       |case object Goo extends TestB
-      |
+      |case object Both extends TestA with TestB
       |object Main {
       |  def testExhaustive[T <: TestA with TestB](test: T): Boolean =
       |    test m@@
@@ -447,14 +445,12 @@ class CompletionMatchSuite extends BaseCompletionSuite {
        |sealed trait TestB
        |case object Baz extends TestB
        |case object Goo extends TestB
-       |
+       |case object Both extends TestA with TestB
        |object Main {
        |  def testExhaustive[T <: TestA with TestB](test: T): Boolean =
        |    test match {
-       |\tcase Foo => $$0
-       |\tcase Bar =>
-       |\tcase Baz =>
-       |\tcase Goo =>
+       |\tcase Both => $$0
+       |\t
        |}
        |}""".stripMargin,
     filter = _.contains("exhaustive"),
@@ -468,14 +464,12 @@ class CompletionMatchSuite extends BaseCompletionSuite {
                 |sealed trait TestB
                 |case object Baz extends TestB
                 |case object Goo extends TestB
-                |
+                |case object Both extends TestA with TestB
                 |object Main {
                 |  def testExhaustive[T <: TestA with TestB](test: T): Boolean =
                 |    test match
-                |\tcase Foo => $$0
-                |\tcase Bar =>
-                |\tcase Baz =>
-                |\tcase Goo =>
+                |\tcase Both => $$0
+                |\t
                 |
                 |}""".stripMargin
     ),
@@ -504,6 +498,39 @@ class CompletionMatchSuite extends BaseCompletionSuite {
        |\tcase None =>
        |}
        |}""".stripMargin,
+    filter = _.contains("exhaustive"),
+  )
+
+  checkEdit(
+    "exhaustive-rename".tag(IgnoreScala2),
+    s"""|package b {
+        |  enum Color: 
+        |    case Red, Blue, Green
+        |}
+        |
+        |package a {
+        |object A {
+        |  import b.Color as Clr
+        |  val c: Clr = ???
+        |  c ma@@
+        |}
+        |}""".stripMargin,
+    s"""|package b {
+        |  enum Color: 
+        |    case Red, Blue, Green
+        |}
+        |
+        |package a {
+        |object A {
+        |  import b.Color as Clr
+        |  val c: Clr = ???
+        |  c match
+        |\tcase Clr.Red => $$0
+        |\tcase Clr.Blue =>
+        |\tcase Clr.Green =>
+        |
+        |}
+        |}""".stripMargin,
     filter = _.contains("exhaustive"),
   )
 

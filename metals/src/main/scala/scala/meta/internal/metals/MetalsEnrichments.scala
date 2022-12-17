@@ -677,6 +677,9 @@ object MetalsEnrichments
       val severity = d.getSeverity.toString.toLowerCase()
       s"$severity:$hint $uri:${d.getRange.getStart.getLine} ${d.getMessage}"
     }
+    def asTextEdit: Option[l.TextEdit] = {
+      decodeJson(d.getData, classOf[l.TextEdit])
+    }
   }
 
   implicit class XtensionSeverityBsp(sev: b.DiagnosticSeverity) {
@@ -752,15 +755,19 @@ object MetalsEnrichments
   }
 
   implicit class XtensionDiagnosticBsp(diag: b.Diagnostic) {
-    def toLsp: l.Diagnostic =
-      new l.Diagnostic(
+    def toLsp: l.Diagnostic = {
+      val ld = new l.Diagnostic(
         diag.getRange.toLsp,
         fansi.Str(diag.getMessage, ErrorMode.Strip).plainText,
         diag.getSeverity.toLsp,
         if (diag.getSource == null) "scalac" else diag.getSource,
-        // We omit diag.getCode since Bloop's BSP implementation uses 'code' with different semantics
-        // than LSP. See https://github.com/scalacenter/bloop/issues/1134 for details
       )
+      if (diag.getCode() != null) {
+        ld.setCode(diag.getCode())
+      }
+      ld.setData(diag.getData)
+      ld
+    }
   }
 
   implicit class XtensionHttpExchange(exchange: HttpServerExchange) {
@@ -1068,6 +1075,19 @@ object MetalsEnrichments
 
     // LSP Position is 0-based, while breakpoints are 1-based
     def toLsp = new l.Position(breakpoint.getLine() - 1, breakpoint.getColumn())
+  }
+
+  implicit class XtensionWorkspaceEdits(edits: Seq[l.WorkspaceEdit]) {
+    def mergeChanges: l.WorkspaceEdit = {
+      val changes = edits.view
+        .flatMap(e => Option(e.getChanges()).map(_.asScala))
+        .flatten
+        .groupMapReduce(_._1)(_._2.asScala) { _ ++ _ }
+        .mapValues(_.distinct.asJava) // deduplicate same changes
+        .toMap
+        .asJava
+      new l.WorkspaceEdit(changes)
+    }
   }
 
 }
