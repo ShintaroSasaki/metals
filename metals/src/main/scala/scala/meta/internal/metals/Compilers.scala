@@ -379,7 +379,7 @@ class Compilers(
   ): Future[SemanticTokens] = {
 
     val path = params.getTextDocument.getUri.toAbsolutePath
-    val zeroToken =
+    val emptyTokens =
       scala.collection.mutable.ListBuffer.empty[Integer].toList.asJava
 
     if (!userConfig().enableSemanticHighlighting) {
@@ -399,7 +399,7 @@ class Compilers(
               new SemanticTokens(plist)
             }
         }
-        .getOrElse(Future.successful(new SemanticTokens(Nil.asJava)))
+        .getOrElse(Future.successful(new SemanticTokens(zeroToken)))
     }
 
   }

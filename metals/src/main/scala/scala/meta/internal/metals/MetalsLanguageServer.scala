@@ -887,7 +887,7 @@ class MetalsLanguageServer(
             new SemanticTokensLegend(
               TokenTypes.asJava,
               TokenModifiers.asJava,
-            ), // legend used in this server.
+            ),
             new SemanticTokensServerFull(
               false
             ), // Method 'full' is supported, but 'full/delta' is not.
@@ -1737,7 +1737,7 @@ class MetalsLanguageServer(
           token,
         )
         .map { tokens =>
-          if (tokens eq None) null
+          if (tokens.eq(None)) null
           else tokens
         }
     }
